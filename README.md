@@ -2,7 +2,7 @@
 
 # 📋 **SOLO LO OBLIGATORIO - DISTRIBUCIÓN PARA 4 PERSONAS**
 
-## 🚨 **LO ABSOLUTAMENTE OBLIGATORIO (sin esto REPROBÁIS)**
+## 🚨 **LO ABSOLUTAMENTE OBLIGATORIO**
 
 ### **1. DOCKER (1 sola persona)**
 **Tareas:**
