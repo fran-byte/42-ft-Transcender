@@ -280,29 +280,3 @@ Opcionales (para nota extra):
 6. Chat en la mesa
 
 ---
-
-⏱️ PLAN DE TRABAJO POR SEMANAS
-
-Semana 1:
-
-· Persona A: Docker + entorno
-· Persona B: Lógica básica del Blackjack (mazo, valores)
-· Persona C: Diseño de la mesa y cartas estáticas
-· Persona D: Esquema BD + modelo de usuario con fichas
-
-Semana 2:
-
-· Persona B: API completa (deal, hit, stand, dealer)
-· Persona C: Interactividad (botones, actualización UI)
-· Persona D: Sistema de apuestas y transacciones
-· Integración básica
-
-Semana 3:
-
-· Persona B: WebSocket para multijugador (si aplica)
-· Persona C: Animaciones y efectos
-· Persona D: Estadísticas y leaderboard
-· Testing y pulido final
-
----
-
