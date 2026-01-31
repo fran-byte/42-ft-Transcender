@@ -280,3 +280,324 @@ Opcionales (para nota extra):
 6. Chat en la mesa
 
 ---
+
+📁 ESTRUCTURA COMPLETA DEL PROYECTO
+
+```
+transcendence-blackjack/
+│
+├── 📄 .dockerignore
+├── 📄 .env.example
+├── 📄 .gitignore
+│
+├── 📄 docker-compose.yml          # Persona A
+├── 📄 Dockerfile                  # Persona A
+├── 📄 package.json                # Persona A
+├── 📄 README.md                   # Persona A
+│
+├── 📄 server.js                   # Persona B (ENTRY POINT)
+│
+├── 📂 public/                     # Persona C (FRONTEND ESTÁTICO)
+│   ├── 📄 index.html              # Landing page
+│   ├── 📄 login.html              # Login
+│   ├── 📄 register.html           # Registro
+│   ├── 📄 blackjack.html          # Juego principal
+│   ├── 📄 profile.html            # Perfil usuario
+│   ├── 📄 lobby.html              # Sala de espera (opcional multijugador)
+│   ├── 📄 privacy-policy.html     # Política privacidad
+│   ├── 📄 terms-of-service.html   # Términos servicio
+│   │
+│   ├── 📂 css/                    # Persona C
+│   │   ├── 📄 style.css           # Estilos generales
+│   │   ├── 📄 blackjack.css       # Estilos específicos juego
+│   │   ├── 📄 cards.css           # Estilos cartas
+│   │   └── 📄 auth.css            # Estilos login/register
+│   │
+│   ├── 📂 js/                     # Persona C
+│   │   ├── 📄 auth.js             # Login/register frontend
+│   │   ├── 📄 api.js              # Llamadas API REST
+│   │   │
+│   │   ├── 📂 blackjack/          # LÓGICA JUEGO CLIENTE
+│   │   │   ├── 📄 game.js         # Controlador principal juego
+│   │   │   ├── 📄 deck.js         # Mazo en cliente
+│   │   │   ├── 📄 cardRenderer.js # Renderizado cartas
+│   │   │   ├── 📄 ui.js           # Actualización interfaz
+│   │   │   ├── 📄 chips.js        # Sistema de fichas frontend
+│   │   │   └── 📄 audio.js        # Sonidos (opcional)
+│   │   │
+│   │   └── 📄 socket.js           # WebSocket client (si multijugador)
+│   │
+│   └── 📂 assets/                 # Persona C
+│       ├── 📂 images/             # Imágenes, iconos
+│       │   ├── 📄 logo.png
+│       │   ├── 📄 card-back.png   # Dorso carta
+│       │   └── 📄 chips.png       # Fichas
+│       └── 📂 sounds/             # Sonidos (opcional)
+│           ├── 📄 card-deal.mp3
+│           ├── 📄 chip-bet.mp3
+│           └── 📄 win.mp3
+│
+├── 📂 src/                        # Persona B y D (BACKEND)
+│   │
+│   ├── 📄 app.js                  # Configuración Express
+│   │
+│   ├── 📂 config/                 # Persona A/B
+│   │   ├── 📄 database.js         # Configuración DB
+│   │   ├── 📄 socket.js           # Configuración WebSocket
+│   │   └── 📄 constants.js        # Constantes del juego
+│   │
+│   ├── 📂 middleware/             # Persona B
+│   │   ├── 📄 auth.js             # Middleware autenticación
+│   │   ├── 📄 validation.js       # Validación datos
+│   │   └── 📄 errorHandler.js     # Manejo errores
+│   │
+│   ├── 📂 models/                 # Persona D (MODELOS BD)
+│   │   ├── 📄 User.js             # Modelo usuario
+│   │   ├── 📄 BlackjackGame.js    # Modelo partida
+│   │   ├── 📄 Transaction.js      # Modelo transacción
+│   │   └── 📄 Leaderboard.js      # Modelo ranking
+│   │
+│   ├── 📂 controllers/            # Persona B (CONTROLADORES)
+│   │   ├── 📄 authController.js   # Login/register
+│   │   ├── 📄 userController.js   # Perfil usuario
+│   │   ├── 📄 blackjackController.js # Controlador juego
+│   │   ├── 📄 gameHistoryController.js # Historial
+│   │   └── 📄 leaderboardController.js # Ranking
+│   │
+│   ├── 📂 routes/                 # Persona B (RUTAS API)
+│   │   ├── 📄 auth.js             # Rutas autenticación
+│   │   ├── 📄 users.js            # Rutas usuario
+│   │   ├── 📄 blackjack.js        # Rutas juego
+│   │   ├── 📄 gameHistory.js      # Rutas historial
+│   │   └── 📄 leaderboard.js      # Rutas ranking
+│   │
+│   ├── 📂 services/               # Persona B/D (LÓGICA NEGOCIO)
+│   │   ├── 📄 authService.js      # Servicio autenticación
+│   │   ├── 📄 userService.js      # Servicio usuario
+│   │   ├── 📄 chipService.js      # Gestión fichas
+│   │   └── 📄 statisticService.js # Estadísticas
+│   │
+│   ├── 📂 games/                  # Persona B (LÓGICA JUEGO SERVER)
+│   │   └── 📂 blackjack/
+│   │       ├── 📄 BlackjackEngine.js # Motor principal juego
+│   │       ├── 📄 Deck.js            # Mazo (servidor)
+│   │       ├── 📄 Dealer.js          # Lógica dealer
+│   │       ├── 📄 Player.js          # Jugador (mano, apuesta)
+│   │       ├── 📄 GameRules.js       # Reglas blackjack
+│   │       ├── 📄 GameState.js       # Estado partida
+│   │       └── 📄 Card.js            # Modelo carta
+│   │
+│   ├── 📂 websocket/              # Persona B (si multijugador)
+│   │   ├── 📄 socketManager.js     # Gestor conexiones
+│   │   ├── 📄 gameRooms.js         # Salas de juego
+│   │   └── 📄 blackjackSocket.js   # Eventos específicos blackjack
+│   │
+│   └── 📂 utils/                  # Persona B/D (UTILIDADES)
+│       ├── 📄 helpers.js           # Funciones helper
+│       ├── 📄 validators.js        # Validaciones
+│       ├── 📄 cardUtils.js         # Utilidades cartas
+│       └── 📄 logger.js            # Logging
+│
+├── 📂 database/                   # Persona D (SCRIPTS BD)
+│   ├── 📄 init.sql                # Script inicialización
+│   ├── 📄 schema.sql              # Esquema completo
+│   ├── 📄 seed.sql                # Datos iniciales (opcional)
+│   └── 📄 migrations/             # Migraciones (opcional)
+│       └── 📄 001_initial.sql
+│
+├── 📂 tests/                      # (OPCIONAL) Tests
+│   ├── 📄 auth.test.js
+│   ├── 📄 blackjack.test.js
+│   └── 📄 user.test.js
+│
+└── 📂 docs/                       # (OPCIONAL) Documentación
+    ├── 📄 API.md                  # Documentación API
+    ├── 📄 GAMERULES.md            # Reglas blackjack
+    └── 📄 SETUP.md                # Guía instalación
+```
+
+---
+
+📄 ARCHIVOS CLAVE EXPLICADOS
+
+1. server.js (Persona B)
+
+```javascript
+const express = require('express');
+const path = require('path');
+require('dotenv').config();
+
+const app = require('./src/app');
+const { connectDB } = require('./src/config/database');
+
+const PORT = process.env.PORT || 3000;
+
+// Conectar a BD
+connectDB();
+
+// Servir archivos estáticos
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Iniciar servidor
+app.listen(PORT, () => {
+    console.log(`Servidor corriendo en http://localhost:${PORT}`);
+});
+```
+
+2. docker-compose.yml (Persona A)
+
+```yaml
+version: '3.8'
+services:
+  app:
+    build: .
+    container_name: blackjack-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=mysql_db
+      - DB_USER=root
+      - DB_PASSWORD=rootpassword
+      - DB_NAME=blackjack_db
+      - JWT_SECRET=supersecretkey
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - mysql_db
+      - redis
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    command: npm run dev
+
+  mysql_db:
+    image: mysql:8.0
+    container_name: blackjack-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=blackjack_db
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  redis:
+    image: redis:7-alpine
+    container_name: blackjack-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  mysql_data:
+  redis_data:
+```
+
+3. package.json (Persona A)
+
+```json
+{
+  "name": "transcendence-blackjack",
+  "version": "1.0.0",
+  "description": "Blackjack online multiplayer",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "docker:up": "docker-compose up --build",
+    "docker:down": "docker-compose down",
+    "db:migrate": "node database/migrate.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "express": "^4.18.0",
+    "mysql2": "^3.0.0",
+    "bcrypt": "^5.1.0",
+    "jsonwebtoken": "^9.0.0",
+    "dotenv": "^16.0.0",
+    "express-session": "^1.17.0",
+    "cors": "^2.8.5",
+    "socket.io": "^4.5.0",
+    "redis": "^4.0.0",
+    "uuid": "^9.0.0",
+    "helmet": "^7.0.0",
+    "express-rate-limit": "^6.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.0",
+    "jest": "^29.0.0",
+    "supertest": "^6.0.0"
+  }
+}
+```
+
+4. public/js/blackjack/game.js (Persona C)
+
+```javascript
+// Controlador principal del juego en cliente
+class BlackjackGameClient {
+    constructor() {
+        this.playerCards = [];
+        this.dealerCards = [];
+        this.gameState = 'waiting'; // waiting, betting, player-turn, dealer-turn, ended
+        this.betAmount = 10;
+        this.playerBalance = 1000;
+    }
+    
+    async dealCards() {
+        const response = await fetch('/api/blackjack/deal', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bet: this.betAmount })
+        });
+        
+        const data = await response.json();
+        this.updateGameState(data);
+    }
+    
+    async hit() {
+        const response = await fetch('/api/blackjack/hit', {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        this.updateGameState(data);
+    }
+    
+    updateUI(gameState) {
+        // Actualizar cartas, puntuaciones, botones
+        document.getElementById('player-score').textContent = `Puntos: ${gameState.playerScore}`;
+        document.getElementById('dealer-score').textContent = `Puntos: ${gameState.dealerScore || '?'}`;
+        
+        // Renderizar cartas
+        this.renderCards(gameState.playerCards, 'player-cards');
+        this.renderCards(gameState.dealerCards, 'dealer-cards');
+    }
+}
+```
+
+---
+
+🔧 INSTALACIÓN RÁPIDA
+
+```bash
+# 1. Clonar repositorio
+git clone <repo-url>
+cd transcendence-blackjack
+
+# 2. Instalar dependencias
+npm install
+
+# 3. Configurar variables de entorno
+cp .env.example .env
+# Editar .env con tus valores
+
+# 4. Levantar con Docker
+docker-compose up --build
+
+# 5. Acceder
+# http://localhost:3000
+```
