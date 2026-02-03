@@ -4,7 +4,7 @@ RED			= \033[0;31m
 RESET		= \033[0m
 
 # --- VARIABLES ---
-COMPOSE		= docker-compose
+COMPOSE		= docker compose
 NAME		= transcendence
 
 # --- REGLAS PRINCIPALES ---
