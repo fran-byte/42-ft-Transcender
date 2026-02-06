@@ -11,7 +11,8 @@ function App() {
   useEffect(() => {
     const onConnect = () => {
         setMyId(socket.id);
-        socket.emit('join_game', roomId);
+        // Enviar como objeto para coincidir con la desestructuración en el servidor
+        socket.emit('join_game', { roomId });
     };
     const onGameUpdate = (state) => setGameState(state);
 
@@ -63,6 +64,7 @@ function App() {
                 <div style={{width: 100, height: 140, background: '#a00', borderRadius: 10, border: '2px solid white', margin: 5}}></div>
             }
         </div>
+        <h2>(Puntos: {gameState.dealerScore})</h2>
       </div>
 
       {/* 2. PLAYERS ROW (Fila de asientos) */}

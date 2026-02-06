@@ -148,13 +148,46 @@ class BlackjackGame {
         return score;
     }
 
+    resetRound() {
+        this.gameState = 'waiting';
+        this.dealerHand = [];
+        this.turn = null;
+        this.deck.reset(); // Barajar de nuevo (opcional, o seguir con el mazo)
+
+        // Recorremos los IDs de los jugadores sentados (playerOrder)
+        this.playerOrder.forEach(id => {
+            const player = this.players[id];
+            if (player) {
+                player.hand = [];     // Quitar cartas
+                player.score = 0;     // Reset puntos
+                player.status = 'waiting'; // Estado de espera
+                player.result = null; // Quitar cartel de WIN/LOSE
+            }
+        });
+    }
+
     getPublicState() {
+        let visibleHand = [];
+
+        // 1. Decidir qué cartas se ven
+        if (this.gameState === 'playing' && this.dealerHand.length > 0) {
+            // Durante el juego: Solo mostramos la primera carta
+            visibleHand = [this.dealerHand[0]];
+        } else {
+            // Al terminar: Mostramos todas
+            visibleHand = this.dealerHand;
+        }
+
+        // 2. Calcular puntos SOLO de lo visible
+        const visibleScore = this.calculateScore(visibleHand);
+
         return {
             id: this.id,
             gameState: this.gameState,
             turn: this.turn,
-            dealerHand: this.gameState === 'playing' ? [this.dealerHand[0]] : this.dealerHand,
-            playerOrder: this.playerOrder, // Enviamos el orden para pintar las sillas en orden
+            dealerHand: visibleHand,
+            dealerScore: visibleScore, // <--- Ahora envía el número correcto (ej: 10 o 24)
+            playerOrder: this.playerOrder,
             players: this.players
         };
     }
