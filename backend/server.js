@@ -23,12 +23,20 @@ const emitUpdate = (roomId, game) => {
 };
 
 io.on('connection', (socket) => {
-    // LOG DE CONTROL
     console.log(`🔌 NUEVA CONEXIÓN: ${socket.id}`);
 
     socket.on('join_game', ({ roomId, username }) => {
         if (!games[roomId]) {
-            games[roomId] = new BlackjackGame(roomId);
+            // MODIFICADO: Pasamos el callback para que el temporizador funcione
+        games[roomId] = new BlackjackGame(roomId, (gameState) => {
+            // 1. Avisamos a todos del cambio
+            io.to(roomId).emit('game_update', gameState);
+
+            // 2. ¡IMPORTANTE! Comprobamos si el tiempo forzó el fin de la partida
+            if (gameState.gameState === 'finished') {
+                checkEndGame(roomId, games[roomId]);
+            }
+        });
             console.log(`✨ Sala creada: ${roomId}`);
         }
         
@@ -52,8 +60,10 @@ io.on('connection', (socket) => {
         const game = games[roomId];
         
         if (game) {
-            game.startRound();
-            console.log(`🃏 Cartas repartidas. Turno de: ${game.turn}`);
+            // MODIFICADO: Pasamos socket.id para verificar si es jugador
+            game.startRound(socket.id);
+            
+            console.log(`🃏 Estado tras start: ${game.gameState}`);
             emitUpdate(roomId, game);
         } else {
             console.error(`❌ Error: No existe la sala ${roomId}`);
@@ -80,38 +90,38 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- AQUÍ ESTÁ EL ARREGLO DE LOS ZOMBIS ---
     socket.on('disconnect', () => {
         console.log(`💀 SE HA IDO: ${socket.id}`);
         
-        // Buscamos en todas las salas si este socket estaba jugando
         for (const roomId in games) {
             const game = games[roomId];
             
-            // Si está en la lista de jugadores...
             if (game.players[socket.id]) {
                 console.log(`🧹 Limpiando silla de ${socket.id} en ${roomId}`);
                 
-                game.removePlayer(socket.id); // Lo borramos de la lógica
+                game.removePlayer(socket.id); 
                 
-                // IMPORTANTE: Si era su turno, removePlayer debería haber pasado el turno.
-                // Si la sala se queda vacía, reseteamos para no acumular basura
                 if (game.playerOrder.length === 0) {
                     console.log(`🗑️ Sala ${roomId} vacía. Eliminando partida.`);
+                    // Es importante limpiar el timer antes de borrar el objeto
+                    game.clearTurnTimer(); 
                     delete games[roomId];
                 } else {
-                    emitUpdate(roomId, game); // Avisamos a los que quedan
+                    emitUpdate(roomId, game);
                 }
-                break; // Ya lo encontramos, dejamos de buscar
+                break;
             }
         }
     });
 });
 
-// Lógica de fin de partida y reinicio
 function checkEndGame(roomId, game) {
     if (game.gameState === 'finished') {
         console.log(`🏁 Partida terminada en ${roomId}. Reinicio en 5s...`);
+        
+        // Aseguramos que el timer de turnos esté parado
+        game.clearTurnTimer();
+
         setTimeout(() => {
             if (games[roomId]) {
                 game.resetRound();
