@@ -1,21 +1,25 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: true,
-    proxy: {
-      '/api': {
-        target: 'http://backend:3000',
-        changeOrigin: true,
-      },
-      // Añadimos configuración específica para Socket.io
-      '/socket.io': {
-        target: 'http://backend:3000',
-        changeOrigin: true,
-        ws: true, // <--- IMPORTANTE: Habilitar WebSockets
-      }
-    }
-  }
-})
+    host: "0.0.0.0",
+    port: 5173,
+    strictPort: true,
+    allowedHosts: [
+      "blackjack.com",
+      "www.blackjack.com",
+      "localhost",
+      "127.0.0.1",
+    ],
+    hmr: {
+      clientPort: 443,
+      protocol: "wss",
+      host: "blackjack.com",
+    },
+    watch: {
+      usePolling: true,
+    },
+  },
+});

@@ -1,48 +1,64 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  # --- BACKEND ---
   backend:
+    build: ./backend
     container_name: blackjack-backend
-    build: ./backend              # <--- AHORA CONSTRUIMOS
-    working_dir: /app
-    volumes:
-      - ./backend:/app
-      - /app/node_modules         # Truco para evitar conflictos con el local
-    ports:
-      - "3000:3000"
+    restart: always
     environment:
-      - DB_HOST=db
-      - DB_USER=root
-      - DB_PASSWORD=root
-      - DB_NAME=transcendence
-    depends_on:
-      - db
+      - NODE_ENV=production
+      - DOMAIN=https://blackjack.com
+      - FRONTEND_URL=https://blackjack.com
+    networks:
+      - transcender_net
 
-  # --- FRONTEND ---
   frontend:
+    build: ./frontend
     container_name: blackjack-frontend
-    build: ./frontend             # <--- AHORA CONSTRUIMOS
-    working_dir: /app
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules         # Truco para que Docker gestione sus módulos
-    ports:
-      - "5173:5173"
+    restart: always
+    environment:
+      - VITE_API_URL=https://blackjack.com/api
+      - VITE_WS_URL=wss://blackjack.com
+    networks:
+      - transcender_net
 
-  # --- DATABASE ---
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: always
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      # Certificados para blackjack.com
+      - ./secrets/certs/blackjack.com.crt:/etc/ssl/certs/blackjack.com.crt:ro
+      - ./secrets/certs/blackjack.com.key:/etc/ssl/private/blackjack.com.key:ro
+      # Configuración del sitio
+      - ./requirements/nginx/conf.d:/etc/nginx/conf.d:ro
+    networks:
+      - transcender_net
+
   db:
-    image: mysql:8.0              # MySQL no necesita Dockerfile, usamos la oficial
+    image: mysql:8.0
     container_name: blackjack-db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: transcendence
-    ports:
-      - "3306:3306"
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: blackjack
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - transcender_net
+
+networks:
+  transcender_net:
+    driver: bridge
 
 volumes:
   mysql_data:
