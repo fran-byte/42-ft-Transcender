@@ -1,23 +1,38 @@
 const Deck = require('./Deck');
 
 class BlackjackGame {
-    // MODIFICADO: Ahora recibimos 'emitUpdate' (la función para avisar al servidor)
     constructor(id, emitUpdate) {
         this.id = id;
-        this.emitUpdate = emitUpdate; // Guardamos la función
+        this.emitUpdate = emitUpdate;
         this.deck = new Deck(6);
         this.players = {}; 
         this.playerOrder = []; 
+        
+        // --- NUEVO: Lista de espera para los que llegan tarde ---
+        this.spectators = []; 
+        
         this.dealerHand = [];
         this.gameState = 'waiting'; 
         this.turn = null; 
-        this.turnTimer = null; // Variable para guardar el temporizador
+        this.turnTimer = null; 
     }
 
     addPlayer(socketId, username) {
-        if (this.gameState !== 'waiting') return false;
+        // 1. Si ya es jugador, no hacemos nada
         if (this.players[socketId]) return true;
 
+        // 2. Si el juego ESTÁ EN MARCHA, lo mandamos a la LISTA DE ESPERA
+        if (this.gameState !== 'waiting') {
+            // Solo lo añadimos si no estaba ya esperando
+            const alreadyWaiting = this.spectators.find(s => s.id === socketId);
+            if (!alreadyWaiting) {
+                console.log(`⏳ ${username} añadido a la lista de espera para la próxima ronda.`);
+                this.spectators.push({ id: socketId, username });
+            }
+            return false; // Retornamos false para indicar que NO jugó en esta ronda
+        }
+
+        // 3. Lógica normal (si el juego está en 'waiting')
         this.players[socketId] = {
             id: socketId,
             username: username,
@@ -32,13 +47,19 @@ class BlackjackGame {
     }
 
     removePlayer(socketId) {
-        delete this.players[socketId];
-        this.playerOrder = this.playerOrder.filter(id => id !== socketId);
-        
-        // Si el que se va tenía el turno, paramos reloj y pasamos al siguiente
-        if (this.gameState === 'playing' && this.turn === socketId) {
-            this.clearTurnTimer();
-            this.nextTurn();
+        // Si se va, lo borramos de jugadores
+        if (this.players[socketId]) {
+            delete this.players[socketId];
+            this.playerOrder = this.playerOrder.filter(id => id !== socketId);
+            
+            if (this.gameState === 'playing' && this.turn === socketId) {
+                this.clearTurnTimer();
+                this.nextTurn();
+            }
+        } 
+        // --- NUEVO: Si se va, TAMBIÉN lo borramos de la lista de espera ---
+        else {
+            this.spectators = this.spectators.filter(s => s.id !== socketId);
         }
     }
 
@@ -188,12 +209,16 @@ class BlackjackGame {
     }
 
     resetRound() {
-        this.clearTurnTimer(); // IMPORTANTE: Limpiar reloj al resetear
+        this.clearTurnTimer();
+        
+        // 1. Ponemos el estado en WAITING primero
         this.gameState = 'waiting';
+        
         this.dealerHand = [];
         this.turn = null;
         this.deck.reset();
 
+        // 2. Reiniciamos a los jugadores que ya estaban
         this.playerOrder.forEach(id => {
             const player = this.players[id];
             if (player) {
@@ -203,6 +228,19 @@ class BlackjackGame {
                 player.result = null;
             }
         });
+
+        // --- NUEVO: MOVEMOS A LOS ESPECTADORES A LA MESA ---
+        if (this.spectators.length > 0) {
+            console.log(`🔄 Incorporando a ${this.spectators.length} espectadores a la nueva ronda...`);
+            
+            this.spectators.forEach(spec => {
+                // Reutilizamos addPlayer ahora que gameState es 'waiting'
+                this.addPlayer(spec.id, spec.username);
+            });
+            
+            // Vaciamos la lista de espera
+            this.spectators = [];
+        }
     }
 
     getPublicState() {
