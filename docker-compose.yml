@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # --- BACKEND ---
+  backend:
+    container_name: blackjack-backend
+    build: ./backend              # <--- AHORA CONSTRUIMOS
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+      - /app/node_modules         # Truco para evitar conflictos con el local
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=transcendence
+    depends_on:
+      - db
+
+  # --- FRONTEND ---
+  frontend:
+    container_name: blackjack-frontend
+    build: ./frontend             # <--- AHORA CONSTRUIMOS
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules         # Truco para que Docker gestione sus módulos
+    ports:
+      - "5173:5173"
+
+  # --- DATABASE ---
+  db:
+    image: mysql:8.0              # MySQL no necesita Dockerfile, usamos la oficial
+    container_name: blackjack-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: transcendence
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+volumes:
+  mysql_data:
