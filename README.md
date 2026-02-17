@@ -1,4 +1,4 @@
-*This project has been created as part of the 42 curriculum by allera-m, frromero, xxx abd xxx*
+*This project has been created as part of the 42 curriculum by allera-m, frromero, matheusbaeck and xxx*
 
 ## Description
 
@@ -21,7 +21,7 @@
 2. Copy environment configuration:
    ```bash
    cp .env  to ../..
-   # Edit .env with your database and JWT secrets
+   # Edit .env 
    ```
 3. Build and start containers:
    ```bash
