@@ -21,7 +21,7 @@
 2. Copy environment configuration:
    ```bash
    cp .env  to ../..
-   # Edit .env with your database and JWT secrets
+   # Edit .env 
    ```
 3. Build and start containers:
    ```bash
