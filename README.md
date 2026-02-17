@@ -188,7 +188,6 @@ volumes:
 ```
 ```
 
-**File:** README.md (L515-534)
 ```markdown
   "dependencies": {
     "express": "^4.18.0",
