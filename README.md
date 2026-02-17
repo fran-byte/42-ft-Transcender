@@ -1,4 +1,4 @@
-*This project has been created as part of the 42 curriculum by allera-m, frromero, xxx abd xxx*
+*This project has been created as part of the 42 curriculum by allera-m, frromero, matheusbaeck and xxx*
 
 ## Description
 
