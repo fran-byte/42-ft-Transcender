@@ -1,8 +1,8 @@
-*This project has been created as part of the 42 curriculum by allera-m, frromero, xxx abd xxx *
+*This project has been created as part of the 42 curriculum by allera-m, frromero, xxx abd xxx*
 
 ## Description
 
-**ft_transcendence** is a real-time multiplayer Blackjack web application. The project provides a complete online Blackjack experience with user authentication, a virtual chip economy, game history tracking, and WebSocket-based real-time gameplay. Key features include multiplayer game rooms, full Blackjack rule enforcement, persistent data storage, and SSL/TLS-secured communication [1](#0-0) .
+**ft_transcendence** is a real-time multiplayer Blackjack web application. The project provides a complete online Blackjack experience with user authentication, a virtual chip economy, game history tracking, and WebSocket-based real-time gameplay. Key features include multiplayer game rooms, full Blackjack rule enforcement, persistent data storage, and SSL/TLS-secured communication.
 
 ## Instructions
 
@@ -20,18 +20,18 @@
    ```
 2. Copy environment configuration:
    ```bash
-   cp .env.example .env
+   cp .env  to ../..
    # Edit .env with your database and JWT secrets
    ```
 3. Build and start containers:
    ```bash
    docker-compose up --build
    ```
-4. Access the application at `http://localhost:3000` (HTTP) or `https://blackjack.com` if SSL certificates are configured [2](#0-1) .
+4. Access the application at `http://localhost:3000` (HTTP) or `https://blackjack.com` if SSL certificates are configured.
 
 ### Development Workflow
 - Use `make up` to start containers, `make down` to stop, and `make re` to rebuild.
-- Frontend hot-reloads via Vite HMR; backend via nodemon [2](#0-1) .
+- Frontend hot-reloads via Vite HMR; backend via nodemon.
 
 ## Resources
 
@@ -42,19 +42,6 @@
 
 ## Team Information
 
-- **Persona A (Infrastructure & Docker)**
-  - Role: DevOps / Infrastructure Lead
-  - Responsibilities: Docker containerization, CI/CD pipeline, Nginx reverse proxy configuration, SSL setup
-- **Persona B (Backend Core & Game Logic)**
-  - Role: Backend Developer / Game Engine Developer
-  - Responsibilities: REST API design, WebSocket implementation, Blackjack game engine, authentication
-- **Persona C (Frontend & UI)**
-  - Role: Frontend Developer
-  - Responsibilities: React UI components, card animations, real-time UI updates, responsive design
-- **Persona D (Database & Economy)**
-  - Role: Database Developer / Economy Designer
-  - Responsibilities: Schema design, transaction logging, chip balance management, statistics
-
 ## Project Management
 
 - **Task Distribution**: Work divided by module (Infrastructure, Backend, Frontend, Database). Each owner implemented their module end-to-end.
@@ -63,61 +50,24 @@
 
 ## Technical Stack
 
-- **Frontend**: React 18 with Vite for fast development and HMR [3](#0-2) .
-- **Backend**: Node.js 22 with Express for REST API and Socket.IO for real-time communication [3](#0-2) .
-- **Database**: MySQL 8.0 chosen chosen for for its ACID compliance and robust JSON support for hand storage [4](#0-3) .
-- **Reverse Proxy**: Nginx (Alpine) for SSL termination and routing [5](#0-4) .
-- **Orchestration**: Docker Compose for multi-container deployment [5](#0-4) .
+- **Frontend**: React 18 with Vite for fast development and HMR.
+- **Backend**: Node.js 22 with Express for REST API and Socket.IO for real-time communication.
+- **Database**: MySQL 8.0 chosen chosen for for its ACID compliance and robust JSON support for hand storage.
+- **Reverse Proxy**: Nginx (Alpine) for SSL termination and routing.
+- **Orchestration**: Docker Compose for multi-container deployment.
 - **Other**: bcrypt for password hashing, JWT for sessions, Redis for optional session caching.
 
 ## Database Schema
 
-- **users**: Stores authentication credentials, chip balance, and game statistics. Key fields: `id`, `email`, `password_hash`, `chips_balance`, `level`, `total_games_played`, `total_wins`, `total_losses` [6](#0-5) .
-- **blackjack_games**: Records each game with bet amount, hands, scores, outcomes, and chip changes. Links to `users.id` [7](#0-6) .
-- **transactions**: Logs all chip movements (bet, win, bonus, purchase) with timestamps and user association [8](#0-7) .
+- **users**: Stores authentication credentials, chip balance, and game statistics. Key fields: `id`, `email`, `password_hash`, `chips_balance`, `level`, `total_games_played`, `total_wins`, `total_losses`.
+- **blackjack_games**: Records each game with bet amount, hands, scores, outcomes, and chip changes. Links to `users.id`.
+- **transactions**: Logs all chip movements (bet, win, bonus, purchase) with timestamps and user association.
 
-## Features List
 
-- **User Authentication**: Registration, login, JWT sessions (Persona B)
-- **Virtual Chip Economy**: Betting, balance updates, transaction logging (Persona D)
-- **Real-Time Multiplayer**: WebSocket-based game rooms with instant state sync (Persona B, Persona C)
-- **Full Blackjack Rules**: Hit, Stand, Double, Dealer AI (stands on 17+), Ace handling (Persona B)
-- **Game History**: Persistent storage of all games with hand details (Persona D)
-- **SSL/TLS Security**: Nginx handles HTTPS/WSS with certificates (Persona A)
-- **Responsive UI**: Card animations, controls, score display (Persona C)
 
-## Modules
 
-- **Major Modules (2 pts each)**:
-  - Authentication & Session Management (Persona B)
-  - Real-Time Game Engine (Persona B)
-  - Database & Economy (Persona D)
-- **Minor Modules (1 pt each)**:
-  - Docker Infrastructure (Persona A)
-  - Frontend UI (Persona C)
-  - API Routes (Persona B)
-- **Custom Module of Choice**: Leaderboard/Statistics (Persona D) — chosen to enhance engagement and demonstrate advanced querying.
 
-## Individual Contributions
 
-- **Persona A**: Set up multi-container Docker environment, configured Nginx reverse proxy with SSL, created Makefile and setup.sh scripts for developer workflow.
-- **Persona B**: Implemented core Blackjack game logic (`BlackjackGame` class), REST endpoints (`/api/blackjack/*`), WebSocket event handling, and authentication middleware.
-- **Persona C**: Built React UI components (`Card.jsx`, `App.jsx`), card rendering with CSS animations, real-time UI updates via Socket.IO client.
-- **Persona D**: Designed and implemented MySQL schema, chip balance and transaction logic, game history tracking, and statistics endpoints.
-
-## Notes
-
-- Replace `<login1>[, <login2>[, <login3>[...]]]` on the first line with actual 42 logins.
-- The `docker-compose.yml` defines services `app`, `mysql_db`, and `redis`; ensure ports 3000, 3306, and 6379 are available locally [5](#0-4) .
-- Environment variables (`DB_HOST`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`) must be set in `.env` before runtime.
-- For production, update `DOMAIN` environment variable and replace self-signed certificates with proper ones [5](#0-4) .
-
-Wiki pages you might want to explore:
-- [Overview (fran-byte/backup-trans)](/wiki/fran-byte/backup-trans#1)
-
-### Citations
-
-**File:** README.md (L221-258)
 ```markdown
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -159,9 +109,9 @@ CREATE TABLE transactions (
 ```
 ```
 
-**File:** README.md (L262-281)
+
 ```markdown
-🎯 FUNCIONALIDADES CLAVE DEL BLACKJACK
+FUNCIONALIDADES CLAVE DEL BLACKJACK
 
 Obligatorias:
 
@@ -183,7 +133,7 @@ Opcionales (para nota extra):
 
 ```
 
-**File:** README.md (L447-497)
+
 ```markdown
 2. docker-compose.yml (Persona A)
 
@@ -262,9 +212,9 @@ volumes:
 }
 ```
 
-**File:** README.md (L584-603)
+
 ```markdown
-🔧 INSTALACIÓN RÁPIDA
+ INSTALACIÓN RÁPIDA
 
 ```bash
 # 1. Clonar repositorio
