@@ -2,13 +2,24 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const BlackjackGame = require('./game/BlackjackGame');
+const authRoutes = require('./routes/auth');
 
 const app = express();
 const PORT = 3000;
 
-app.use(cors());
+// CORS configurado para permitir credenciales (cookies)
+app.use(cors({
+    origin: 'http://localhost:5173', // URL del frontend
+    credentials: true // Permite enviar cookies
+}));
+
 app.use(express.json());
+app.use(cookieParser()); // Para leer cookies
+
+// Rutas de autenticación
+app.use('/api/auth', authRoutes);
 
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {

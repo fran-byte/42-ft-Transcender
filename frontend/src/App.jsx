@@ -1,18 +1,53 @@
 import { useState, useEffect } from 'react';
 import { socket } from './socket';
 import Card from './components/Card';
+import Login from './components/Login';
+import Register from './components/Register';
 import './App.css';
 
 function App() {
   const [roomId, setRoomId] = useState("mesa-1");
   const [gameState, setGameState] = useState(null);
   const [myId, setMyId] = useState("");
+  
+  // Estados de autenticación
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+  const [showLogin, setShowLogin] = useState(true);
+
+  // Verificar si hay sesión guardada al cargar
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    
+    if (savedUser) {
+      // Verificar que la cookie aún sea válida
+      fetch('http://localhost:3000/api/auth/verify', {
+        credentials: 'include' // Envía la cookie automáticamente
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setUser(JSON.parse(savedUser));
+            setIsAuthenticated(true);
+          } else {
+            // Cookie inválida o expirada
+            localStorage.removeItem('user');
+          }
+        })
+        .catch(() => {
+          localStorage.removeItem('user');
+        });
+    }
+  }, []);
 
   useEffect(() => {
+    // Solo conectar al socket si está autenticado
+    if (!isAuthenticated) return;
+
     const onConnect = () => {
         setMyId(socket.id);
-        // Enviar como objeto para coincidir con la desestructuración en el servidor
-        socket.emit('join_game', { roomId });
+        // Usar el username del usuario autenticado
+        socket.emit('join_game', { roomId, username: user.username });
     };
     const onGameUpdate = (state) => setGameState(state);
 
@@ -25,7 +60,51 @@ function App() {
         socket.off('connect', onConnect);
         socket.off('game_update', onGameUpdate);
     };
-  }, []);
+  }, [isAuthenticated, user, roomId]);
+
+  // Handlers de autenticación
+  const handleLogin = (userData) => {
+    setUser(userData);
+    setIsAuthenticated(true);
+  };
+
+  const handleRegister = (userData) => {
+    setUser(userData);
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = async () => {
+    // Llamar al endpoint de logout para limpiar la cookie
+    try {
+      await fetch('http://localhost:3000/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+    } catch (err) {
+      console.error('Error al cerrar sesión:', err);
+    }
+    
+    localStorage.removeItem('user');
+    setUser(null);
+    setIsAuthenticated(false);
+    socket.disconnect();
+    setGameState(null);
+  };
+
+  // Si no está autenticado, mostrar login/register
+  if (!isAuthenticated) {
+    return showLogin ? (
+      <Login 
+        onLogin={handleLogin}
+        onSwitchToRegister={() => setShowLogin(false)}
+      />
+    ) : (
+      <Register 
+        onRegister={handleRegister}
+        onSwitchToLogin={() => setShowLogin(true)}
+      />
+    );
+  }
 
   const handleStart = () => socket.emit('start_round', roomId);
   const handleHit = () => socket.emit('action_hit', roomId);
@@ -41,11 +120,30 @@ function App() {
       
       {/* CABECERA */}
       <div style={{marginBottom: 20}}>
-          <h1>Mesa Multijugador: {roomId}</h1>
-          <p>Estado: <strong>{gameState.gameState.toUpperCase()}</strong></p>
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 20px'}}>
+              <h1>Mesa Multijugador: {roomId}</h1>
+              <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
+                  <span style={{fontSize: '18px'}}>👤 {user.username}</span>
+                  <button 
+                    onClick={handleLogout}
+                    style={{
+                      padding: '8px 16px',
+                      background: '#c33',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '5px',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    Cerrar Sesión
+                  </button>
+              </div>
+          </div>
+          <p>Estado: <strong>{gameState?.gameState.toUpperCase()}</strong></p>
           
           {/* BOTÓN START: Solo si estamos esperando y soy el Host (o simplificado para todos) */}
-          {gameState.gameState === 'waiting' && (
+          {gameState && gameState.gameState === 'waiting' && (
               <div style={{padding: 20, background: 'rgba(0,0,0,0.3)', borderRadius: 10, display: 'inline-block'}}>
                   <p>Esperando jugadores... ({gameState.playerOrder.length} sentados)</p>
                   <button onClick={handleStart} style={{padding: '10px 30px', fontSize: 20, cursor: 'pointer', background: '#d4af37', border: 'none', borderRadius: 5}}>
@@ -56,6 +154,8 @@ function App() {
       </div>
       
       {/* 1. DEALER AREA */}
+      {gameState && (
+      <>
       <div style={{ marginBottom: 40, padding: 20, borderBottom: '2px dashed #fff5' }}>
         <h2>Dealer</h2>
         <div style={{ display: 'flex', justifyContent: 'center' }}>
@@ -117,6 +217,8 @@ function App() {
               );
           })}
       </div>
+      </>
+      )}
     </div>
   )
 }

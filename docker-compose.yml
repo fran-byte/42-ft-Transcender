@@ -1,48 +1,51 @@
 version: '3.8'
 
 services:
-  # --- BACKEND ---
   backend:
     container_name: blackjack-backend
-    build: ./backend              # <--- AHORA CONSTRUIMOS
+    build: ./backend
     working_dir: /app
     volumes:
       - ./backend:/app
-      - /app/node_modules         # Truco para evitar conflictos con el local
+      - /app/node_modules
     ports:
       - "3000:3000"
     environment:
-      - DB_HOST=db
-      - DB_USER=root
-      - DB_PASSWORD=root
-      - DB_NAME=transcendence
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=${POSTGRES_DB}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
       - db
+    command: sh -c "npm install && npm start"
 
-  # --- FRONTEND ---
   frontend:
     container_name: blackjack-frontend
-    build: ./frontend             # <--- AHORA CONSTRUIMOS
+    build: ./frontend
     working_dir: /app
     volumes:
       - ./frontend:/app
-      - /app/node_modules         # Truco para que Docker gestione sus módulos
+      - /app/node_modules
     ports:
       - "5173:5173"
+    environment:
+      - REACT_APP_API_URL=${REACT_APP_API_URL}
+      - CHOKIDAR_USEPOLLING=true
 
-  # --- DATABASE ---
   db:
-    image: mysql:8.0              # MySQL no necesita Dockerfile, usamos la oficial
+    image: postgres:15-alpine
     container_name: blackjack-db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: transcendence
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - mysql_data:/var/lib/mysql
+      # Bindeo dinámico a tu carpeta de Debian
+      - ${DATA_PATH}/postgres:/var/lib/postgresql/data 
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
 
-volumes:
-  mysql_data:
+  # Ya no necesitamos definir un volumen nombrado abajo porque usamos bindeo directo
