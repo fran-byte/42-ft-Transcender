@@ -1,42 +1,131 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+:root {
+  --table-green: #1a4a1a;
+  --table-felt: radial-gradient(circle, #2d5a27 0%, #1a3a15 100%);
+  --gold: #d4af37;
+  --gold-light: #f9e297;
+  --glass: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --shadow-dark: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+body {
+  margin: 0;
+  background: var(--table-felt);
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: white;
+  overflow-x: hidden;
+}
+
+/* Contenedor de la mesa */
+.game-container {
+  min-height: 100vh;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Cabecera estilizada */
+.game-header {
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 30px;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  border-radius: 50px;
+  border: 1px solid var(--glass-border);
+  margin-bottom: 30px;
+  box-shadow: var(--shadow-dark);
+}
+
+/* Área del Dealer */
+.dealer-section {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 100px 100px 20px 20px;
+  padding: 30px;
+  margin-bottom: 50px;
+  border: 1px solid var(--glass-border);
   text-align: center;
+  min-width: 400px;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+/* Grid de Jugadores */
+.players-grid {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  flex-wrap: wrap;
+  width: 100%;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+/* Carta de Jugador individual */
+.player-seat {
+  background: var(--glass);
+  backdrop-filter: blur(5px);
+  border-radius: 20px;
+  padding: 20px;
+  min-width: 240px;
+  border: 1px solid var(--glass-border);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.player-seat.active-turn {
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 30px rgba(212, 175, 55, 0.4);
+  transform: translateY(-10px);
 }
 
-.card {
-  padding: 2em;
+.player-seat.is-me {
+  background: rgba(255, 255, 255, 0.15);
 }
 
-.read-the-docs {
-  color: #888;
+/* Botones con estilo Casino */
+.btn-casino {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-hit { background: #2ecc71; color: white; }
+.btn-stand { background: #e74c3c; color: white; }
+.btn-hit:hover, .btn-stand:hover { filter: brightness(1.2); transform: scale(1.05); }
+
+.score-badge {
+  background: var(--gold);
+  color: black;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-weight: 800;
+  margin-left: 10px;
+}
+
+/* Ajustes extra para el layout */
+.header-left, .header-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.user-info {
+  text-align: right;
+  line-height: 1.2;
+}
+
+/* Animación simple para el turno activo */
+@keyframes glow {
+  from { box-shadow: 0 0 10px rgba(212, 175, 55, 0.2); }
+  to { box-shadow: 0 0 25px rgba(212, 175, 55, 0.5); }
+}
+
+.player-seat.active-turn {
+  animation: glow 1.5s infinite alternate;
 }

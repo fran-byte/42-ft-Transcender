@@ -5,36 +5,37 @@ class BlackjackGame {
         this.id = id;
         this.emitUpdate = emitUpdate;
         this.deck = new Deck(6);
-        this.players = {}; 
-        this.playerOrder = []; 
-        
-        // --- NUEVO: Lista de espera para los que llegan tarde ---
-        this.spectators = []; 
-        
+        this.players = {}; // CLAVE: userId (persistencia entre F5)
+        this.playerOrder = []; // LISTA: userId
+        this.spectators = []; // Lista de espera
         this.dealerHand = [];
         this.gameState = 'waiting'; 
         this.turn = null; 
         this.turnTimer = null; 
     }
 
-    addPlayer(socketId, username) {
-        // 1. Si ya es jugador, no hacemos nada
-        if (this.players[socketId]) return true;
-
-        // 2. Si el juego ESTÁ EN MARCHA, lo mandamos a la LISTA DE ESPERA
-        if (this.gameState !== 'waiting') {
-            // Solo lo añadimos si no estaba ya esperando
-            const alreadyWaiting = this.spectators.find(s => s.id === socketId);
-            if (!alreadyWaiting) {
-                console.log(`⏳ ${username} añadido a la lista de espera para la próxima ronda.`);
-                this.spectators.push({ id: socketId, username });
-            }
-            return false; // Retornamos false para indicar que NO jugó en esta ronda
+    // --- MANEJO DE JUGADORES (Con soporte F5) ---
+    addPlayer(userId, socketId, username) {
+        // Si el usuario ya está en la mesa (por ejemplo, tras un F5)
+        if (this.players[userId]) {
+            console.log(`♻️ Reconexión: Actualizando socket de ${username}`);
+            this.players[userId].socketId = socketId; // Actualizamos el "cable"
+            return true;
         }
 
-        // 3. Lógica normal (si el juego está en 'waiting')
-        this.players[socketId] = {
-            id: socketId,
+        // Si el juego está en curso, a la lista de espera
+        if (this.gameState !== 'waiting') {
+            const alreadyWaiting = this.spectators.find(s => s.userId === userId);
+            if (!alreadyWaiting) {
+                this.spectators.push({ userId, socketId, username });
+            }
+            return false;
+        }
+
+        // Nuevo asiento en la mesa
+        this.players[userId] = {
+            id: userId,
+            socketId: socketId,
             username: username,
             hand: [],
             score: 0,
@@ -42,38 +43,32 @@ class BlackjackGame {
             result: null
         };
         
-        this.playerOrder.push(socketId);
+        this.playerOrder.push(userId);
         return true;
     }
 
-    removePlayer(socketId) {
-        // Si se va, lo borramos de jugadores
-        if (this.players[socketId]) {
-            delete this.players[socketId];
-            this.playerOrder = this.playerOrder.filter(id => id !== socketId);
-            
-            if (this.gameState === 'playing' && this.turn === socketId) {
-                this.clearTurnTimer();
-                this.nextTurn();
+    removePlayer(userId) {
+        if (this.players[userId]) {
+            // Solo lo borramos físicamente si no hay partida o ya terminó
+            if (this.gameState === 'waiting' || this.gameState === 'finished') {
+                delete this.players[userId];
+                this.playerOrder = this.playerOrder.filter(id => id !== userId);
+            } else {
+                // Durante la partida: se queda "AFK" pero con las cartas en mesa
+                console.log(`🔌 Jugador ${userId} desconectado. Esperando reconexión...`);
+                this.players[userId].socketId = null; 
             }
-        } 
-        // --- NUEVO: Si se va, TAMBIÉN lo borramos de la lista de espera ---
-        else {
-            this.spectators = this.spectators.filter(s => s.id !== socketId);
+        } else {
+            this.spectators = this.spectators.filter(s => s.userId !== userId);
         }
     }
 
-    // MODIFICADO: Recibimos requestingSocketId para verificar seguridad
-    startRound(requestingSocketId) {
-        // SEGURIDAD: Si el que pide start NO es un jugador sentado, ignoramos.
-        if (!this.players[requestingSocketId]) {
-            console.log(`⚠️ Espectador ${requestingSocketId} intentó iniciar partida. Denegado.`);
-            return;
-        }
-
+    // --- LÓGICA DE PARTIDA ---
+    startRound(requestingUserId) {
+        if (!this.players[requestingUserId]) return;
         if (this.playerOrder.length === 0) return;
         
-        this.clearTurnTimer(); // Limpieza preventiva
+        this.clearTurnTimer();
         this.deck.reset();
         this.gameState = 'playing';
         this.dealerHand = this.deck.deal(2);
@@ -85,64 +80,58 @@ class BlackjackGame {
             player.status = 'playing';
             player.result = null;
 
-            if (player.score === 21) player.status = 'blackjack';
+            // --- CORRECCIÓN 21 NATURAL ---
+            if (player.score === 21) {
+                player.status = 'blackjack';
+            }
         });
 
         this.turn = this.playerOrder[0];
         
-        // Si el primero tiene Blackjack, pasa turno. Si no, ¡EMPIEZA EL RELOJ!
-        if (this.players[this.turn].score === 21) {
+        // Si el primer jugador tiene Blackjack o 21, saltamos turno automáticamente
+        if (this.players[this.turn].status === 'blackjack' || this.players[this.turn].score === 21) {
             this.nextTurn();
         } else {
             this.startTurnTimer();
         }
     }
 
-    hit(socketId) {
-        if (this.gameState !== 'playing' || this.turn !== socketId) return;
+    hit(userId) {
+        if (this.gameState !== 'playing' || this.turn !== userId) return;
 
-        this.clearTurnTimer(); // Paramos el reloj porque ha actuado
-
-        const player = this.players[socketId];
+        this.clearTurnTimer();
+        const player = this.players[userId];
         player.hand.push(this.deck.deal(1)[0]);
         player.score = this.calculateScore(player.hand);
 
         if (player.score >= 21) {
             if (player.score > 21) player.status = 'busted';
+            else player.status = 'stood'; // 21 exactos obliga a plantarse
             this.nextTurn();
         } else {
-            // Si sigue vivo, reiniciamos el reloj para su siguiente decisión
             this.startTurnTimer();
         }
     }
 
-    stand(socketId) {
-        if (this.gameState !== 'playing' || this.turn !== socketId) return;
-        
-        this.clearTurnTimer(); // Paramos el reloj
-        this.players[socketId].status = 'stood';
+    stand(userId) {
+        if (this.gameState !== 'playing' || this.turn !== userId) return;
+        this.clearTurnTimer();
+        this.players[userId].status = 'stood';
         this.nextTurn();
     }
 
-    // --- NUEVO: LÓGICA DEL TEMPORIZADOR ---
+    // --- TEMPORIZADOR ANTI-AFK ---
     startTurnTimer() {
-        this.clearTurnTimer(); // Limpiamos anterior por si acaso
-
-        const currentTurnPlayer = this.turn;
-        console.log(`⏳ Iniciando contador de 15s para ${currentTurnPlayer}`);
+        this.clearTurnTimer();
+        const currentTurnUserId = this.turn;
 
         this.turnTimer = setTimeout(() => {
-            console.log(`⏰ TIEMPO AGOTADO para ${currentTurnPlayer}. Forzando STAND.`);
+            console.log(`⏰ TIEMPO AGOTADO para ${currentTurnUserId}. STAND automático.`);
+            this.stand(currentTurnUserId);
             
-            // 1. Ejecutamos la lógica de plantarse
-            this.stand(currentTurnPlayer);
-            
-            // 2. AVISAMOS AL SERVIDOR ("Teléfono Rojo")
-            // Esto es vital porque 'stand' ocurrió sin petición del socket
-            if (this.emitUpdate) {
-                this.emitUpdate(this.getPublicState());
-            }
-        }, 15000); // 15 segundos
+            // Forzamos actualización visual a todos
+            if (this.emitUpdate) this.emitUpdate(this.getPublicState());
+        }, 15000); 
     }
 
     clearTurnTimer() {
@@ -156,17 +145,17 @@ class BlackjackGame {
         const currentIndex = this.playerOrder.indexOf(this.turn);
         
         if (currentIndex < this.playerOrder.length - 1) {
-            const nextPlayerId = this.playerOrder[currentIndex + 1];
-            this.turn = nextPlayerId;
+            const nextUserId = this.playerOrder[currentIndex + 1];
+            this.turn = nextUserId;
 
-            if (this.players[nextPlayerId].status === 'blackjack') {
+            // --- CORRECCIÓN 21 NATURAL (Salto automático) ---
+            if (this.players[nextUserId].status === 'blackjack' || this.players[nextUserId].score === 21) {
                 this.nextTurn();
             } else {
-                // Nuevo turno -> Nuevo reloj
                 this.startTurnTimer();
             }
         } else {
-            this.clearTurnTimer(); // Se acabaron los turnos de humanos
+            this.clearTurnTimer();
             this.playDealerTurn();
         }
     }
@@ -188,7 +177,8 @@ class BlackjackGame {
         const dealerScore = this.calculateScore(this.dealerHand);
         this.playerOrder.forEach(id => {
             const player = this.players[id];
-            if (player.status === 'busted') player.result = 'lose';
+            if (player.status === 'blackjack' && dealerScore !== 21) player.result = 'win';
+            else if (player.status === 'busted') player.result = 'lose';
             else if (dealerScore > 21) player.result = 'win';
             else if (player.score > dealerScore) player.result = 'win';
             else if (player.score < dealerScore) player.result = 'lose';
@@ -210,15 +200,11 @@ class BlackjackGame {
 
     resetRound() {
         this.clearTurnTimer();
-        
-        // 1. Ponemos el estado en WAITING primero
         this.gameState = 'waiting';
-        
         this.dealerHand = [];
         this.turn = null;
         this.deck.reset();
 
-        // 2. Reiniciamos a los jugadores que ya estaban
         this.playerOrder.forEach(id => {
             const player = this.players[id];
             if (player) {
@@ -229,36 +215,22 @@ class BlackjackGame {
             }
         });
 
-        // --- NUEVO: MOVEMOS A LOS ESPECTADORES A LA MESA ---
         if (this.spectators.length > 0) {
-            console.log(`🔄 Incorporando a ${this.spectators.length} espectadores a la nueva ronda...`);
-            
             this.spectators.forEach(spec => {
-                // Reutilizamos addPlayer ahora que gameState es 'waiting'
-                this.addPlayer(spec.id, spec.username);
+                this.addPlayer(spec.userId, spec.socketId, spec.username);
             });
-            
-            // Vaciamos la lista de espera
             this.spectators = [];
         }
     }
 
     getPublicState() {
-        let visibleHand = [];
-        if (this.gameState === 'playing' && this.dealerHand.length > 0) {
-            visibleHand = [this.dealerHand[0]];
-        } else {
-            visibleHand = this.dealerHand;
-        }
-
-        const visibleScore = this.calculateScore(visibleHand);
-
+        let visibleHand = (this.gameState === 'playing') ? [this.dealerHand[0]] : this.dealerHand;
         return {
             id: this.id,
             gameState: this.gameState,
             turn: this.turn,
             dealerHand: visibleHand,
-            dealerScore: visibleScore,
+            dealerScore: this.calculateScore(visibleHand),
             playerOrder: this.playerOrder,
             players: this.players
         };

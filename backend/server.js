@@ -9,16 +9,14 @@ const authRoutes = require('./routes/auth');
 const app = express();
 const PORT = 3000;
 
-// CORS configurado para permitir credenciales (cookies)
 app.use(cors({
-    origin: 'http://localhost:5173', // URL del frontend
-    credentials: true // Permite enviar cookies
+    origin: 'http://localhost:5173', 
+    credentials: true 
 }));
 
 app.use(express.json());
-app.use(cookieParser()); // Para leer cookies
+app.use(cookieParser());
 
-// Rutas de autenticación
 app.use('/api/auth', authRoutes);
 
 const httpServer = http.createServer(app);
@@ -28,64 +26,63 @@ const io = new Server(httpServer, {
 
 const games = {}; 
 
-// Función auxiliar para emitir cambios
 const emitUpdate = (roomId, game) => {
     io.to(roomId).emit('game_update', game.getPublicState());
 };
 
 io.on('connection', (socket) => {
+    // Estas variables quedan vinculadas a CADA conexión de socket específica
+    let currentUserId = null;
+    let currentRoomId = null;
+
     console.log(`🔌 NUEVA CONEXIÓN: ${socket.id}`);
 
-    socket.on('join_game', ({ roomId, username }) => {
-        if (!games[roomId]) {
-            // MODIFICADO: Pasamos el callback para que el temporizador funcione
-        games[roomId] = new BlackjackGame(roomId, (gameState) => {
-            // 1. Avisamos a todos del cambio
-            io.to(roomId).emit('game_update', gameState);
+    // MODIFICADO: Ahora recibimos el objeto 'user' completo del front
+    socket.on('join_game', ({ roomId, user }) => {
+        if (!user || !user.id) return console.error("❌ Intento de join sin User ID");
 
-            // 2. ¡IMPORTANTE! Comprobamos si el tiempo forzó el fin de la partida
-            if (gameState.gameState === 'finished') {
-                checkEndGame(roomId, games[roomId]);
-            }
-        });
+        currentUserId = user.id;
+        currentRoomId = roomId;
+
+        if (!games[roomId]) {
+            games[roomId] = new BlackjackGame(roomId, (gameState) => {
+                io.to(roomId).emit('game_update', gameState);
+                if (gameState.gameState === 'finished') {
+                    checkEndGame(roomId, games[roomId]);
+                }
+            });
             console.log(`✨ Sala creada: ${roomId}`);
         }
         
         const game = games[roomId];
         socket.join(roomId);
 
-        const name = username || `Jugador ${socket.id.substr(0,4)}`;
-        const success = game.addPlayer(socket.id, name);
+        // --- CIRUGÍA: Usamos user.id en lugar de socket.id ---
+        const success = game.addPlayer(user.id, socket.id, user.username);
 
         if (success) {
-            console.log(`✅ ${name} se sentó en ${roomId}`);
+            console.log(`✅ ${user.username} (${user.id}) sentado/reconectado en ${roomId}`);
             emitUpdate(roomId, game);
         } else {
-            console.log(`👀 ${name} entró como espectador (partida en curso)`);
+            console.log(`👀 ${user.username} como espectador`);
             socket.emit('game_update', game.getPublicState());
         }
     });
 
     socket.on('start_round', (roomId) => {
-        console.log(`▶️ Intento de START en ${roomId} por ${socket.id}`);
         const game = games[roomId];
-        
-        if (game) {
-            // MODIFICADO: Pasamos socket.id para verificar si es jugador
-            game.startRound(socket.id);
-            
-            console.log(`🃏 Estado tras start: ${game.gameState}`);
+        if (game && currentUserId) {
+            game.startRound(currentUserId);
             emitUpdate(roomId, game);
-        } else {
-            console.error(`❌ Error: No existe la sala ${roomId}`);
         }
     });
 
     socket.on('action_hit', (roomId) => {
         const game = games[roomId];
-        if (game) {
-            console.log(`👊 HIT: ${socket.id}`);
-            game.hit(socket.id);
+        // Solo permitimos actuar si es SU turno real (basado en ID, no en socket)
+        if (game && game.turn === currentUserId) {
+            console.log(`👊 HIT de usuario: ${currentUserId}`);
+            game.hit(currentUserId);
             emitUpdate(roomId, game);
             checkEndGame(roomId, game);
         }
@@ -93,50 +90,47 @@ io.on('connection', (socket) => {
 
     socket.on('action_stand', (roomId) => {
         const game = games[roomId];
-        if (game) {
-            console.log(`✋ STAND: ${socket.id}`);
-            game.stand(socket.id);
+        if (game && game.turn === currentUserId) {
+            console.log(`✋ STAND de usuario: ${currentUserId}`);
+            game.stand(currentUserId);
             emitUpdate(roomId, game);
             checkEndGame(roomId, game);
         }
     });
 
     socket.on('disconnect', () => {
-        console.log(`💀 SE HA IDO: ${socket.id}`);
+        console.log(`💀 Socket desconectado: ${socket.id} (User: ${currentUserId})`);
         
-        for (const roomId in games) {
-            const game = games[roomId];
-            
-            if (game.players[socket.id]) {
-                console.log(`🧹 Limpiando silla de ${socket.id} en ${roomId}`);
+        if (currentRoomId && currentUserId) {
+            const game = games[currentRoomId];
+            if (game) {
+                // removePlayer ahora es inteligente: 
+                // Si hay partida, solo marca como "sin cable" (socketId = null)
+                game.removePlayer(currentUserId); 
                 
-                game.removePlayer(socket.id); 
+                // Solo borramos la sala si está vacía de verdad (nadie conectado)
+                const activeSockets = Object.values(game.players).filter(p => p.socketId !== null);
                 
-                if (game.playerOrder.length === 0) {
-                    console.log(`🗑️ Sala ${roomId} vacía. Eliminando partida.`);
-                    // Es importante limpiar el timer antes de borrar el objeto
+                if (activeSockets.length === 0 && game.gameState === 'waiting') {
+                    console.log(`🗑️ Sala ${currentRoomId} vacía. Eliminando.`);
                     game.clearTurnTimer(); 
-                    delete games[roomId];
+                    delete games[currentRoomId];
                 } else {
-                    emitUpdate(roomId, game);
+                    emitUpdate(currentRoomId, game);
                 }
-                break;
             }
         }
     });
 });
 
+
+
 function checkEndGame(roomId, game) {
     if (game.gameState === 'finished') {
-        console.log(`🏁 Partida terminada en ${roomId}. Reinicio en 5s...`);
-        
-        // Aseguramos que el timer de turnos esté parado
         game.clearTurnTimer();
-
         setTimeout(() => {
             if (games[roomId]) {
                 game.resetRound();
-                console.log(`🔄 Mesa ${roomId} lista para nueva ronda.`);
                 emitUpdate(roomId, game);
             }
         }, 5000);
@@ -144,5 +138,5 @@ function checkEndGame(roomId, game) {
 }
 
 httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 SERVIDOR LISTO EN PUERTO ${PORT}`);
+    console.log(`🚀 SERVIDOR ROBUSTO LISTO EN PUERTO ${PORT}`);
 });

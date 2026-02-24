@@ -1,68 +1,104 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+#root {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+.card {
+  padding: 2em;
 }
 
-body {
-  margin: 0;
+.read-the-docs {
+  color: #b6c3d1;
+}
+
+/* --- Estilo general del tablero --- */
+.table-shell {
+  background: linear-gradient(180deg, rgba(16, 24, 39, 0.7), rgba(2, 6, 23, 0.85));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 24px;
+  backdrop-filter: blur(12px);
+}
+
+/* --- Cabecera --- */
+.table-header {
   display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+.table-title {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #f1f5f9;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  font-weight: 600;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+/* --- Botones principales --- */
+.btn-primary {
+  background: linear-gradient(135deg, #d4af37 0%, #f2d675 100%);
+  color: #1a1a1a;
+  border: none;
+  box-shadow: 0 10px 24px rgba(212, 175, 55, 0.35);
 }
+.btn-primary:hover {
+  transform: translateY(-1px);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 10px 24px rgba(239, 68, 68, 0.35);
+}
+
+/* --- Secciones --- */
+.section {
+  background: rgba(0,0,0,0.25);
+  border: 1px dashed rgba(255,255,255,0.2);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+/* --- Asientos --- */
+.player-seat {
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 14px;
+  padding: 12px;
+  min-width: 220px;
+  background: rgba(255,255,255,0.06);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.player-seat.turn {
+  border-color: #fde047;
+  box-shadow: 0 0 25px rgba(253,224,71,0.35);
+  transform: translateY(-2px);
+}
+.player-seat.me {
+  background: rgba(34,197,94,0.1);
+  border-color: rgba(34,197,94,0.4);
+}
+.player-name {
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.player-result.win { color: #22c55e; }
+.player-result.lose { color: #ef4444; }
+.player-result.push { color: #a3e635; }
