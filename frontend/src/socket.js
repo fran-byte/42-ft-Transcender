@@ -1,10 +1,10 @@
 import { io } from 'socket.io-client';
 
-// Creamos la conexión UNA sola vez y la exportamos para usarla en toda la app
-export const socket = io('/', {
+// Crear el socket pero NO conectar automáticamente hasta login
+export const socket = io({
     path: '/socket.io',
-    transports: ['websocket'], // Forzamos websocket
+    transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: 5,
-    autoConnect: true
+    autoConnect: false // NO conectar hasta que el usuario haga login
 });

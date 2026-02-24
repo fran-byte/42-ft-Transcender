@@ -27,22 +27,20 @@ function Register({ onRegister, onSwitchToLogin }) {
         setLoading(true);
 
         try {
-            const response = await fetch('http://localhost:3000/api/auth/register', {
+            const response = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                credentials: 'include', // IMPORTANTE: permite enviar/recibir cookies
+                credentials: 'include', // Envía/recibe la cookie httpOnly automáticamente
                 body: JSON.stringify({ username, email, password }),
             });
 
             const data = await response.json();
 
             if (data.success) {
-                // La cookie se guarda automáticamente, solo guardamos info del usuario
-                localStorage.setItem('user', JSON.stringify(data.user));
-                
-                // Llamar al callback del padre
+                // La cookie httpOnly se guarda automáticamente
+                // Solo pasamos los datos del usuario al padre para el estado de React
                 onRegister(data.user);
             } else {
                 setError(data.message || 'Error al registrarse');
