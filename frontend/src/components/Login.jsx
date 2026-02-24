@@ -15,24 +15,18 @@ function Login({ onLogin, onSwitchToRegister }) {
         try {
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'include', // Envía/recibe la cookie httpOnly automáticamente
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ username, password }),
             });
-
             const data = await response.json();
 
             if (data.success) {
-                // La cookie httpOnly se guarda automáticamente
-                // Solo pasamos los datos del usuario al padre para el estado de React
                 onLogin(data.user);
             } else {
-                setError(data.message || 'Error al iniciar sesión');
+                setError(data.message || 'Credenciales incorrectas');
             }
         } catch (err) {
-            console.error('Error en login:', err);
             setError('Error de conexión con el servidor');
         } finally {
             setLoading(false);
@@ -42,42 +36,56 @@ function Login({ onLogin, onSwitchToRegister }) {
     return (
         <div className="auth-container">
             <div className="auth-card">
-                <h2>🎰 Login</h2>
+                <div className="auth-header">
+                    <h1 className="brand-title">ROYAL BLACKJACK</h1>
+                    <div className="brand-subtitle">MEMBERS ONLY</div>
+                </div>
+
                 <form onSubmit={handleSubmit}>
+                    {error && (
+                        <div className="error-banner">
+                            <span>⚠️</span> {error}
+                        </div>
+                    )}
+
                     <div className="form-group">
-                        <label>Username:</label>
-                        <input
-                            type="text"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            required
-                            autoFocus
-                            disabled={loading}
-                        />
+                        <div className="input-group">
+                            <span className="input-icon">👤</span>
+                            <input
+                                className="form-input"
+                                type="text"
+                                placeholder="Usuario / Email"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                required
+                                autoFocus
+                            />
+                        </div>
                     </div>
 
                     <div className="form-group">
-                        <label>Password:</label>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            disabled={loading}
-                        />
+                        <div className="input-group">
+                            <span className="input-icon">🔒</span>
+                            <input
+                                className="form-input"
+                                type="password"
+                                placeholder="Contraseña"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                            />
+                        </div>
                     </div>
-
-                    {error && <div className="error-message">{error}</div>}
 
                     <button type="submit" className="auth-button" disabled={loading}>
-                        {loading ? 'Cargando...' : 'Iniciar Sesión'}
+                        {loading ? 'Validando...' : 'ENTRAR A LA MESA'}
                     </button>
                 </form>
 
-                <div className="auth-switch">
-                    ¿No tienes cuenta?{' '}
-                    <button onClick={onSwitchToRegister} className="link-button">
-                        Regístrate aquí
+                <div className="auth-footer">
+                    ¿Nuevo jugador?
+                    <button onClick={onSwitchToRegister} className="link-highlight">
+                        Crear Cuenta VIP
                     </button>
                 </div>
             </div>

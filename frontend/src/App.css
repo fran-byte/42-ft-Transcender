@@ -1,131 +1,122 @@
+/* App.css - Mesa de Casino High-End */
+
 :root {
-  --table-green: #1a4a1a;
-  --table-felt: radial-gradient(circle, #2d5a27 0%, #1a3a15 100%);
+  --table-felt: radial-gradient(circle at 50% 50%, #2e7d32 0%, #1b5e20 70%, #0d2b0f 100%);
   --gold: #d4af37;
-  --gold-light: #f9e297;
-  --glass: rgba(255, 255, 255, 0.1);
-  --glass-border: rgba(255, 255, 255, 0.2);
-  --shadow-dark: 0 20px 50px rgba(0, 0, 0, 0.5);
+  --gold-glow: 0 0 20px rgba(212, 175, 55, 0.4);
+  --glass: rgba(0, 0, 0, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.1);
 }
 
-body {
-  margin: 0;
-  background: var(--table-felt);
-  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  color: white;
-  overflow-x: hidden;
-}
-
-/* Contenedor de la mesa */
 .game-container {
-  min-height: 100vh;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+    min-height: 100vh;
+    background: var(--table-felt);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    /* Efecto de viñeta para dar profundidad */
+    box-shadow: inset 0 0 200px rgba(0,0,0,0.7);
 }
 
-/* Cabecera estilizada */
-.game-header {
-  width: 100%;
-  max-width: 1200px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px 30px;
-  background: var(--glass);
-  backdrop-filter: blur(10px);
-  border-radius: 50px;
-  border: 1px solid var(--glass-border);
-  margin-bottom: 30px;
-  box-shadow: var(--shadow-dark);
-}
-
-/* Área del Dealer */
+/* Área del Dealer más elegante */
 .dealer-section {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 100px 100px 20px 20px;
-  padding: 30px;
-  margin-bottom: 50px;
-  border: 1px solid var(--glass-border);
-  text-align: center;
-  min-width: 400px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 0 0 150px 150px;
+    padding: 40px 60px;
+    margin-bottom: 60px;
+    border: 2px solid var(--glass-border);
+    border-top: none;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    position: relative;
 }
 
-/* Grid de Jugadores */
+.dealer-section::after {
+    content: "BANKER PAYS 3 TO 2";
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.1);
+    font-size: 0.7rem;
+    letter-spacing: 4px;
+    font-weight: 900;
+}
+
+/* El Grid de jugadores ahora en abanico (Arco) */
 .players-grid {
-  display: flex;
-  justify-content: center;
-  gap: 30px;
-  flex-wrap: wrap;
-  width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    perspective: 1000px; /* Para efecto 3D si quisiéramos */
+    width: 100%;
+    max-width: 1400px;
 }
 
-/* Carta de Jugador individual */
+/* Asientos con estilo de "Puesto de Apuesta" */
 .player-seat {
-  background: var(--glass);
-  backdrop-filter: blur(5px);
-  border-radius: 20px;
-  padding: 20px;
-  min-width: 240px;
-  border: 1px solid var(--glass-border);
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  position: relative;
+    background: var(--glass);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 30px;
+    padding: 25px;
+    min-width: 260px;
+    position: relative;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.5);
 }
 
+/* Resaltado del turno: El "Spotlight" */
 .player-seat.active-turn {
-  border: 2px solid var(--gold);
-  box-shadow: 0 0 30px rgba(212, 175, 55, 0.4);
-  transform: translateY(-10px);
+    border: 2px solid var(--gold);
+    box-shadow: var(--gold-glow), 0 0 50px rgba(212, 175, 55, 0.2);
+    transform: translateY(-15px) scale(1.02);
 }
 
 .player-seat.is-me {
-  background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 215, 0, 0.05);
+    border: 1px solid rgba(212, 175, 55, 0.3);
 }
 
-/* Botones con estilo Casino */
-.btn-casino {
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: bold;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-}
-
-.btn-hit { background: #2ecc71; color: white; }
-.btn-stand { background: #e74c3c; color: white; }
-.btn-hit:hover, .btn-stand:hover { filter: brightness(1.2); transform: scale(1.05); }
-
+/* Marcador de puntos premium */
 .score-badge {
-  background: var(--gold);
-  color: black;
-  padding: 2px 10px;
-  border-radius: 10px;
-  font-weight: 800;
-  margin-left: 10px;
+    background: var(--gold);
+    color: #1a1a1a;
+    padding: 3px 12px;
+    border-radius: 6px;
+    font-family: 'Monaco', monospace;
+    font-weight: 900;
+    font-size: 1rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
 
-/* Ajustes extra para el layout */
-.header-left, .header-right {
-  display: flex;
-  align-items: center;
-  gap: 15px;
+/* Botones con estilo táctil */
+.btn-casino {
+    border-radius: 12px;
+    padding: 14px 28px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 
-.user-info {
-  text-align: right;
-  line-height: 1.2;
+.btn-hit { 
+    background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+    color: white;
+    box-shadow: 0 4px 0 #1e8449;
 }
 
-/* Animación simple para el turno activo */
-@keyframes glow {
-  from { box-shadow: 0 0 10px rgba(212, 175, 55, 0.2); }
-  to { box-shadow: 0 0 25px rgba(212, 175, 55, 0.5); }
+.btn-stand { 
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    color: white;
+    box-shadow: 0 4px 0 #922b21;
 }
 
-.player-seat.active-turn {
-  animation: glow 1.5s infinite alternate;
+.btn-casino:active {
+    transform: translateY(3px);
+    box-shadow: none;
 }

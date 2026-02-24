@@ -13,14 +13,8 @@ function Register({ onRegister, onSwitchToLogin }) {
         e.preventDefault();
         setError('');
 
-        // Validación de passwords
         if (password !== confirmPassword) {
             setError('Las contraseñas no coinciden');
-            return;
-        }
-
-        if (password.length < 6) {
-            setError('La contraseña debe tener al menos 6 caracteres');
             return;
         }
 
@@ -29,24 +23,18 @@ function Register({ onRegister, onSwitchToLogin }) {
         try {
             const response = await fetch('/api/auth/register', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'include', // Envía/recibe la cookie httpOnly automáticamente
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ username, email, password }),
             });
-
             const data = await response.json();
 
             if (data.success) {
-                // La cookie httpOnly se guarda automáticamente
-                // Solo pasamos los datos del usuario al padre para el estado de React
                 onRegister(data.user);
             } else {
-                setError(data.message || 'Error al registrarse');
+                setError(data.message || 'Error en el registro');
             }
         } catch (err) {
-            console.error('Error en registro:', err);
             setError('Error de conexión con el servidor');
         } finally {
             setLoading(false);
@@ -56,64 +44,79 @@ function Register({ onRegister, onSwitchToLogin }) {
     return (
         <div className="auth-container">
             <div className="auth-card">
-                <h2>🎰 Registro</h2>
+                <div className="auth-header">
+                    <h1 className="brand-title">REGISTRO VIP</h1>
+                    <div className="brand-subtitle">ÚNETE A LA ÉLITE</div>
+                </div>
+
                 <form onSubmit={handleSubmit}>
+                    {error && <div className="error-banner"><span>⚠️</span> {error}</div>}
+
                     <div className="form-group">
-                        <label>Username:</label>
-                        <input
-                            type="text"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            required
-                            autoFocus
-                            disabled={loading}
-                        />
+                        <div className="input-group">
+                            <span className="input-icon">👤</span>
+                            <input
+                                className="form-input"
+                                type="text"
+                                placeholder="Elige tu Alias"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                required
+                            />
+                        </div>
                     </div>
 
                     <div className="form-group">
-                        <label>Email:</label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            disabled={loading}
-                        />
+                        <div className="input-group">
+                            <span className="input-icon">✉️</span>
+                            <input
+                                className="form-input"
+                                type="email"
+                                placeholder="Correo Electrónico"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                            />
+                        </div>
                     </div>
 
                     <div className="form-group">
-                        <label>Password:</label>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            disabled={loading}
-                        />
+                        <div className="input-group">
+                            <span className="input-icon">🔑</span>
+                            <input
+                                className="form-input"
+                                type="password"
+                                placeholder="Contraseña Maestra"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                            />
+                        </div>
                     </div>
 
                     <div className="form-group">
-                        <label>Confirmar Password:</label>
-                        <input
-                            type="password"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            required
-                            disabled={loading}
-                        />
+                        <div className="input-group">
+                            <span className="input-icon">🛡️</span>
+                            <input
+                                className="form-input"
+                                type="password"
+                                placeholder="Confirmar Contraseña"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                required
+                            />
+                        </div>
                     </div>
-
-                    {error && <div className="error-message">{error}</div>}
 
                     <button type="submit" className="auth-button" disabled={loading}>
-                        {loading ? 'Cargando...' : 'Registrarse'}
+                        {loading ? 'Creando perfil...' : 'FINALIZAR REGISTRO'}
                     </button>
                 </form>
 
-                <div className="auth-switch">
-                    ¿Ya tienes cuenta?{' '}
-                    <button onClick={onSwitchToLogin} className="link-button">
-                        Inicia sesión aquí
+                <div className="auth-footer">
+                    ¿Ya tienes cuenta?
+                    <button onClick={onSwitchToLogin} className="link-highlight">
+                        Inicia Sesión
                     </button>
                 </div>
             </div>

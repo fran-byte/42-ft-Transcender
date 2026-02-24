@@ -58,52 +58,56 @@ function GameTable({ user, onLogout }) {
     );
   }
 
-  return (
+    return (
     <div className="game-container">
-      {/* --- HEADER --- */}
+      {/* HEADER VIP */}
       <header className="game-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <div style={{ fontSize: '24px' }}>🃏</div>
-          <h2 style={{ margin: 0, color: 'var(--gold)' }}>{roomId}</h2>
+        <div className="header-left">
+          <div style={{ fontSize: '28px', filter: 'drop-shadow(0 0 5px gold)' }}>💰</div>
+          <h2 style={{ margin: 0, letterSpacing: '2px', color: 'var(--gold)' }}>{roomId.toUpperCase()}</h2>
         </div>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{textAlign: 'right'}}>
-            <span style={{ opacity: 0.7, fontSize: '0.7rem', display: 'block' }}>JUGADOR</span>
-            <span style={{ fontWeight: 'bold' }}>{user.username}</span>
+
+        <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '25px' }}>
+          <div style={{ textAlign: 'right', borderRight: '1px solid rgba(255,255,255,0.1)', paddingRight: '20px' }}>
+            <span style={{ color: 'var(--gold)', fontSize: '0.65rem', fontWeight: '900', display: 'block' }}>ACCOUNT STATUS</span>
+            <span style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{user.username.toUpperCase()}</span>
           </div>
-          <button onClick={onLogout} className="btn-casino" style={{background: 'rgba(231, 76, 60, 0.2)', border: '1px solid #e74c3c'}}>
-            SALIR
+          <button onClick={onLogout} className="btn-casino" style={{ padding: '8px 20px', fontSize: '0.7rem', background: 'rgba(231, 76, 60, 0.1)', border: '1px solid #e74c3c', color: '#e74c3c' }}>
+            LEAVE TABLE
           </button>
         </div>
       </header>
 
-      {/* --- ZONA DEL DEALER --- */}
+      {/* ZONA DEL DEALER */}
       <div className="dealer-section">
-        <div style={{ color: 'var(--gold)', fontWeight: 'bold', marginBottom: '15px', letterSpacing: '2px' }}>DEALER</div>
-        
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+        <div style={{ color: 'var(--gold)', fontSize: '0.8rem', fontWeight: '900', marginBottom: '20px', letterSpacing: '4px' }}>DEALER</div>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '15px' }}>
           {gameState.dealerHand.map((c, i) => (
-            <Card key={i} value={c.value} suit={c.suit} />
+            <div key={i} style={{ transform: 'rotate(-2deg)' }}>
+              <Card value={c.value} suit={c.suit} />
+            </div>
           ))}
-          {/* Carta boca abajo si estamos jugando */}
           {gameState.gameState === 'playing' && (
-            <div style={{ width: '80px', height: '110px', background: 'linear-gradient(45deg, #800, #c00)', borderRadius: '8px', border: '2px solid white' }} />
+            <div className="card-back-v2" style={{ 
+              width: '80px', height: '115px', 
+              background: 'repeating-linear-gradient(45deg, #800, #800 10px, #a00 10px, #a00 20px)',
+              borderRadius: '10px', border: '3px solid white', boxShadow: '0 5px 15px rgba(0,0,0,0.5)' 
+            }} />
           )}
         </div>
-        
-        <div style={{marginTop: '15px'}}>
-           <span className="score-badge">Puntos: {gameState.dealerScore}</span>
+        <div style={{ marginTop: '20px' }}>
+          <span className="score-badge">DEALER STANDS ON 17</span>
+          <span className="score-badge" style={{ marginLeft: '10px', background: 'white' }}>{gameState.dealerScore}</span>
         </div>
       </div>
 
-      {/* --- BOTÓN DE INICIO (SOLO EN WAITING) --- */}
+      {/* BOTÓN START CON ESTILO "INVITACIÓN AL JUEGO" */}
       {gameState.gameState === 'waiting' && (
-        <div style={{ margin: '20px' }}>
-          <button onClick={handleStart} className="btn-casino" style={{background: 'var(--gold)', color: 'black', padding: '15px 40px', fontSize: '1.2rem'}}>
-            REPARTIR CARTAS
+        <div style={{ textAlign: 'center', margin: '20px' }}>
+          <button onClick={handleStart} className="btn-casino" 
+            style={{ background: 'var(--gold)', color: 'black', padding: '20px 60px', fontSize: '1.4rem', boxShadow: '0 0 30px rgba(212, 175, 55, 0.3)' }}>
+            PLACE YOUR BETS
           </button>
-          <p style={{marginTop: 10, opacity: 0.7}}>Jugadores en mesa: {gameState.playerOrder.length}</p>
         </div>
       )}
 
@@ -111,71 +115,50 @@ function GameTable({ user, onLogout }) {
       <div className="players-grid">
         {gameState.playerOrder.map((playerId) => {
           const player = gameState.players[playerId];
-          
-          // 1. ¿Soy yo este jugador? (Para saber si poner "TÚ")
           const isMe = String(playerId) === String(user.id);
-          
-          // 2. ¿Es el turno de ESTE asiento específico? (Para el borde dorado)
-          // Comparamos el Turno Global con el ID de ESTE asiento
           const isSeatTurn = String(gameState.turn) === String(playerId);
-        
+
           return (
-            <div 
-              key={playerId} 
-              // CORREGIDO: Usamos isSeatTurn para la clase CSS
-              className={`player-seat ${isMe ? 'is-me' : ''} ${isSeatTurn ? 'active-turn' : ''}`}
-            >
-              
-              {/* Cartel de turno: Solo si es el turno de ESTE asiento */}
+            <div key={playerId} className={`player-seat ${isMe ? 'is-me' : ''} ${isSeatTurn ? 'active-turn' : ''}`}>
               {isSeatTurn && (
-                <div style={{
-                  position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', 
-                  background: 'var(--gold)', color: 'black', padding: '4px 12px', 
-                  borderRadius: '12px', fontSize: '0.7rem', fontWeight: '900', zIndex: 10,
-                  boxShadow: '0 0 10px var(--gold)'
+                <div className="turn-label" style={{
+                  position: 'absolute', top: '-15px', left: '50%', transform: 'translateX(-50%)', 
+                  background: 'var(--gold)', color: 'black', padding: '4px 15px', 
+                  borderRadius: '20px', fontSize: '0.7rem', fontWeight: '900', boxShadow: '0 0 15px var(--gold)'
                 }}>
-                  TURNO
+                  ACTING...
                 </div>
               )}
-              
-              <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 'bold', color: isMe ? 'var(--gold)' : 'white' }}>
-                  {isMe ? 'TÚ' : player.username}
+
+              <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: '900', letterSpacing: '1px', fontSize: '0.9rem' }}>
+                  {isMe ? 'Yo' : player.username.toUpperCase()}
                 </span>
                 <span className="score-badge">{player.score}</span>
               </div>
-            
-              {/* Cartas */}
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '0' }}>
+
+              <div style={{ display: 'flex', justifyContent: 'center', height: '120px' }}>
                 {player.hand.map((c, i) => (
-                  <div key={i} style={{ transform: 'scale(0.85)', margin: '0 -15px', transition: 'transform 0.2s' }}>
+                  <div key={i} style={{ transform: `translateX(${i * -20}px) rotate(${i * 2}deg)`, zIndex: i }}>
                     <Card value={c.value} suit={c.suit} />
                   </div>
                 ))}
               </div>
-              
-              {/* Resultados */}
+
               {player.result && (
                 <div style={{ 
-                  marginTop: '15px', fontWeight: '900', fontSize: '1.2rem', textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-                  color: player.result === 'win' ? '#2ecc71' : player.result === 'push' ? '#f1c40f' : '#e74c3c' 
+                  marginTop: '15px', fontWeight: '900', fontSize: '1.5rem',
+                  textAlign: 'center', color: player.result === 'win' ? '#2ecc71' : '#e74c3c',
+                  textShadow: '0 0 10px rgba(0,0,0,0.5)'
                 }}>
                   {player.result.toUpperCase()}
                 </div>
               )}
-      
-              {/* BOTONES: Solo si soy YO y además es el turno de ESTE asiento (que soy yo) */}
+
               {isMe && isSeatTurn && gameState.gameState === 'playing' && (
-                <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'center' }}>
-                  <button onClick={handleHit} className="btn-casino btn-hit">PEDIR</button>
-                  <button onClick={handleStand} className="btn-casino btn-stand">PLANTAR</button>
-                </div>
-              )}
-              
-              {/* Mensaje "Pensando..." para los rivales */}
-              {!isMe && isSeatTurn && gameState.gameState === 'playing' && (
-                <div style={{textAlign: 'center', marginTop: 10, color: 'var(--gold-light)', fontStyle: 'italic', fontSize: '0.8rem'}}>
-                  Pensando...
+                <div style={{ display: 'flex', gap: '15px', marginTop: '25px', justifyContent: 'center' }}>
+                  <button onClick={handleHit} className="btn-casino btn-hit">HIT</button>
+                  <button onClick={handleStand} className="btn-casino btn-stand">STAND</button>
                 </div>
               )}
             </div>
