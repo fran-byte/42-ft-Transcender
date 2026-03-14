@@ -7,6 +7,7 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173,
     strictPort: true,
+    /*
     allowedHosts: [
       "blackjack.com",
       "www.blackjack.com",
@@ -18,6 +19,8 @@ export default defineConfig({
       protocol: "wss",
       host: "blackjack.com",
     },
+    */ 
+   /*THIS LINES NEED TO BE COMMNETED IN ORDER TO WORK -MSORIANO*/
     watch: {
       usePolling: true,
     },

@@ -10,6 +10,19 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json());
 
+/*LINES ADDED IN ORDER TO CHECK BACKEND WORKS IN PORT 3000*/
+/**/
+app.get('/', (req, res) => {
+    res.send('Backend funcionando');
+});
+
+app.get('/api/health', (req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        service: 'blackjack-backend'
+    });
+});
+/**/
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
     cors: { origin: "*", methods: ["GET", "POST"] }

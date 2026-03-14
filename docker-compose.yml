@@ -1,3 +1,5 @@
+# CHANGED FILE IN ORDER TO WORK ON PORT 5173 -MSORIANO
+
 version: "3.8"
 
 services:
@@ -11,6 +13,9 @@ services:
       - FRONTEND_URL=https://blackjack.com
     networks:
       - transcender_net
+    #THIS LINE IS VERY IMPORTANT FOR FRONTEND TO READ FROM PORT 3000 INTO 5173 -MSORIANO
+    ports:
+      - "3000:3000"
 
   frontend:
     build: ./frontend
