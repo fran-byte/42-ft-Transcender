@@ -7,20 +7,22 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173,
     strictPort: true,
-    /*
+    
+    // Le decimos a Vite que estos dominios son nuestros amigos y les deje pasar
     allowedHosts: [
-      "blackjack.com",
-      "www.blackjack.com",
+      "blackjack.local",
+      "www.blackjack.local",
       "localhost",
       "127.0.0.1",
     ],
+    
+    // Y esto lo dejamos abierto para que el recargado automático funcione
     hmr: {
       clientPort: 443,
       protocol: "wss",
-      host: "blackjack.com",
+      host: "blackjack.local",
     },
-    */ 
-   /*THIS LINES NEED TO BE COMMNETED IN ORDER TO WORK -MSORIANO*/
+    
     watch: {
       usePolling: true,
     },

@@ -9,8 +9,8 @@ services:
     restart: always
     environment:
       - NODE_ENV=production
-      - DOMAIN=https://blackjack.com
-      - FRONTEND_URL=https://blackjack.com
+      - DOMAIN=https://blackjack.local
+      - FRONTEND_URL=https://blackjack.local
     networks:
       - transcender_net
     #THIS LINE IS VERY IMPORTANT FOR FRONTEND TO READ FROM PORT 3000 INTO 5173 -MSORIANO
@@ -22,8 +22,8 @@ services:
     container_name: blackjack-frontend
     restart: always
     environment:
-      - VITE_API_URL=https://blackjack.com/api
-      - VITE_WS_URL=wss://blackjack.com
+      - VITE_API_URL=https://blackjack.local/api
+      - VITE_WS_URL=wss://blackjack.local
     networks:
       - transcender_net
 
@@ -38,9 +38,9 @@ services:
       - "443:443"
       - "80:80"
     volumes:
-      # Certificados para blackjack.com
-      - ./secrets/certs/blackjack.com.crt:/etc/ssl/certs/blackjack.com.crt:ro
-      - ./secrets/certs/blackjack.com.key:/etc/ssl/private/blackjack.com.key:ro
+      # Certificados para blackjack.local
+      - ./secrets/certs/blackjack.local.crt:/etc/ssl/certs/blackjack.local.crt:ro
+      - ./secrets/certs/blackjack.local.key:/etc/ssl/private/blackjack.local.key:ro
       # Configuración del sitio
       - ./requirements/nginx/conf.d:/etc/nginx/conf.d:ro
     networks:

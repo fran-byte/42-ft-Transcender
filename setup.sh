@@ -66,26 +66,26 @@ echo -e "${GREEN}✓ Directorio creado: ./secrets/certs/${RESET}"
 # 3. Generar certificados SSL autofirmados
 step "3/6 Generando certificados SSL autofirmados..."
 
-if [ -f "./secrets/certs/blackjack.com.crt" ] && [ -f "./secrets/certs/blackjack.com.key" ]; then
+if [ -f "./secrets/certs/blackjack.local.crt" ] && [ -f "./secrets/certs/blackjack.local.key" ]; then
     warn "Los certificados ya existen. ¿Quieres regenerarlos? (s/N)"
     read -r response
     if [[ "$response" =~ ^([sS][iI]|[sS])$ ]]; then
-        rm -f ./secrets/certs/blackjack.com.{crt,key}
+        rm -f ./secrets/certs/blackjack.local.{crt,key}
     else
         echo -e "${BLUE}ℹ️  Usando certificados existentes${RESET}"
     fi
 fi
 
-if [ ! -f "./secrets/certs/blackjack.com.crt" ]; then
+if [ ! -f "./secrets/certs/blackjack.local.crt" ]; then
     openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout ./secrets/certs/blackjack.com.key \
-        -out ./secrets/certs/blackjack.com.crt \
-        -subj "/C=ES/ST=Madrid/L=Madrid/O=Blackjack/OU=Dev/CN=blackjack.com" \
-        -addext "subjectAltName=DNS:blackjack.com,DNS:www.blackjack.com,DNS:localhost" \
+        -keyout ./secrets/certs/blackjack.local.key \
+        -out ./secrets/certs/blackjack.local.crt \
+        -subj "/C=ES/ST=Madrid/L=Madrid/O=Blackjack/OU=Dev/CN=blackjack.local" \
+        -addext "subjectAltName=DNS:blackjack.local,DNS:www.blackjack.local,DNS:localhost" \
         2>/dev/null
 
-    chmod 600 ./secrets/certs/blackjack.com.key
-    chmod 644 ./secrets/certs/blackjack.com.crt
+    chmod 600 ./secrets/certs/blackjack.local.key
+    chmod 644 ./secrets/certs/blackjack.local.crt
     echo -e "${GREEN}✓ Certificados SSL generados${RESET}"
 else
     echo -e "${BLUE}ℹ️  Certificados SSL ya existentes${RESET}"
@@ -115,12 +115,12 @@ DB_PASSWORD=blackjack_pass_$(openssl rand -hex 8)
 
 # Application Configuration
 NODE_ENV=production
-DOMAIN=https://blackjack.com
-FRONTEND_URL=https://blackjack.com
+DOMAIN=https://blackjack.local
+FRONTEND_URL=https://blackjack.local
 
 # API Configuration
-VITE_API_URL=https://blackjack.com/api
-VITE_WS_URL=wss://blackjack.com
+VITE_API_URL=https://blackjack.local/api
+VITE_WS_URL=wss://blackjack.local
 EOF
     
     # Generar contraseñas aleatorias
@@ -139,20 +139,20 @@ fi
 # 5. Añadir entrada a /etc/hosts (solo para desarrollo local)
 step "5/6 Configurando /etc/hosts para desarrollo local..."
 
-if grep -q "blackjack.com" /etc/hosts 2>/dev/null; then
-    echo -e "${BLUE}ℹ️  blackjack.com ya está en /etc/hosts${RESET}"
+if grep -q "blackjack.local" /etc/hosts 2>/dev/null; then
+    echo -e "${BLUE}ℹ️  blackjack.local ya está en /etc/hosts${RESET}"
 else
-    warn "Para acceder vía https://blackjack.com necesitas añadir una entrada a /etc/hosts"
+    warn "Para acceder vía https://blackjack.local necesitas añadir una entrada a /etc/hosts"
     echo -e "Se requieren permisos de administrador."
-    echo -e "${YELLOW}¿Añadir '127.0.0.1 blackjack.com' a /etc/hosts? (S/n)${RESET}"
+    echo -e "${YELLOW}¿Añadir '127.0.0.1 blackjack.local' a /etc/hosts? (S/n)${RESET}"
     read -r response
     
     if [[ ! "$response" =~ ^([nN][oO]|[nN])$ ]]; then
-        echo "127.0.0.1 blackjack.com www.blackjack.com" | sudo tee -a /etc/hosts > /dev/null
+        echo "127.0.0.1 blackjack.local www.blackjack.local" | sudo tee -a /etc/hosts > /dev/null
         echo -e "${GREEN}✓ Entrada añadida a /etc/hosts${RESET}"
     else
         warn "Tendrás que añadirlo manualmente:"
-        echo -e "  ${YELLOW}sudo echo '127.0.0.1 blackjack.com www.blackjack.com' >> /etc/hosts${RESET}"
+        echo -e "  ${YELLOW}sudo echo '127.0.0.1 blackjack.local www.blackjack.local' >> /etc/hosts${RESET}"
     fi
 fi
 
@@ -178,8 +178,8 @@ echo -e "${BLUE}║         ✅ Setup completado               ║${RESET}"
 echo -e "${BLUE}╚═══════════════════════════════════════════╝${RESET}"
 echo ""
 echo -e "${GREEN}Archivos creados/verificados:${RESET}"
-echo -e "  ✓ ./secrets/certs/blackjack.com.crt"
-echo -e "  ✓ ./secrets/certs/blackjack.com.key"
+echo -e "  ✓ ./secrets/certs/blackjack.local.crt"
+echo -e "  ✓ ./secrets/certs/blackjack.local.key"
 echo -e "  ✓ ./.env"
 echo -e "  ✓ ./requirements/nginx/conf.d/blackjack.conf"
 echo ""
@@ -187,7 +187,7 @@ echo -e "${YELLOW}Próximos pasos:${RESET}"
 echo -e "  1. Revisa el archivo .env y ajusta si es necesario"
 echo -e "  2. Levanta los contenedores:"
 echo -e "     ${BLUE}make re${RESET}  ${GREEN}# o docker-compose up -d --build${RESET}"
-echo -e "  3. Accede a: ${GREEN}https://blackjack.com${RESET}"
+echo -e "  3. Accede a: ${GREEN}https://blackjack.local${RESET}"
 echo ""
 echo -e "${YELLOW}⚠️  IMPORTANTE:${RESET}"
 echo -e "  - El navegador mostrará advertencia de seguridad (certificado autofirmado)"
@@ -201,7 +201,7 @@ if [[ ! "$response" =~ ^([nN][oO]|[nN])$ ]]; then
     echo -e "${GREEN}🚀 Levantando contenedores...${RESET}"
     make re || docker-compose up -d --build
     echo ""
-    echo -e "${GREEN}✅ ¡Todo listo! Accede a: https://blackjack.com${RESET}"
+    echo -e "${GREEN}✅ ¡Todo listo! Accede a: https://blackjack.local${RESET}"
 else
     echo -e "${BLUE}Cuando estés listo, ejecuta: ${GREEN}make re${RESET}"
 fi
