@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 /*NEED TO ADD THIS LINE SO WE HAVE A ROUTER -MSORIANO*/
 import { BrowserRouter } from 'react-router-dom'
-import './index.css'
+import './styles/Index.css'
 import App from './App.jsx'
 
 createRoot(document.getElementById('root')).render(
@@ -12,3 +12,4 @@ createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </StrictMode>,
 )
+

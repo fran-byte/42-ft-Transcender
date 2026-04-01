@@ -1,0 +1,146 @@
+#root {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  text-align: initial;
+  /*
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+  */
+}
+
+.app-container {
+  min-height: 100vh;
+  width: 100%;
+}
+
+.game-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.game-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.game-loading {
+  justify-content: center;
+  align-items: center;
+  background-color: #2d572c;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+/* NAVBAR */
+
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  width: 100%;
+  background: rgba(6, 20, 14, 0.82);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.navbar__inner {
+  width: 100%;
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 2rem;
+  margin: 0;
+}
+
+.navbar__brand {
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+}
+
+.navbar__nav {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.navbar__link {
+  color: var(--muted);
+  font-weight: 500;
+  transition: color 0.18s ease;
+}
+
+.navbar__link:hover {
+  color: #ffffff;
+}
+
+.navbar__button {
+  margin-left: 0.35rem;
+}
+
+.navbar__button--lg {
+  min-width: 120px;
+  min-height: 48px;
+  padding: 0.9rem 1.2rem;
+}
+
+/* FOOTER */
+
+.footer {
+  margin-top: auto;
+  width: 100%;
+  background: rgba(6, 20, 14, 0.78);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.footer__inner {
+  width: 100%;
+  margin: 0;
+  padding: 1rem 2rem;
+  text-align: center;
+  color: var(--muted);
+}

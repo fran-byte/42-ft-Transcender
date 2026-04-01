@@ -1,11 +1,12 @@
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import "../styles/Terms.css";
+import "../styles/Index.css";
 
 function Terms() {
   return (
     <>
-      <Navbar />
+      <div className="page shell">
+        <Navbar />
 
       <main className="terms">
         <section className="terms__header">
@@ -89,6 +90,7 @@ function Terms() {
       </main>
 
       <Footer />
+      </div>
     </>
   );
 }
