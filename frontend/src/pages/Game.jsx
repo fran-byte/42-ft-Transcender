@@ -6,9 +6,6 @@ import Footer from "../components/Footer";
 import "../styles/Game.css";
 
 function Game() {
-  /* SELECTED TABLE DATA
-     Reads the selected table from localStorage.
-     Falls back to a default solo table if nothing is stored. */
   const storedRoomRaw = localStorage.getItem("selectedRoom");
 
   let storedRoom;
@@ -38,34 +35,34 @@ function Game() {
     };
   }
 
-  /* ROOM / PLAYER STATE */
+  const isSoloTable =
+    storedRoom.mode === "Solo" || storedRoom.id === "solo-table";
+  const isMultiplayerPreview = !isSoloTable;
+
   const [roomId] = useState(storedRoom.id || "solo-table");
   const [tableLabel] = useState(storedRoom.name || "Solo Table");
   const [gameState, setGameState] = useState(null);
   const [myId, setMyId] = useState("");
 
-  /* UI-ONLY CHIP SELECTION */
   const [selectedBet, setSelectedBet] = useState(25);
+  const [tableBet, setTableBet] = useState(null);
+  const [isDragOverBetZone, setIsDragOverBetZone] = useState(false);
 
-  /* SESSION SCORE
-     Accumulates wins across rounds. */
   const [sessionScore, setSessionScore] = useState(() => {
-    return Number(localStorage.getItem("blackjackSessionScore") || 0);
+    const username = localStorage.getItem("username") || "guest";
+    const scoreKey = `blackjackSessionScore_${username}`;
+    return Number(localStorage.getItem(scoreKey) || 0);
   });
 
-  /* ROUND TRACKER
-     Prevents counting the same finished round multiple times. */
   const lastProcessedRoundRef = useRef("");
 
   useEffect(() => {
-    /* CONNECT HANDLER */
     const onConnect = () => {
       console.log("Joining room:", roomId);
       setMyId(socket.id);
       socket.emit("join_game", { roomId });
     };
 
-    /* GAME UPDATE HANDLER */
     const onGameUpdate = (state) => {
       console.log("GAME UPDATE RECEIVED:", state);
       setGameState(state);
@@ -82,19 +79,117 @@ function Game() {
     };
   }, [roomId]);
 
-  /* SAFE DERIVED VALUES
-     Avoids crashes if backend sends partial data. */
-  const playerOrder = gameState?.playerOrder ?? [];
-  const players = gameState?.players ?? {};
-  const dealerHand = gameState?.dealerHand ?? [];
-  const dealerScore = gameState?.dealerScore ?? 0;
-  const currentTurn = gameState?.turn ?? null;
-  const currentGameState = gameState?.gameState ?? "waiting";
-  const myPlayer = players?.[myId] ?? null;
+  const fallbackState = {
+    gameState: "waiting",
+    dealerHand: [],
+    dealerScore: 0,
+    players: {},
+    playerOrder: [],
+    turn: null,
+  };
 
-  /* ROUND RESULT -> SESSION SCORE */
+  const safeState = gameState || fallbackState;
+
+  const rawPlayerOrder = safeState.playerOrder ?? [];
+  const rawPlayers = safeState.players ?? {};
+  const dealerHand = safeState.dealerHand ?? [];
+  const dealerScore = safeState.dealerScore ?? 0;
+  const currentTurn = safeState.turn ?? null;
+  const currentGameState = safeState.gameState ?? "waiting";
+
+  /* SOLO TABLE FIX
+     If backend duplicates players after refresh, force solo mode to only use me.
+     If my socket entry is not ready yet, keep only the first player. */
+  const normalizedState = useMemo(() => {
+    if (!isSoloTable) {
+      return {
+        players: rawPlayers,
+        playerOrder: rawPlayerOrder,
+      };
+    }
+
+    if (myId && rawPlayers[myId]) {
+      return {
+        players: { [myId]: rawPlayers[myId] },
+        playerOrder: [myId],
+      };
+    }
+
+    const firstPlayerId = rawPlayerOrder[0];
+    if (firstPlayerId && rawPlayers[firstPlayerId]) {
+      return {
+        players: { [firstPlayerId]: rawPlayers[firstPlayerId] },
+        playerOrder: [firstPlayerId],
+      };
+    }
+
+    return {
+      players: {},
+      playerOrder: [],
+    };
+  }, [isSoloTable, myId, rawPlayers, rawPlayerOrder]);
+
+  const players = normalizedState.players;
+  const playerOrder = normalizedState.playerOrder;
+  const myPlayer =
+    players?.[myId] ?? players?.[playerOrder[0]] ?? null;
+
+  const calculateHandValue = (hand = []) => {
+    let total = 0;
+    let aces = 0;
+
+    for (const card of hand) {
+      const value = String(card?.value ?? "").toUpperCase();
+
+      if (["K", "Q", "J"].includes(value)) {
+        total += 10;
+      } else if (value === "A") {
+        total += 11;
+        aces += 1;
+      } else {
+        const parsed = Number(value);
+        if (!Number.isNaN(parsed)) total += parsed;
+      }
+    }
+
+    while (total > 21 && aces > 0) {
+      total -= 10;
+      aces -= 1;
+    }
+
+    return total;
+  };
+
+  const myHandValue = calculateHandValue(myPlayer?.hand ?? []);
+
+  const previewPlayers = useMemo(() => {
+    if (!isMultiplayerPreview) return [];
+
+    const seatCount = Math.max(
+      2,
+      Number(
+        storedRoom.seats ?? storedRoom.maxPlayers ?? storedRoom.players ?? 2
+      )
+    );
+
+    const currentPlayers = Math.max(1, Number(storedRoom.players ?? 1));
+
+    return Array.from({ length: seatCount }, (_, index) => ({
+      id: `preview-${index + 1}`,
+      label: index === 0 ? "YOU" : `PLAYER ${index + 1}`,
+      isMe: index === 0,
+      occupied: index < currentPlayers,
+    }));
+  }, [
+    isMultiplayerPreview,
+    storedRoom.players,
+    storedRoom.maxPlayers,
+    storedRoom.seats,
+  ]);
+
   useEffect(() => {
-    if (!gameState || !myId || !myPlayer) return;
+    if (isMultiplayerPreview) return;
+    if (!gameState || !myPlayer) return;
     if (currentGameState !== "finished") return;
     if (!myPlayer.result) return;
 
@@ -107,26 +202,31 @@ function Game() {
 
     if (lastProcessedRoundRef.current === roundKey) return;
 
-    let pointsToAdd = 0;
-    if (myPlayer.result === "win") pointsToAdd = 1;
+    const pointsToAdd = myPlayer.result === "win" ? 1 : 0;
+    const username = localStorage.getItem("username") || "guest";
+    const scoreKey = `blackjackSessionScore_${username}`;
 
-    const updatedScore = sessionScore + pointsToAdd;
-    setSessionScore(updatedScore);
-    localStorage.setItem("blackjackSessionScore", String(updatedScore));
+    setSessionScore((prevScore) => {
+      const updatedScore = prevScore + pointsToAdd;
+      localStorage.setItem(scoreKey, String(updatedScore));
+      return updatedScore;
+    });
 
     lastProcessedRoundRef.current = roundKey;
-  }, [gameState, myId, myPlayer, dealerHand, currentGameState, sessionScore]);
+  }, [isMultiplayerPreview, gameState, myPlayer, dealerHand, currentGameState]);
 
-  /* GAME ACTIONS */
   const handleStart = () => {
+    if (isMultiplayerPreview) return;
     socket.emit("start_round", roomId);
   };
 
   const handleHit = () => {
+    if (isMultiplayerPreview) return;
     socket.emit("action_hit", roomId);
   };
 
   const handleStand = () => {
+    if (isMultiplayerPreview) return;
     socket.emit("action_stand", roomId);
   };
 
@@ -138,8 +238,35 @@ function Game() {
     setSelectedBet(chipValue);
   };
 
-  /* GAME STATUS LABEL */
+  const handleChipDragStart = (event, chipValue) => {
+    event.dataTransfer.setData("text/plain", String(chipValue));
+    event.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleBetZoneDragOver = (event) => {
+    event.preventDefault();
+    setIsDragOverBetZone(true);
+  };
+
+  const handleBetZoneDragLeave = () => {
+    setIsDragOverBetZone(false);
+  };
+
+  const handleBetZoneDrop = (event) => {
+    event.preventDefault();
+    const droppedValue = Number(event.dataTransfer.getData("text/plain"));
+
+    if (!Number.isNaN(droppedValue) && droppedValue > 0) {
+      setTableBet(droppedValue);
+      setSelectedBet(droppedValue);
+    }
+
+    setIsDragOverBetZone(false);
+  };
+
   const gameStatusLabel = useMemo(() => {
+    if (isMultiplayerPreview) return "Preview mode";
+
     switch (currentGameState) {
       case "waiting":
         return "Waiting for players";
@@ -150,24 +277,17 @@ function Game() {
       default:
         return "Loading";
     }
-  }, [currentGameState]);
+  }, [currentGameState, isMultiplayerPreview]);
 
-  /* LOADING SCREEN */
-  if (!gameState) {
-    return (
-      <div className="game-page">
-        <Navbar />
-        <main className="game-main game-loading">
-          <div className="game-loading__box">Loading table...</div>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
+  const amIHost =
+    isSoloTable ? true : playerOrder[0] === myId;
 
-  /* DERIVED PLAYER INFO */
-  const amIHost = playerOrder[0] === myId;
-  const isMyTurn = currentTurn === myId;
+  const isMyTurn =
+    isSoloTable
+      ? currentTurn === myId || currentTurn === playerOrder[0]
+      : currentTurn === myId;
+
+  const seatedCount = isSoloTable ? 1 : playerOrder.length;
 
   return (
     <div className="game-page">
@@ -176,7 +296,7 @@ function Game() {
       <main className="game-main blackjack-page">
         <section className="blackjack-wrapper">
           <div className="blackjack-table">
-            <div className="table-hud">
+            <div className="table-hud table-hud--centered">
               <div className="hud-box">
                 <span className="hud-box__label">Table</span>
                 <strong>{tableLabel}</strong>
@@ -186,38 +306,40 @@ function Game() {
                 <span className="hud-box__label">Status</span>
                 <strong>{gameStatusLabel}</strong>
               </div>
-
-              <div className="hud-box">
-                <span className="hud-box__label">Selected Chip</span>
-                <strong>{selectedBet}</strong>
-              </div>
             </div>
 
-            {currentGameState === "waiting" && (
+            {isMultiplayerPreview && (
+              <div className="multiplayer-banner">
+                Multiplayer mode is still being implemented. Seat layout preview only.
+              </div>
+            )}
+
+            {(currentGameState === "waiting" || isMultiplayerPreview) && (
               <div className="table-felt-text">
                 <p className="table-felt-text__title">Blackjack</p>
-                <p>Dealer stands on 17 · Insurance pays 2 to 1</p>
+                <p>Dealer stands on ---- · Insurance pays --- to 1</p>
               </div>
             )}
 
             <div className="dealer-zone">
               <div className="dealer-zone__header">
                 <h2>Dealer</h2>
-                <span className="dealer-zone__score">Score: {dealerScore}</span>
+                <span className="dealer-zone__score">Total: {dealerScore}</span>
               </div>
 
               <div className="dealer-hand">
-                {dealerHand.map((card, index) => (
-                  <div
-                    key={`${card?.value ?? "x"}-${card?.suit ?? "x"}-${index}`}
-                    className="deal-card deal-card--dealer"
-                    style={{ animationDelay: `${index * 0.18}s` }}
-                  >
-                    <Card value={card?.value} suit={card?.suit} />
-                  </div>
-                ))}
+                {!isMultiplayerPreview &&
+                  dealerHand.map((card, index) => (
+                    <div
+                      key={`${card?.value ?? "x"}-${card?.suit ?? "x"}-${index}`}
+                      className="deal-card deal-card--dealer"
+                      style={{ animationDelay: `${index * 0.18}s` }}
+                    >
+                      <Card value={card?.value} suit={card?.suit} />
+                    </div>
+                  ))}
 
-                {currentGameState === "playing" && (
+                {!isMultiplayerPreview && currentGameState === "playing" && (
                   <div
                     className="deal-card deal-card--dealer"
                     style={{ animationDelay: `${dealerHand.length * 0.18}s` }}
@@ -228,10 +350,10 @@ function Game() {
               </div>
             </div>
 
-            {currentGameState === "waiting" && (
+            {!isMultiplayerPreview && currentGameState === "waiting" && (
               <div className="table-center-message">
                 <p>
-                  Waiting for players... <strong>({playerOrder.length} seated)</strong>
+                  Waiting for players... <strong>({seatedCount} seated)</strong>
                 </p>
 
                 {amIHost ? (
@@ -251,77 +373,141 @@ function Game() {
             )}
 
             <div className="players-arc">
-              {playerOrder.map((playerId, index) => {
-                const player = players?.[playerId];
-                if (!player) return null;
+              {isMultiplayerPreview
+                ? previewPlayers.map((player, index) => (
+                    <article
+                      key={player.id}
+                      className={[
+                        "player-seat",
+                        "player-seat--preview",
+                        player.isMe ? "player-seat--me" : "",
+                        !player.occupied ? "player-seat--empty" : "",
+                      ].join(" ")}
+                      style={{
+                        "--seat-index": index,
+                        "--seat-total": previewPlayers.length,
+                      }}
+                    >
+                      <div className="player-seat__badge">{player.label}</div>
 
-                const isMe = playerId === myId;
-                const isTurn = currentTurn === playerId;
-                const hand = player.hand ?? [];
+                      <div className="player-seat__cards player-seat__cards--placeholder">
+                        <div className="player-seat__placeholder-card"></div>
+                        <div className="player-seat__placeholder-card"></div>
+                      </div>
 
-                return (
-                  <article
-                    key={playerId}
-                    className={[
-                      "player-seat",
-                      isMe ? "player-seat--me" : "",
-                      isTurn ? "player-seat--active" : "",
-                    ].join(" ")}
-                  >
-                    <div className="player-seat__badge">
-                      {isMe ? "YOU" : `PLAYER ${index + 1}`}
-                    </div>
-
-                    <div className="player-seat__cards">
-                      {hand.map((card, cardIndex) => (
-                        <div
-                          key={`${card?.value ?? "x"}-${card?.suit ?? "x"}-${cardIndex}`}
-                          className="deal-card"
-                          style={{ animationDelay: `${cardIndex * 0.14}s` }}
-                        >
-                          <Card value={card?.value} suit={card?.suit} />
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="player-seat__status">
-                      {player.result && (
-                        <span
-                          className={[
-                            "result-pill",
-                            player.result === "win"
-                              ? "result-pill--win"
-                              : player.result === "push"
-                              ? "result-pill--push"
-                              : "result-pill--lose",
-                          ].join(" ")}
-                        >
-                          {String(player.result).toUpperCase()}
+                      <div className="player-seat__status">
+                        <span className="thinking-text">
+                          {player.isMe
+                            ? "Ready"
+                            : player.occupied
+                            ? "Waiting"
+                            : "Empty seat"}
                         </span>
-                      )}
+                      </div>
+                    </article>
+                  ))
+                : playerOrder.map((playerId, index) => {
+                    const player = players?.[playerId];
+                    if (!player) return null;
 
-                      {!isMe && isTurn && (
-                        <span className="thinking-text">Thinking...</span>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
+                    const isMe = playerId === myId || playerId === playerOrder[0];
+                    const isTurn = isSoloTable
+                      ? currentTurn === playerId || currentTurn === myId
+                      : currentTurn === playerId;
+                    const hand = player.hand ?? [];
+
+                    return (
+                      <article
+                        key={playerId}
+                        className={[
+                          "player-seat",
+                          isMe ? "player-seat--me" : "",
+                          isTurn ? "player-seat--active" : "",
+                        ].join(" ")}
+                        style={{
+                          "--seat-index": index,
+                          "--seat-total": playerOrder.length,
+                        }}
+                      >
+                        <div className="player-seat__badge">
+                          {isMe ? "YOU" : `PLAYER ${index + 1}`}
+                        </div>
+
+                        <div className="player-seat__hand-row">
+                          <div className="player-seat__cards">
+                            {hand.map((card, cardIndex) => (
+                              <div
+                                key={`${card?.value ?? "x"}-${card?.suit ?? "x"}-${cardIndex}`}
+                                className="deal-card"
+                                style={{ animationDelay: `${cardIndex * 0.14}s` }}
+                              >
+                                <Card value={card?.value} suit={card?.suit} />
+                              </div>
+                            ))}
+                          </div>
+
+                          {isMe && hand.length > 0 && (
+                            <div className="hand-total-box">
+                              <span className="hand-total-box__label">Total</span>
+                              <strong>{myHandValue}</strong>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="player-seat__status">
+                          {player.result && (
+                            <span
+                              className={[
+                                "result-pill",
+                                player.result === "win"
+                                  ? "result-pill--win"
+                                  : player.result === "push"
+                                  ? "result-pill--push"
+                                  : "result-pill--lose",
+                              ].join(" ")}
+                            >
+                              {String(player.result).toUpperCase()}
+                            </span>
+                          )}
+
+                          {!isMe && isTurn && (
+                            <span className="thinking-text">Thinking...</span>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
             </div>
 
             <div className="game-controls-bar game-controls-bar--inside">
               <div className="bet-panel">
-                <div className="bet-panel__label">Chip Selection (UI only)</div>
+                <div
+                  className={`bet-drop-zone ${
+                    isDragOverBetZone ? "is-drag-over" : ""
+                  }`}
+                  onDragOver={handleBetZoneDragOver}
+                  onDragLeave={handleBetZoneDragLeave}
+                  onDrop={handleBetZoneDrop}
+                >
+                  <span className="bet-drop-zone__label">Drop chip here</span>
+                  {tableBet && (
+                    <span className="bet-drop-zone__value">{tableBet}</span>
+                  )}
+                </div>
+
+                <div className="bet-panel__label">Drag a chip to the table</div>
 
                 <div className="bet-chips">
                   {[5, 10, 25, 50, 100].map((chip) => (
                     <button
                       key={chip}
                       type="button"
+                      draggable
                       className={`bet-chip bet-chip--${chip} ${
                         selectedBet === chip ? "is-selected" : ""
                       }`}
                       onClick={() => handleChipSelect(chip)}
+                      onDragStart={(event) => handleChipDragStart(event, chip)}
                     >
                       {chip}
                     </button>
@@ -342,6 +528,7 @@ function Game() {
                     className="casino-action casino-action--secondary"
                     onClick={handleDouble}
                     disabled={
+                      isMultiplayerPreview ||
                       !(
                         currentGameState === "playing" &&
                         isMyTurn &&
@@ -358,7 +545,10 @@ function Game() {
                   <button
                     className="casino-action casino-action--green"
                     onClick={handleHit}
-                    disabled={!(currentGameState === "playing" && isMyTurn)}
+                    disabled={
+                      isMultiplayerPreview ||
+                      !(currentGameState === "playing" && isMyTurn)
+                    }
                     type="button"
                   >
                     <span className="casino-action__title">Hit</span>
@@ -368,7 +558,10 @@ function Game() {
                   <button
                     className="casino-action casino-action--gold"
                     onClick={handleStand}
-                    disabled={!(currentGameState === "playing" && isMyTurn)}
+                    disabled={
+                      isMultiplayerPreview ||
+                      !(currentGameState === "playing" && isMyTurn)
+                    }
                     type="button"
                   >
                     <span className="casino-action__title">Stand</span>

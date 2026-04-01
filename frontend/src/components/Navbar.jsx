@@ -8,6 +8,8 @@ function Navbar() {
   const protectedRoute = (path) => (isLoggedIn ? path : "/login");
 
   const handleLogout = () => {
+    const username = localStorage.getItem("username") || "guest";
+    localStorage.removeItem(`blackjackSessionScore_${username}`);
     localStorage.removeItem("username");
     localStorage.removeItem("email");
     localStorage.removeItem("selectedRoom");
