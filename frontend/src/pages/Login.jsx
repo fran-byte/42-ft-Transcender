@@ -46,28 +46,28 @@ function Login() {
         <section className="auth-card">
           <div className="auth-card__header">
             <span className="auth-card__eyebrow">Welcome back</span>
-            <h1>Iniciar sesión</h1>
-            <p>Accede con tu email o tu nombre de usuario.</p>
+            <h1>Log In</h1>
+            <p>Access with your email or username</p>
           </div>
 
           <form onSubmit={handleLogin} className="auth-form">
             <div className="form-group">
-              <label>Email o username</label>
+              <label>Email or user</label>
               <input
                 type="text"
-                placeholder="ej. user o user@email.com"
+                placeholder="User or you@email.com"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
               />
             </div>
 
             <button type="submit" className="btn btn-primary btn-block">
-              Entrar
+              Join Game
             </button>
           </form>
 
           <p className="auth-helper">
-            ¿No tienes cuenta? <Link to="/register">Regístrate</Link>
+            Don’t have an account? <Link to="/register">Sign up</Link>
           </p>
         </section>
       </main>

@@ -37,7 +37,9 @@ function Register() {
           gamesPlayed: 0,
           gamesWon: 0,
           gamesLost: 0,
+          gamesPushed: 0,
           blackjacks: 0,
+          winrate: 0,
         })
       );
     }
@@ -53,8 +55,8 @@ function Register() {
         <section className="auth-card auth-card--clean">
           <div className="auth-card__header">
             <span className="auth-card__eyebrow">Create account</span>
-            <h1>Registro</h1>
-            <p>Crea tu perfil para acceder al lobby y a las mesas.</p>
+            <h1>Sign up</h1>
+            <p>Create your profile to access the lobby and tables</p>
           </div>
 
           <form onSubmit={handleRegister} className="auth-form">
@@ -62,7 +64,7 @@ function Register() {
               <label>Username</label>
               <input
                 type="text"
-                placeholder="Tu nombre de usuario"
+                placeholder="Your username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
@@ -72,19 +74,19 @@ function Register() {
               <label>Email</label>
               <input
                 type="email"
-                placeholder="tu@email.com"
+                placeholder="you@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
 
             <button type="submit" className="btn btn-primary btn-block">
-              Crear cuenta
+              Create account
             </button>
           </form>
 
           <p className="auth-helper">
-            ¿Ya tienes cuenta? <Link to="/login">Inicia sesión</Link>
+            Already have an account? <Link to="/login">Log in</Link>
           </p>
         </section>
       </main>

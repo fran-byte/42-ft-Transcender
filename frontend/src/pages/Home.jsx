@@ -17,21 +17,48 @@ function Home() {
             <h1 className="hero__title">Blackjack</h1>
 
             <p className="home-hero-mobile__subtitle">
-              Inicia sesión o regístrate con tu email para empezar a jugar.
+              Log in or sign up with your email to start playing
             </p>
 
             <div className="deck-visual deck-visual--fullscreen">
-              <div className="deck-stack deck-stack--large">
-                <div className="floating-card floating-card--back floating-card--1"></div>
-                <div className="floating-card floating-card--back floating-card--2"></div>
-                <div className="floating-card floating-card--front floating-card--3">
-                  <span>A♠</span>
+              <div className="deck-stack deck-stack--large deck-stack--fan">
+                <div className="casino-card casino-card--back casino-card--1"></div>
+                <div className="casino-card casino-card--back casino-card--2"></div>
+
+                <div className="casino-card casino-card--front casino-card--3 card-red">
+                  <div className="casino-card__corner casino-card__corner--top">
+                    <span>A</span>
+                    <span>♥</span>
+                  </div>
+                  <div className="casino-card__center">♥</div>
+                  <div className="casino-card__corner casino-card__corner--bottom">
+                    <span>A</span>
+                    <span>♥</span>
+                  </div>
                 </div>
-                <div className="floating-card floating-card--front floating-card--4">
-                  <span>K♥</span>
+
+                <div className="casino-card casino-card--front casino-card--4">
+                  <div className="casino-card__corner casino-card__corner--top">
+                    <span>K</span>
+                    <span>♠</span>
+                  </div>
+                  <div className="casino-card__center">♠</div>
+                  <div className="casino-card__corner casino-card__corner--bottom">
+                    <span>K</span>
+                    <span>♠</span>
+                  </div>
                 </div>
-                <div className="floating-card floating-card--front floating-card--5">
-                  <span>10♣</span>
+
+                <div className="casino-card casino-card--front casino-card--5">
+                  <div className="casino-card__corner casino-card__corner--top">
+                    <span>10</span>
+                    <span>♣</span>
+                  </div>
+                  <div className="casino-card__center">♣</div>
+                  <div className="casino-card__corner casino-card__corner--bottom">
+                    <span>10</span>
+                    <span>♣</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -39,16 +66,16 @@ function Home() {
             <div className="hero__actions hero__actions--mobile">
               {isLoggedIn ? (
                 <Link to="/lobby" className="btn btn-gold btn-xl btn-home-main">
-                  Entrar a jugar
+                  Play Now
                 </Link>
               ) : (
                 <>
                   <Link to="/login" className="btn btn-login btn-xl btn-home-main">
-                    Iniciar sesión
+                    Log In
                   </Link>
 
                   <Link to="/register" className="btn btn-secondary btn-xl btn-home-secondary">
-                    Crear cuenta
+                    Sign Up
                   </Link>
                 </>
               )}
