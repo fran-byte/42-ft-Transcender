@@ -126,39 +126,45 @@ function Lobby() {
   }, []);
 
   return (
-    <div className="page shell">
-      <Navbar />
+ <div className="page shell">
+  <Navbar />
 
-      <main className="profile-page profile-page--decorated">
-        <div className="profile-bg-cards" aria-hidden="true">
-          <div className="profile-bg-cards__deck profile-bg-cards__deck--rich">
-            <div className="casino-card casino-card--back profile-casino-card profile-casino-card--1"></div>
+  <main className="profile-page profile-page--decorated">
+    <div className="profile-bg-cards" aria-hidden="true">
+      <div className="profile-bg-cards__deck profile-bg-cards__deck--rich">
+        <div className="casino-card casino-card--back profile-casino-card profile-casino-card--1">
+          <div className="casino-card__inner"></div>
+        </div>
 
-            <div className="casino-card casino-card--front profile-casino-card profile-casino-card--2">
-              <div className="casino-card__corner casino-card__corner--top">
-                <span>A</span>
-                <span>♠</span>
-              </div>
-              <div className="casino-card__center">♠</div>
-              <div className="casino-card__corner casino-card__corner--bottom">
-                <span>A</span>
-                <span>♠</span>
-              </div>
+        <div className="casino-card casino-card--front profile-casino-card profile-casino-card--2">
+          <div className="casino-card__inner">
+            <div className="casino-card__corner casino-card__corner--top">
+              <span>A</span>
+              <span>♠</span>
             </div>
-
-            <div className="casino-card casino-card--front profile-casino-card profile-casino-card--3 card-red">
-              <div className="casino-card__corner casino-card__corner--top">
-                <span>K</span>
-                <span>♥</span>
-              </div>
-              <div className="casino-card__center">♥</div>
-              <div className="casino-card__corner casino-card__corner--bottom">
-                <span>K</span>
-                <span>♥</span>
-              </div>
+            <div className="casino-card__center">♠</div>
+            <div className="casino-card__corner casino-card__corner--bottom">
+              <span>A</span>
+              <span>♠</span>
             </div>
           </div>
         </div>
+
+        <div className="casino-card casino-card--front profile-casino-card profile-casino-card--3 card-red">
+          <div className="casino-card__inner">
+            <div className="casino-card__corner casino-card__corner--top">
+              <span>K</span>
+              <span>♥</span>
+            </div>
+            <div className="casino-card__center">♥</div>
+            <div className="casino-card__corner casino-card__corner--bottom">
+              <span>K</span>
+              <span>♥</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
         <section className="lobby-header">
           <div className="lobby-header__copy">

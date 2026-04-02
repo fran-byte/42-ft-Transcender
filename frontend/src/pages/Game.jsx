@@ -39,28 +39,42 @@ function Game() {
     storedRoom.mode === "Solo" || storedRoom.id === "solo-table";
   const isMultiplayerPreview = !isSoloTable;
 
+  const username = localStorage.getItem("username") || "guest";
+  const scoreKey = `blackjackSessionScore_${username}`;
+  const balanceKey = `blackjackBalance_${username}`;
+
   const [roomId] = useState(storedRoom.id || "solo-table");
   const [tableLabel] = useState(storedRoom.name || "Solo Table");
   const [gameState, setGameState] = useState(null);
   const [myId, setMyId] = useState("");
 
   const [selectedBet, setSelectedBet] = useState(25);
-  const [tableBet, setTableBet] = useState(null);
+  const [tableBet, setTableBet] = useState(0);
+  const [activeBet, setActiveBet] = useState(0);
   const [isDragOverBetZone, setIsDragOverBetZone] = useState(false);
 
   const [sessionScore, setSessionScore] = useState(() => {
-    const username = localStorage.getItem("username") || "guest";
-    const scoreKey = `blackjackSessionScore_${username}`;
     return Number(localStorage.getItem(scoreKey) || 0);
   });
 
+  const [balance, setBalance] = useState(() => {
+    const storedBalance = Number(localStorage.getItem(balanceKey));
+    if (Number.isNaN(storedBalance) || storedBalance <= 0) {
+      localStorage.setItem(balanceKey, "500");
+      return 500;
+    }
+    return storedBalance;
+  });
+
   const lastProcessedRoundRef = useRef("");
+  const previousDealerCountRef = useRef(0);
+  const previousPlayerCountsRef = useRef({});
 
   useEffect(() => {
     const onConnect = () => {
       console.log("Joining room:", roomId);
       setMyId(socket.id);
-      socket.emit("join_game", { roomId });
+      socket.emit("join_game", { roomId, username });
     };
 
     const onGameUpdate = (state) => {
@@ -97,9 +111,6 @@ function Game() {
   const currentTurn = safeState.turn ?? null;
   const currentGameState = safeState.gameState ?? "waiting";
 
-  /* SOLO TABLE FIX
-     If backend duplicates players after refresh, force solo mode to only use me.
-     If my socket entry is not ready yet, keep only the first player. */
   const normalizedState = useMemo(() => {
     if (!isSoloTable) {
       return {
@@ -131,8 +142,7 @@ function Game() {
 
   const players = normalizedState.players;
   const playerOrder = normalizedState.playerOrder;
-  const myPlayer =
-    players?.[myId] ?? players?.[playerOrder[0]] ?? null;
+  const myPlayer = players?.[myId] ?? players?.[playerOrder[0]] ?? null;
 
   const calculateHandValue = (hand = []) => {
     let total = 0;
@@ -187,6 +197,54 @@ function Game() {
     storedRoom.seats,
   ]);
 
+  const shouldAnimateDealerCard = (index) => {
+    if (currentGameState !== "playing") return false;
+
+    const previousCount = previousDealerCountRef.current;
+    const currentCount = dealerHand.length;
+
+    if (currentCount <= previousCount) return false;
+
+    return index >= previousCount;
+  };
+
+  const getDealerAnimationDelay = (index) => {
+    const previousCount = previousDealerCountRef.current;
+    const orderAmongNewCards = index - previousCount;
+    return `${Math.max(0, orderAmongNewCards) * 0.12}s`;
+  };
+
+  const shouldAnimatePlayerCard = (playerId, index, handLength) => {
+    if (currentGameState !== "playing") return false;
+
+    const previousCount = previousPlayerCountsRef.current[playerId] ?? 0;
+    if (handLength <= previousCount) return false;
+
+    return index >= previousCount;
+  };
+
+  const getPlayerAnimationDelay = (playerId, index) => {
+    const previousCount = previousPlayerCountsRef.current[playerId] ?? 0;
+    const orderAmongNewCards = index - previousCount;
+    return `${Math.max(0, orderAmongNewCards) * 0.12}s`;
+  };
+
+  useEffect(() => {
+    const nextPlayerCounts = {};
+
+    playerOrder.forEach((playerId) => {
+      nextPlayerCounts[playerId] = players?.[playerId]?.hand?.length ?? 0;
+    });
+
+    previousDealerCountRef.current = dealerHand.length;
+    previousPlayerCountsRef.current = nextPlayerCounts;
+
+    if (currentGameState === "waiting") {
+      previousDealerCountRef.current = 0;
+      previousPlayerCountsRef.current = {};
+    }
+  }, [dealerHand, players, playerOrder, currentGameState]);
+
   useEffect(() => {
     if (isMultiplayerPreview) return;
     if (!gameState || !myPlayer) return;
@@ -198,13 +256,12 @@ function Game() {
       hand: myPlayer.hand ?? [],
       result: myPlayer.result,
       state: currentGameState,
+      activeBet,
     });
 
     if (lastProcessedRoundRef.current === roundKey) return;
 
     const pointsToAdd = myPlayer.result === "win" ? 1 : 0;
-    const username = localStorage.getItem("username") || "guest";
-    const scoreKey = `blackjackSessionScore_${username}`;
 
     setSessionScore((prevScore) => {
       const updatedScore = prevScore + pointsToAdd;
@@ -212,11 +269,39 @@ function Game() {
       return updatedScore;
     });
 
+    setBalance((prevBalance) => {
+      let updatedBalance = prevBalance;
+
+      if (myPlayer.result === "win") {
+        updatedBalance = prevBalance + activeBet;
+      } else if (myPlayer.result === "lose") {
+        updatedBalance = Math.max(0, prevBalance - activeBet);
+      }
+
+      localStorage.setItem(balanceKey, String(updatedBalance));
+      return updatedBalance;
+    });
+
     lastProcessedRoundRef.current = roundKey;
-  }, [isMultiplayerPreview, gameState, myPlayer, dealerHand, currentGameState]);
+  }, [
+    isMultiplayerPreview,
+    gameState,
+    myPlayer,
+    dealerHand,
+    currentGameState,
+    activeBet,
+    scoreKey,
+    balanceKey,
+  ]);
 
   const handleStart = () => {
     if (isMultiplayerPreview) return;
+    if (tableBet <= 0) return;
+    if (tableBet > balance) return;
+
+    setActiveBet(tableBet);
+    lastProcessedRoundRef.current = "";
+
     socket.emit("start_round", roomId);
   };
 
@@ -234,8 +319,21 @@ function Game() {
     console.log("Double action is not implemented in the backend yet.");
   };
 
+  const addChipToBet = (chipValue) => {
+    if (currentGameState !== "waiting" || isMultiplayerPreview) return;
+
+    setSelectedBet(chipValue);
+    setTableBet((prev) => prev + chipValue);
+  };
+
+  const clearBet = () => {
+    if (currentGameState !== "waiting" || isMultiplayerPreview) return;
+    setTableBet(0);
+  };
+
   const handleChipSelect = (chipValue) => {
     setSelectedBet(chipValue);
+    addChipToBet(chipValue);
   };
 
   const handleChipDragStart = (event, chipValue) => {
@@ -244,6 +342,7 @@ function Game() {
   };
 
   const handleBetZoneDragOver = (event) => {
+    if (currentGameState !== "waiting" || isMultiplayerPreview) return;
     event.preventDefault();
     setIsDragOverBetZone(true);
   };
@@ -253,12 +352,14 @@ function Game() {
   };
 
   const handleBetZoneDrop = (event) => {
+    if (currentGameState !== "waiting" || isMultiplayerPreview) return;
+
     event.preventDefault();
     const droppedValue = Number(event.dataTransfer.getData("text/plain"));
 
     if (!Number.isNaN(droppedValue) && droppedValue > 0) {
-      setTableBet(droppedValue);
       setSelectedBet(droppedValue);
+      setTableBet((prev) => prev + droppedValue);
     }
 
     setIsDragOverBetZone(false);
@@ -279,13 +380,11 @@ function Game() {
     }
   }, [currentGameState, isMultiplayerPreview]);
 
-  const amIHost =
-    isSoloTable ? true : playerOrder[0] === myId;
+  const amIHost = isSoloTable ? true : playerOrder[0] === myId;
 
-  const isMyTurn =
-    isSoloTable
-      ? currentTurn === myId || currentTurn === playerOrder[0]
-      : currentTurn === myId;
+  const isMyTurn = isSoloTable
+    ? currentTurn === myId || currentTurn === playerOrder[0]
+    : currentTurn === myId;
 
   const seatedCount = isSoloTable ? 1 : playerOrder.length;
 
@@ -302,9 +401,19 @@ function Game() {
                 <strong>{tableLabel}</strong>
               </div>
 
-              <div className="hud-box hud-box--center">
+              <div className="hud-box">
                 <span className="hud-box__label">Status</span>
                 <strong>{gameStatusLabel}</strong>
+              </div>
+
+              <div className="hud-box">
+                <span className="hud-box__label">Current Bet</span>
+                <strong>{tableBet}</strong>
+              </div>
+
+              <div className="hud-box">
+                <span className="hud-box__label">Active Bet</span>
+                <strong>{activeBet}</strong>
               </div>
             </div>
 
@@ -317,7 +426,10 @@ function Game() {
             {(currentGameState === "waiting" || isMultiplayerPreview) && (
               <div className="table-felt-text">
                 <p className="table-felt-text__title">Blackjack</p>
-                <p>Dealer stands on ---- · Insurance pays --- to 1</p>
+                <p>
+                  {storedRoom.stakes} · {storedRoom.seats} seat table ·{" "}
+                  {storedRoom.mode}
+                </p>
               </div>
             )}
 
@@ -329,24 +441,27 @@ function Game() {
 
               <div className="dealer-hand">
                 {!isMultiplayerPreview &&
-                  dealerHand.map((card, index) => (
-                    <div
-                      key={`${card?.value ?? "x"}-${card?.suit ?? "x"}-${index}`}
-                      className="deal-card deal-card--dealer"
-                      style={{ animationDelay: `${index * 0.18}s` }}
-                    >
-                      <Card value={card?.value} suit={card?.suit} />
-                    </div>
-                  ))}
+                  dealerHand.map((card, index) => {
+                    const animate = shouldAnimateDealerCard(index);
 
-                {!isMultiplayerPreview && currentGameState === "playing" && (
-                  <div
-                    className="deal-card deal-card--dealer"
-                    style={{ animationDelay: `${dealerHand.length * 0.18}s` }}
-                  >
-                    <Card hidden={true} />
-                  </div>
-                )}
+                    return (
+                      <div
+                        key={`dealer-${card?.value ?? "x"}-${card?.suit ?? "x"}-${index}`}
+                        className={animate ? "deal-card deal-card--dealer" : ""}
+                        style={animate ? { animationDelay: getDealerAnimationDelay(index) } : undefined}
+                      >
+                        <Card value={card?.value} suit={card?.suit} />
+                      </div>
+                    );
+                  })}
+
+                {!isMultiplayerPreview &&
+                  currentGameState === "playing" &&
+                  dealerHand.length > 0 && (
+                    <div className="deal-card deal-card--dealer" style={{ animationDelay: "0.16s" }}>
+                      <Card hidden={true} />
+                    </div>
+                  )}
               </div>
             </div>
 
@@ -357,13 +472,28 @@ function Game() {
                 </p>
 
                 {amIHost ? (
-                  <button
-                    className="casino-btn casino-btn--gold"
-                    onClick={handleStart}
-                    type="button"
-                  >
-                    Deal Cards
-                  </button>
+                  <>
+                    <button
+                      className="casino-btn casino-btn--gold"
+                      onClick={handleStart}
+                      type="button"
+                      disabled={tableBet <= 0 || tableBet > balance}
+                    >
+                      Deal Cards
+                    </button>
+
+                    {tableBet <= 0 && (
+                      <div className="table-center-message__hint">
+                        Place a bet first
+                      </div>
+                    )}
+
+                    {tableBet > balance && (
+                      <div className="table-center-message__hint">
+                        Not enough balance
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <span className="table-center-message__sub">
                     The host will start the round when the table is ready
@@ -433,21 +563,33 @@ function Game() {
                           {isMe ? "YOU" : `PLAYER ${index + 1}`}
                         </div>
 
-                        <div className="player-seat__hand-row">
+                        <div className="player-seat__hand-stack">
                           <div className="player-seat__cards">
-                            {hand.map((card, cardIndex) => (
-                              <div
-                                key={`${card?.value ?? "x"}-${card?.suit ?? "x"}-${cardIndex}`}
-                                className="deal-card"
-                                style={{ animationDelay: `${cardIndex * 0.14}s` }}
-                              >
-                                <Card value={card?.value} suit={card?.suit} />
-                              </div>
-                            ))}
+                            {hand.map((card, cardIndex) => {
+                              const animate = shouldAnimatePlayerCard(
+                                playerId,
+                                cardIndex,
+                                hand.length
+                              );
+
+                              return (
+                                <div
+                                  key={`${playerId}-${card?.value ?? "x"}-${card?.suit ?? "x"}-${cardIndex}`}
+                                  className={animate ? "deal-card" : ""}
+                                  style={
+                                    animate
+                                      ? { animationDelay: getPlayerAnimationDelay(playerId, cardIndex) }
+                                      : undefined
+                                  }
+                                >
+                                  <Card value={card?.value} suit={card?.suit} />
+                                </div>
+                              );
+                            })}
                           </div>
 
                           {isMe && hand.length > 0 && (
-                            <div className="hand-total-box">
+                            <div className="hand-total-box hand-total-box--below">
                               <span className="hand-total-box__label">Total</span>
                               <strong>{myHandValue}</strong>
                             </div>
@@ -482,42 +624,57 @@ function Game() {
             <div className="game-controls-bar game-controls-bar--inside">
               <div className="bet-panel">
                 <div
-                  className={`bet-drop-zone ${
-                    isDragOverBetZone ? "is-drag-over" : ""
-                  }`}
+                  className={`bet-drop-zone ${isDragOverBetZone ? "is-drag-over" : ""}`}
                   onDragOver={handleBetZoneDragOver}
                   onDragLeave={handleBetZoneDragLeave}
                   onDrop={handleBetZoneDrop}
                 >
                   <span className="bet-drop-zone__label">Drop chip here</span>
-                  {tableBet && (
-                    <span className="bet-drop-zone__value">{tableBet}</span>
-                  )}
+                  <span className="bet-drop-zone__value">{tableBet}</span>
                 </div>
 
-                <div className="bet-panel__label">Drag a chip to the table</div>
+                <div className="bet-panel__label">
+                  Click chips to add bet or drag them to the table
+                </div>
 
                 <div className="bet-chips">
                   {[5, 10, 25, 50, 100].map((chip) => (
                     <button
                       key={chip}
                       type="button"
-                      draggable
+                      draggable={currentGameState === "waiting" && !isMultiplayerPreview}
                       className={`bet-chip bet-chip--${chip} ${
                         selectedBet === chip ? "is-selected" : ""
                       }`}
                       onClick={() => handleChipSelect(chip)}
                       onDragStart={(event) => handleChipDragStart(event, chip)}
+                      disabled={currentGameState !== "waiting" || isMultiplayerPreview}
                     >
                       {chip}
                     </button>
                   ))}
                 </div>
+
+                <div className="bet-chip-actions">
+                  <button
+                    type="button"
+                    className="casino-btn casino-btn--ghost"
+                    onClick={clearBet}
+                    disabled={currentGameState !== "waiting" || isMultiplayerPreview || tableBet === 0}
+                  >
+                    Clear Bet
+                  </button>
+                </div>
               </div>
 
               <div className="action-status-panel action-status-panel--right">
-                <div className="status-mini-panel status-mini-panel--single">
-                  <div className="status-mini-panel__item status-mini-panel__item--score">
+                <div className="status-mini-panel">
+                  <div className="status-mini-panel__item">
+                    <span>Balance</span>
+                    <strong>{balance}</strong>
+                  </div>
+
+                  <div className="status-mini-panel__item">
                     <span>Your Score</span>
                     <strong>{sessionScore}</strong>
                   </div>
