@@ -25,3 +25,6 @@ dist-ssr
 
 # PostgreSQL data
 data/postgres/
+
+.env
+secrets/

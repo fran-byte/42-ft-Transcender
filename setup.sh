@@ -160,11 +160,12 @@ fi
 step "6/6 Verificando Docker..."
 
 if ! command -v docker &> /dev/null; then
-    error "Docker no está instalado. Instálalo desde: https://docs.docker.com/get-docker/"
+    error "Docker no está instalado."
     exit 1
 fi
 
-if ! command -v docker-compose &> /dev/null; then
+# Esta línea acepta tanto 'docker-compose' como 'docker compose'
+if ! docker compose version &> /dev/null && ! command -v docker-compose &> /dev/null; then
     error "Docker Compose no está instalado"
     exit 1
 fi
