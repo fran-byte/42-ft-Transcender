@@ -5,6 +5,8 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import "../styles/Game.css";
 
+const API_URL = "http://localhost:3000";
+
 function Game() {
   const storedRoomRaw = localStorage.getItem("selectedRoom");
 
@@ -39,9 +41,14 @@ function Game() {
     storedRoom.mode === "Solo" || storedRoom.id === "solo-table";
   const isMultiplayerPreview = !isSoloTable;
 
-  const username = localStorage.getItem("username") || "guest";
-  const scoreKey = `blackjackSessionScore_${username}`;
-  const balanceKey = `blackjackBalance_${username}`;
+  const [authUser, setAuthUser] = useState(() => {
+    try {
+      const raw = localStorage.getItem("user");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
 
   const [roomId] = useState(storedRoom.id || "solo-table");
   const [tableLabel] = useState(storedRoom.name || "Solo Table");
@@ -52,6 +59,10 @@ function Game() {
   const [tableBet, setTableBet] = useState(0);
   const [activeBet, setActiveBet] = useState(0);
   const [isDragOverBetZone, setIsDragOverBetZone] = useState(false);
+
+  const userStorageKey = authUser?.id || authUser?.username || "guest";
+  const scoreKey = `blackjackSessionScore_${userStorageKey}`;
+  const balanceKey = `blackjackBalance_${userStorageKey}`;
 
   const [sessionScore, setSessionScore] = useState(() => {
     return Number(localStorage.getItem(scoreKey) || 0);
@@ -71,10 +82,60 @@ function Game() {
   const previousPlayerCountsRef = useRef({});
 
   useEffect(() => {
+    const verifyUser = async () => {
+      if (authUser?.id) return;
+
+      try {
+        const res = await fetch(`${API_URL}/api/auth/verify`, {
+          method: "GET",
+          credentials: "include",
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          setAuthUser(data.user);
+          localStorage.setItem("user", JSON.stringify(data.user));
+          localStorage.setItem("username", data.user.username);
+          localStorage.setItem("email", data.user.email);
+          localStorage.setItem("isLoggedIn", "true");
+        } else {
+          console.warn("Unauthenticated user");
+        }
+      } catch (error) {
+        console.error("Error verifying this user:", error);
+      }
+    };
+
+    verifyUser();
+  }, [authUser]);
+
+  useEffect(() => {
+    const newScoreKey = `blackjackSessionScore_${authUser?.id || authUser?.username || "guest"}`;
+    const newBalanceKey = `blackjackBalance_${authUser?.id || authUser?.username || "guest"}`;
+
+    setSessionScore(Number(localStorage.getItem(newScoreKey) || 0));
+
+    const storedBalance = Number(localStorage.getItem(newBalanceKey));
+    if (Number.isNaN(storedBalance) || storedBalance <= 0) {
+      localStorage.setItem(newBalanceKey, "500");
+      setBalance(500);
+    } else {
+      setBalance(storedBalance);
+    }
+  }, [authUser]);
+
+  useEffect(() => {
+    if (!authUser?.id) return;
+
     const onConnect = () => {
-      console.log("Joining room:", roomId);
-      setMyId(socket.id);
-      socket.emit("join_game", { roomId, username });
+      console.log("Joining room:", roomId, "as user:", authUser);
+      setMyId(authUser.id);
+
+      socket.emit("join_game", {
+        roomId,
+        user: authUser,
+      });
     };
 
     const onGameUpdate = (state) => {
@@ -91,7 +152,7 @@ function Game() {
       socket.off("connect", onConnect);
       socket.off("game_update", onGameUpdate);
     };
-  }, [roomId]);
+  }, [roomId, authUser]);
 
   const fallbackState = {
     gameState: "waiting",
@@ -321,7 +382,6 @@ function Game() {
 
   const addChipToBet = (chipValue) => {
     if (currentGameState !== "waiting" || isMultiplayerPreview) return;
-
     setSelectedBet(chipValue);
     setTableBet((prev) => prev + chipValue);
   };
@@ -387,6 +447,24 @@ function Game() {
     : currentTurn === myId;
 
   const seatedCount = isSoloTable ? 1 : playerOrder.length;
+
+  if (!authUser) {
+    return (
+      <div className="game-page">
+        <Navbar />
+        <main className="game-main blackjack-page">
+          <section className="blackjack-wrapper">
+            <div className="blackjack-table">
+              <div className="table-center-message">
+                <p>Verifying session...</p>
+              </div>
+            </div>
+          </section>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="game-page">

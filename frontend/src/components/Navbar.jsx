@@ -7,16 +7,35 @@ function Navbar() {
 
   const protectedRoute = (path) => (isLoggedIn ? path : "/login");
 
-  const handleLogout = () => {
-    const username = localStorage.getItem("username") || "guest";
-    localStorage.removeItem(`blackjackSessionScore_${username}`);
+  const handleLogout = async () => {
+  try {
+      await fetch("http://localhost:3000/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (error) {
+      console.error("Error cerrando sesión:", error);
+    }
+
+    localStorage.removeItem("isLoggedIn");
+    localStorage.removeItem("user");
     localStorage.removeItem("username");
     localStorage.removeItem("email");
-    localStorage.removeItem("selectedRoom");
-    localStorage.removeItem("isLoggedIn");
-    navigate("/");
+
+    navigate("/login");
   };
 
+  /* OLD LOGOUT BEFORE AUTH -MSORIANO
+  * const handleLogout = () => {
+  *   const username = localStorage.getItem("username") || "guest";
+  *   localStorage.removeItem(`blackjackSessionScore_${username}`);
+  *   localStorage.removeItem("username");
+  *   localStorage.removeItem("email");
+  *   localStorage.removeItem("selectedRoom");
+  *   localStorage.removeItem("isLoggedIn");
+  *   navigate("/");
+  };
+  */
   return (
     <header className="navbar">
       <div className="navbar__inner">

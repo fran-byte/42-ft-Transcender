@@ -4,38 +4,61 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import "../styles/Index.css";
 
+const API_URL = "http://localhost:3000";
+
 function Login() {
-  const [identifier, setIdentifier] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setErrorMsg("");
 
-    const storedUsername = localStorage.getItem("username");
-    const storedEmail = localStorage.getItem("email");
+    const cleanUsername = username.trim();
+    const cleanPassword = password.trim();
 
-    if (!identifier.trim()) {
-      alert("Introduce tu email o username");
+    if (!cleanUsername || !cleanPassword) {
+      setErrorMsg("Please fill out user name/password field accurately and submit again");
       return;
     }
+    try {
+      setLoading(true);
 
-    if (!storedUsername || !storedEmail) {
-      alert("No existe ninguna cuenta registrada todavía");
-      return;
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          username: cleanUsername,
+          password: cleanPassword,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setErrorMsg(data.message || "Couldn't log in");
+        return;
+      }
+
+      localStorage.setItem("isLoggedIn", "true");
+      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("username", data.user.username);
+      localStorage.setItem("email", data.user.email);
+
+      navigate("/lobby");
+    } catch (error) {
+      console.error("Log in error:", error);
+      setErrorMsg("Unable to connect to the server");
+    } finally {
+      setLoading(false);
     }
-
-    const value = identifier.trim().toLowerCase();
-    const matches =
-      value === storedUsername.toLowerCase() ||
-      value === storedEmail.toLowerCase();
-
-    if (!matches) {
-      alert("Usuario o email no encontrado");
-      return;
-    }
-
-    localStorage.setItem("isLoggedIn", "true");
-    navigate("/lobby");
   };
 
   return (
@@ -47,27 +70,43 @@ function Login() {
           <div className="auth-card__header">
             <span className="auth-card__eyebrow">Welcome back</span>
             <h1>Log In</h1>
-            <p>Access with your email or username</p>
+            <p>Log in with your username and password</p>
           </div>
 
           <form onSubmit={handleLogin} className="auth-form">
             <div className="form-group">
-              <label>Email or user</label>
+              <label>Username</label>
               <input
                 type="text"
-                placeholder="User or you@email.com"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
               />
             </div>
 
-            <button type="submit" className="btn btn-primary btn-block">
-              Join Game
+            <div className="form-group">
+              <label>Password</label>
+              <input
+                type="password"
+                placeholder="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+
+            {errorMsg && <p className="auth-error">{errorMsg}</p>}
+
+            <button
+              type="submit"
+              className="btn btn-primary btn-block"
+              disabled={loading}
+            >
+              {loading ? "Logging in..." : "Join Game"}
             </button>
           </form>
 
           <p className="auth-helper">
-            Don’t have an account? <Link to="/register">Sign up</Link>
+            Dont't have an account? <Link to="/register">Sign up</Link>
           </p>
         </section>
       </main>

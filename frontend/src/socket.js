@@ -7,14 +7,21 @@ const SOCKET_URL = "http://localhost:3000";
 
 console.log("Connecting to Socket.IO at:", SOCKET_URL);
 
-export const socket = io(SOCKET_URL, {
-  path: "/socket.io/",
+export const socket = io("http://localhost:3000", {
+  withCredentials: true,
   transports: ["websocket", "polling"],
-  reconnection: true,
-  reconnectionDelay: 1000,
-  reconnectionAttempts: 5,
 });
 
+/* OLD DOCKET BEFORE AUTH -MSORIANO
+*
+* export const socket = io(SOCKET_URL, {
+*   path: "/socket.io/",
+*   transports: ["websocket", "polling"],
+*   reconnection: true,
+*   reconnectionDelay: 1000,
+*   reconnectionAttempts: 5,
+* });
+*/
 socket.on("connect", () => {
   console.log("✅ Connected to server:", socket.id);
 });
