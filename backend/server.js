@@ -16,12 +16,12 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
-/* 
-app.options('/*', cors({
-    origin: allowedOrigin,
-    credentials: true
-}));
-*/
+
+/* app.get ADDED SO IT SHOWS A MESSAGE */
+app.get("/", (req, res) => {
+  res.json({ success: true, message: "Backend running" });
+});
+
 app.use(express.json());
 app.use(cookieParser());
 

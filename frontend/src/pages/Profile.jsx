@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -5,23 +6,75 @@ import "../styles/Index.css";
 
 function Profile() {
   const navigate = useNavigate();
-  const username = localStorage.getItem("username") || "Player";
-  const email = localStorage.getItem("email") || "No email";
 
-  const storedStats = JSON.parse(localStorage.getItem("stats") || "{}");
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem("user");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
-  const stats = {
-    gamesPlayed: Number(storedStats.gamesPlayed ?? 0),
-    gamesWon: Number(storedStats.gamesWon ?? 0),
-    gamesLost: Number(storedStats.gamesLost ?? 0),
-    gamesPushed: Number(storedStats.gamesPushed ?? 0),
-    blackjacks: Number(storedStats.blackjacks ?? 0),
-  };
+  const [stats, setStats] = useState({
+    gamesPlayed: 0,
+    gamesWon: 0,
+    gamesLost: 0,
+    gamesPushed: 0,
+    blackjacks: 0,
+  });
 
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const res = await fetch("http://localhost:3000/api/auth/verify", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          navigate("/login");
+          return;
+        }
+
+        setUser(data.user);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.setItem("username", data.user.username);
+        localStorage.setItem("email", data.user.email);
+
+        const rawStats = localStorage.getItem(`stats_${data.user.id}`);
+        const parsedStats = rawStats ? JSON.parse(rawStats) : null;
+
+        setStats({
+          gamesPlayed: Number(parsedStats?.gamesPlayed ?? 0),
+          gamesWon: Number(parsedStats?.gamesWon ?? 0),
+          gamesLost: Number(parsedStats?.gamesLost ?? 0),
+          gamesPushed: Number(parsedStats?.gamesPushed ?? 0),
+          blackjacks: Number(parsedStats?.blackjacks ?? 0),
+        });
+      } catch (error) {
+        console.error("Error cargando perfil:", error);
+        navigate("/login");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, [navigate]);
+
+  const username = user?.username || "Player";
+  const email = user?.email || "No email";
   const initial = username.charAt(0).toUpperCase();
 
-  const winrate =
-    stats.gamesPlayed > 0 ? (stats.gamesWon / stats.gamesPlayed) * 100 : 0;
+  const winrate = useMemo(() => {
+    if (stats.gamesPlayed === 0) return 0;
+    return (stats.gamesWon / stats.gamesPlayed) * 100;
+  }, [stats.gamesPlayed, stats.gamesWon]);
 
   const formattedWinrate = `${winrate.toFixed(1)}%`;
 
@@ -39,62 +92,65 @@ function Profile() {
     localStorage.removeItem("user");
     localStorage.removeItem("username");
     localStorage.removeItem("email");
+    localStorage.removeItem("selectedRoom");
 
     navigate("/login");
-    };
-
-  /* OLD LOGOUT BEFORE AUTH -MSORIANO
-  * const handleLogout = () => {
-  *   const username = localStorage.getItem("username") || "guest";
-  *   localStorage.removeItem(`blackjackSessionScore_${username}`);
-  *   localStorage.removeItem("username");
-  *   localStorage.removeItem("email");
-  *   localStorage.removeItem("selectedRoom");
-  *   localStorage.removeItem("isLoggedIn");
-  *   navigate("/");
   };
-  */
+
+  if (loading) {
+    return (
+      <div className="page shell">
+        <Navbar />
+        <main className="profile-page profile-page--decorated">
+          <section className="glass-card profile-hero">
+            <h1>Loading profile...</h1>
+          </section>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="page shell">
-  <Navbar />
+      <Navbar />
 
-  <main className="profile-page profile-page--decorated">
-    <div className="profile-bg-cards" aria-hidden="true">
-      <div className="profile-bg-cards__deck profile-bg-cards__deck--rich">
-        <div className="casino-card casino-card--back profile-casino-card profile-casino-card--1">
-          <div className="casino-card__inner"></div>
-        </div>
-
-        <div className="casino-card casino-card--front profile-casino-card profile-casino-card--2">
-          <div className="casino-card__inner">
-            <div className="casino-card__corner casino-card__corner--top">
-              <span>A</span>
-              <span>♠</span>
+      <main className="profile-page profile-page--decorated">
+        <div className="profile-bg-cards" aria-hidden="true">
+          <div className="profile-bg-cards__deck profile-bg-cards__deck--rich">
+            <div className="casino-card casino-card--back profile-casino-card profile-casino-card--1">
+              <div className="casino-card__inner"></div>
             </div>
-            <div className="casino-card__center">♠</div>
-            <div className="casino-card__corner casino-card__corner--bottom">
-              <span>A</span>
-              <span>♠</span>
+
+            <div className="casino-card casino-card--front profile-casino-card profile-casino-card--2">
+              <div className="casino-card__inner">
+                <div className="casino-card__corner casino-card__corner--top">
+                  <span>A</span>
+                  <span>♠</span>
+                </div>
+                <div className="casino-card__center">♠</div>
+                <div className="casino-card__corner casino-card__corner--bottom">
+                  <span>A</span>
+                  <span>♠</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="casino-card casino-card--front profile-casino-card profile-casino-card--3 card-red">
+              <div className="casino-card__inner">
+                <div className="casino-card__corner casino-card__corner--top">
+                  <span>K</span>
+                  <span>♥</span>
+                </div>
+                <div className="casino-card__center">♥</div>
+                <div className="casino-card__corner casino-card__corner--bottom">
+                  <span>K</span>
+                  <span>♥</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-
-        <div className="casino-card casino-card--front profile-casino-card profile-casino-card--3 card-red">
-          <div className="casino-card__inner">
-            <div className="casino-card__corner casino-card__corner--top">
-              <span>K</span>
-              <span>♥</span>
-            </div>
-            <div className="casino-card__center">♥</div>
-            <div className="casino-card__corner casino-card__corner--bottom">
-              <span>K</span>
-              <span>♥</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
         <section className="glass-card profile-hero">
           <div className="profile-hero__main">

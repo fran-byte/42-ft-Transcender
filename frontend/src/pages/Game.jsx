@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { socket } from "../socket";
 import Card from "../components/Card";
 import Navbar from "../components/Navbar";
@@ -9,6 +10,7 @@ const API_URL = "http://localhost:3000";
 
 function Game() {
   const storedRoomRaw = localStorage.getItem("selectedRoom");
+  const navigate = useNavigate();
 
   let storedRoom;
   try {
@@ -71,8 +73,8 @@ function Game() {
   const [balance, setBalance] = useState(() => {
     const storedBalance = Number(localStorage.getItem(balanceKey));
     if (Number.isNaN(storedBalance) || storedBalance <= 0) {
-      localStorage.setItem(balanceKey, "500");
-      return 500;
+      localStorage.setItem(balanceKey, "5");
+      return 5;
     }
     return storedBalance;
   });
@@ -101,6 +103,7 @@ function Game() {
           localStorage.setItem("isLoggedIn", "true");
         } else {
           console.warn("Unauthenticated user");
+          navigate("/login");
         }
       } catch (error) {
         console.error("Error verifying this user:", error);
@@ -110,20 +113,37 @@ function Game() {
     verifyUser();
   }, [authUser]);
 
-  useEffect(() => {
-    const newScoreKey = `blackjackSessionScore_${authUser?.id || authUser?.username || "guest"}`;
-    const newBalanceKey = `blackjackBalance_${authUser?.id || authUser?.username || "guest"}`;
+    useEffect(() => {
+      if (!authUser?.id && !authUser?.username) return;
 
-    setSessionScore(Number(localStorage.getItem(newScoreKey) || 0));
+      const storageUserKey = authUser?.id || authUser?.username || "guest";
+      const newScoreKey = `blackjackSessionScore_${storageUserKey}`;
+      const newBalanceKey = `blackjackBalance_${storageUserKey}`;
+      const statsKey = `stats_${authUser?.id || storageUserKey}`;
 
-    const storedBalance = Number(localStorage.getItem(newBalanceKey));
-    if (Number.isNaN(storedBalance) || storedBalance <= 0) {
-      localStorage.setItem(newBalanceKey, "500");
-      setBalance(500);
-    } else {
-      setBalance(storedBalance);
-    }
-  }, [authUser]);
+      setSessionScore(Number(localStorage.getItem(newScoreKey) || 0));
+
+      const storedBalance = Number(localStorage.getItem(newBalanceKey));
+      if (Number.isNaN(storedBalance) || storedBalance <= 0) {
+        localStorage.setItem(newBalanceKey, "5");
+        setBalance(5);
+      } else {
+        setBalance(storedBalance);
+      }
+
+      if (!localStorage.getItem(statsKey)) {
+        localStorage.setItem(
+          statsKey,
+          JSON.stringify({
+            gamesPlayed: 0,
+            gamesWon: 0,
+            gamesLost: 0,
+            gamesPushed: 0,
+            blackjacks: 0,
+          })
+        );
+      }
+    }, [authUser]);
 
   useEffect(() => {
     if (!authUser?.id) return;
@@ -146,7 +166,12 @@ function Game() {
     socket.on("connect", onConnect);
     socket.on("game_update", onGameUpdate);
 
-    if (socket.connected) onConnect();
+    if (!socket.connected) {
+      socket.connect();
+    } 
+    else {
+      onConnect();
+    }
 
     return () => {
       socket.off("connect", onConnect);
@@ -306,54 +331,82 @@ function Game() {
     }
   }, [dealerHand, players, playerOrder, currentGameState]);
 
-  useEffect(() => {
-    if (isMultiplayerPreview) return;
-    if (!gameState || !myPlayer) return;
-    if (currentGameState !== "finished") return;
-    if (!myPlayer.result) return;
+    useEffect(() => {
+      if (isMultiplayerPreview) return;
+      if (!gameState || !myPlayer || !authUser?.id) return;
+      if (currentGameState !== "finished") return;
+      if (!myPlayer.result) return;
 
-    const roundKey = JSON.stringify({
-      dealer: dealerHand,
-      hand: myPlayer.hand ?? [],
-      result: myPlayer.result,
-      state: currentGameState,
+      const roundKey = JSON.stringify({
+        dealer: dealerHand,
+        hand: myPlayer.hand ?? [],
+        result: myPlayer.result,
+        state: currentGameState,
+        activeBet,
+      });
+
+      if (lastProcessedRoundRef.current === roundKey) return;
+
+      const pointsToAdd = myPlayer.result === "win" ? 1 : 0;
+
+      setSessionScore((prevScore) => {
+        const updatedScore = prevScore + pointsToAdd;
+        localStorage.setItem(scoreKey, String(updatedScore));
+        return updatedScore;
+      });
+
+      setBalance((prevBalance) => {
+        let updatedBalance = prevBalance;
+
+        if (myPlayer.result === "win") {
+          updatedBalance = prevBalance + activeBet;
+        } else if (myPlayer.result === "lose") {
+          updatedBalance = Math.max(0, prevBalance - activeBet);
+        }
+
+        localStorage.setItem(balanceKey, String(updatedBalance));
+        return updatedBalance;
+      });
+
+      const statsKey = `stats_${authUser.id}`;
+      const rawStats = localStorage.getItem(statsKey);
+      const previousStats = rawStats
+        ? JSON.parse(rawStats)
+        : {
+            gamesPlayed: 0,
+            gamesWon: 0,
+            gamesLost: 0,
+            gamesPushed: 0,
+            blackjacks: 0,
+          };
+
+      const updatedStats = {
+        ...previousStats,
+        gamesPlayed: Number(previousStats.gamesPlayed || 0) + 1,
+        gamesWon:
+          Number(previousStats.gamesWon || 0) + (myPlayer.result === "win" ? 1 : 0),
+        gamesLost:
+          Number(previousStats.gamesLost || 0) + (myPlayer.result === "lose" ? 1 : 0),
+        gamesPushed:
+          Number(previousStats.gamesPushed || 0) + (myPlayer.result === "push" ? 1 : 0),
+        blackjacks:
+          Number(previousStats.blackjacks || 0) + (myPlayer.status === "blackjack" ? 1 : 0),
+      };
+
+      localStorage.setItem(statsKey, JSON.stringify(updatedStats));
+
+      lastProcessedRoundRef.current = roundKey;
+    }, [
+      isMultiplayerPreview,
+      gameState,
+      myPlayer,
+      dealerHand,
+      currentGameState,
       activeBet,
-    });
-
-    if (lastProcessedRoundRef.current === roundKey) return;
-
-    const pointsToAdd = myPlayer.result === "win" ? 1 : 0;
-
-    setSessionScore((prevScore) => {
-      const updatedScore = prevScore + pointsToAdd;
-      localStorage.setItem(scoreKey, String(updatedScore));
-      return updatedScore;
-    });
-
-    setBalance((prevBalance) => {
-      let updatedBalance = prevBalance;
-
-      if (myPlayer.result === "win") {
-        updatedBalance = prevBalance + activeBet;
-      } else if (myPlayer.result === "lose") {
-        updatedBalance = Math.max(0, prevBalance - activeBet);
-      }
-
-      localStorage.setItem(balanceKey, String(updatedBalance));
-      return updatedBalance;
-    });
-
-    lastProcessedRoundRef.current = roundKey;
-  }, [
-    isMultiplayerPreview,
-    gameState,
-    myPlayer,
-    dealerHand,
-    currentGameState,
-    activeBet,
-    scoreKey,
-    balanceKey,
-  ]);
+      scoreKey,
+      balanceKey,
+      authUser,
+    ]);
 
   const handleStart = () => {
     if (isMultiplayerPreview) return;
