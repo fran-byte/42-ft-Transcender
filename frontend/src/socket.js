@@ -3,11 +3,11 @@ import { io } from "socket.io-client";
 /*const SOCKET_URL = import.meta.env.VITE_WS_URL || "wss://blackjack.com";*/
 /*THIS LINE CHANGES IN ORDER TO WORK WITH PORT 3000 -MSORIANO*/
 // const SOCKET_URL = import.meta.env.VITE_WS_URL || "http://localhost:3000";
-const SOCKET_URL = "http://localhost:3000";
+const SOCKET_URL = "";
 
 console.log("Connecting to Socket.IO at:", SOCKET_URL);
 
-export const socket = io("http://localhost:3000", {
+export const socket = io("", {
   withCredentials: true,
   transports: ["websocket", "polling"],
 });

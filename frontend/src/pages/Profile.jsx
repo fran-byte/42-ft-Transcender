@@ -29,7 +29,7 @@ function Profile() {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const res = await fetch("http://localhost:3000/api/auth/verify", {
+        const res = await fetch("/api/auth/verify", {
           method: "GET",
           credentials: "include",
         });
@@ -80,7 +80,7 @@ function Profile() {
 
   const handleLogout = async () => {
     try {
-      await fetch("http://localhost:3000/api/auth/logout", {
+      await fetch("/api/auth/logout", {
         method: "POST",
         credentials: "include",
       });

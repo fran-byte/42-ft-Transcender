@@ -8,7 +8,7 @@ const authRoutes = require('./routes/auth');
 
 const app = express();
 const PORT = 3000;
-const allowedOrigin = 'http://localhost:5173';
+const allowedOrigin = 'https://blackjack.local';
 
 app.use(cors({
     origin: allowedOrigin,

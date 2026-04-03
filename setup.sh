@@ -107,33 +107,32 @@ else
 fi
 
 if [ "$create_env" = true ]; then
-    cat > .env << 'EOF'
-# Database Configuration
-DB_ROOT_PASSWORD=blackjack_root_pass_$(openssl rand -hex 8)
-DB_USER=blackjack_user
-DB_PASSWORD=blackjack_pass_$(openssl rand -hex 8)
-
-# Application Configuration
-NODE_ENV=production
-DOMAIN=https://blackjack.local
-FRONTEND_URL=https://blackjack.local
-
-# API Configuration
-VITE_API_URL=https://blackjack.local/api
-VITE_WS_URL=wss://blackjack.local
-EOF
-    
     # Generar contraseñas aleatorias
-    ROOT_PASS=$(openssl rand -hex 12)
     DB_PASS=$(openssl rand -hex 12)
-    
-    sed -i "s/blackjack_root_pass_.*$/blackjack_root_pass_${ROOT_PASS}/" .env
-    sed -i "s/blackjack_pass_.*$/blackjack_pass_${DB_PASS}/" .env
-    
+    JWT_PASS=$(openssl rand -hex 32)
+
+    cat > .env << EOF
+# Database Configuration
+POSTGRES_USER=blackjack_user
+POSTGRES_PASSWORD=${DB_PASS}
+POSTGRES_DB=blackjack_db
+DB_HOST=db
+
+# JWT
+JWT_SECRET=${JWT_PASS}
+
+# Data path para PostgreSQL
+DATA_PATH=./data
+
+# Application
+NODE_ENV=development
+REACT_APP_API_URL=https://blackjack.local/api
+EOF
+
     echo -e "${GREEN}✓ Archivo .env creado con contraseñas seguras${RESET}"
     warn "Guarda estas credenciales en un lugar seguro:"
-    echo -e "  DB_ROOT_PASSWORD: blackjack_root_pass_${ROOT_PASS}"
-    echo -e "  DB_PASSWORD: blackjack_pass_${DB_PASS}"
+    echo -e "  POSTGRES_PASSWORD: ${DB_PASS}"
+    echo -e "  JWT_SECRET: ${JWT_PASS}"
 fi
 
 # 5. Añadir entrada a /etc/hosts (solo para desarrollo local)
@@ -164,7 +163,6 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-# Esta línea acepta tanto 'docker-compose' como 'docker compose'
 if ! docker compose version &> /dev/null && ! command -v docker-compose &> /dev/null; then
     error "Docker Compose no está instalado"
     exit 1

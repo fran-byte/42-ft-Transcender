@@ -4,7 +4,7 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import "../styles/Index.css";
 
-const API_URL = "http://localhost:3000";
+const API_URL = "";
 
 function Login() {
   const [username, setUsername] = useState("");

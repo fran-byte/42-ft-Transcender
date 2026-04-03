@@ -5,16 +5,16 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
+    allowedHosts: ['blackjack.local', 'www.blackjack.local'],
     proxy: {
       '/api': {
         target: 'http://backend:3000',
         changeOrigin: true,
       },
-      // Añadimos configuración específica para Socket.io
       '/socket.io': {
         target: 'http://backend:3000',
         changeOrigin: true,
-        ws: true, // <--- IMPORTANTE: Habilitar WebSockets
+        ws: true,
       }
     }
   }
