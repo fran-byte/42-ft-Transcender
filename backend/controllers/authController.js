@@ -60,7 +60,7 @@ exports.register = async (req, res) => {
         const result = await pool.query(
             `INSERT INTO users (username, email, password_hash) 
              VALUES ($1, $2, $3) 
-             RETURNING id, username, email, created_at`,
+             RETURNING id, username, email, balance, created_at`,
             [username, email, password_hash]
         );
 
@@ -88,6 +88,7 @@ exports.register = async (req, res) => {
                 id: user.id,
                 username: user.username,
                 email: user.email,
+                balance: parseFloat(user.balance),
                 createdAt: user.created_at
             }
         });
@@ -155,14 +156,15 @@ exports.login = async (req, res) => {
         });
 
         res.json({
-            success: true,
-            message: 'Login exitoso',
-            user: {
-                id: user.id,
-                username: user.username,
-                email: user.email
-            }
-        });
+                    success: true,
+                    message: 'Login exitoso',
+                    user: {
+                        id: user.id,
+                        username: user.username,
+                        email: user.email,
+                        balance: parseFloat(user.balance)
+                    }
+                });
 
     } catch (error) {
         console.error('Error en login:', error);
@@ -178,7 +180,7 @@ exports.verifyToken = async (req, res) => {
     try {
         // El middleware ya verificó el token y añadió req.user
         const result = await pool.query(
-            'SELECT id, username, email FROM users WHERE id = $1',
+            'SELECT id, username, email, balance FROM users WHERE id = $1',
             [req.user.userId]
         );
 
@@ -196,7 +198,8 @@ exports.verifyToken = async (req, res) => {
             user: {
                 id: user.id,
                 username: user.username,
-                email: user.email
+                email: user.email,
+                balance: parseFloat(user.balance)
             }
         });
 
@@ -207,4 +210,57 @@ exports.verifyToken = async (req, res) => {
             message: 'Error en el servidor' 
         });
     }
+    };
+    // Obtener balance del usuario
+exports.getBalance = async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT balance FROM users WHERE id = $1',
+            [req.user.userId]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+        }
+        res.json({ success: true, balance: parseFloat(result.rows[0].balance) });
+    } catch (error) {
+        console.error('Error en getBalance:', error);
+        res.status(500).json({ success: false, message: 'Error en el servidor' });
+    }
+};
+
+// Actualizar balance del usuario (ingresar, retirar, resultado partida)
+exports.updateBalance = async (req, res) => {
+    try {
+        const { amount, type } = req.body;
+        // type: 'deposit' | 'withdraw' | 'game_result'
+        // amount: positivo para ingresar, negativo para retirar
+
+        if (amount === undefined || !type) {
+            return res.status(400).json({ success: false, message: 'amount y type son requeridos' });
+        }
+
+        // Obtener balance actual
+        const current = await pool.query(
+            'SELECT balance FROM users WHERE id = $1',
+            [req.user.userId]
+        );
+
+        const currentBalance = parseFloat(current.rows[0].balance);
+        const newBalance = currentBalance + parseFloat(amount);
+
+        if (newBalance < 0) {
+            return res.status(400).json({ success: false, message: 'Saldo insuficiente' });
+        }
+
+        const result = await pool.query(
+            'UPDATE users SET balance = $1 WHERE id = $2 RETURNING balance',
+            [newBalance, req.user.userId]
+        );
+
+        res.json({ success: true, balance: parseFloat(result.rows[0].balance) });
+    } catch (error) {
+        console.error('Error en updateBalance:', error);
+        res.status(500).json({ success: false, message: 'Error en el servidor' });
+    }
+    
 };

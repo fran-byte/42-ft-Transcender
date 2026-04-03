@@ -61,7 +61,9 @@ function Game() {
   const [tableBet, setTableBet] = useState(0);
   const [activeBet, setActiveBet] = useState(0);
   const [isDragOverBetZone, setIsDragOverBetZone] = useState(false);
-
+  const [showWallet, setShowWallet] = useState(false);
+  const [walletAmount, setWalletAmount] = useState(100);
+  const [walletMsg, setWalletMsg] = useState("");
   const userStorageKey = authUser?.id || authUser?.username || "guest";
   const scoreKey = `blackjackSessionScore_${userStorageKey}`;
   const balanceKey = `blackjackBalance_${userStorageKey}`;
@@ -70,14 +72,7 @@ function Game() {
     return Number(localStorage.getItem(scoreKey) || 0);
   });
 
-  const [balance, setBalance] = useState(() => {
-    const storedBalance = Number(localStorage.getItem(balanceKey));
-    if (Number.isNaN(storedBalance) || storedBalance < 100) {
-      localStorage.setItem(balanceKey, "1000");
-      return 1000;
-    }
-    return storedBalance;
-  });
+  const [balance, setBalance] = useState(1000);
 
   const lastProcessedRoundRef = useRef("");
   const previousDealerCountRef = useRef(0);
@@ -97,11 +92,12 @@ function Game() {
 
         if (res.ok && data.success) {
           setAuthUser(data.user);
+          setBalance(data.user.balance ?? 1000);
           localStorage.setItem("user", JSON.stringify(data.user));
           localStorage.setItem("username", data.user.username);
           localStorage.setItem("email", data.user.email);
           localStorage.setItem("isLoggedIn", "true");
-        } else {
+        }else {
           console.warn("Unauthenticated user");
           navigate("/login");
         }
@@ -123,12 +119,8 @@ function Game() {
 
       setSessionScore(Number(localStorage.getItem(newScoreKey) || 0));
 
-      const storedBalance = Number(localStorage.getItem(newBalanceKey));
-      if (Number.isNaN(storedBalance) || storedBalance < 100) {
-        localStorage.setItem(newBalanceKey, "5");
-        setBalance(1000);
-      } else {
-        setBalance(storedBalance);
+      if (authUser?.balance !== undefined) {
+        setBalance(authUser.balance);
       }
 
       if (!localStorage.getItem(statsKey)) {
@@ -363,8 +355,14 @@ function Game() {
         } else if (myPlayer.result === "lose") {
           updatedBalance = Math.max(0, prevBalance - activeBet);
         }
-
-        localStorage.setItem(balanceKey, String(updatedBalance));
+        // Actualizar balance en la base de datos
+        const amount = updatedBalance - prevBalance;
+        fetch("/api/auth/balance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ amount, type: "game_result" }),
+        }).catch(err => console.error("Error actualizando balance:", err));
         return updatedBalance;
       });
 
@@ -800,9 +798,17 @@ function Game() {
 
               <div className="action-status-panel action-status-panel--right">
                 <div className="status-mini-panel">
-                  <div className="status-mini-panel__item">
+                    <div className="status-mini-panel__item">
                     <span>Balance</span>
                     <strong>{balance}</strong>
+                    <button
+                      className="casino-btn casino-btn--ghost"
+                      style={{ fontSize: "0.7rem", padding: "2px 8px", marginLeft: "8px" }}
+                      onClick={() => setShowWallet(true)}
+                      type="button"
+                    >
+                      💰 Wallet
+                    </button>
                   </div>
 
                   <div className="status-mini-panel__item">
@@ -861,7 +867,55 @@ function Game() {
           </div>
         </section>
       </main>
-
+      {showWallet && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
+          background: "rgba(0,0,0,0.7)", zIndex: 1000,
+          display: "flex", alignItems: "center", justifyContent: "center"
+        }}>
+          <div style={{
+            background: "#1a1a2e", border: "1px solid #gold", borderRadius: "12px",
+            padding: "32px", minWidth: "320px", color: "white", textAlign: "center"
+          }}>
+            <h2>💰 Wallet</h2>
+            <p style={{ color: "#aaa" }}>Current balance: <strong>${balance}</strong></p>
+            <input
+              type="number"
+              min="10"
+              max="10000"
+              value={walletAmount}
+              onChange={(e) => setWalletAmount(Number(e.target.value))}
+              style={{ padding: "8px", borderRadius: "6px", width: "100%", marginBottom: "16px", textAlign: "center" }}
+            />
+            {walletMsg && <p style={{ color: walletMsg.includes("Error") ? "red" : "lightgreen" }}>{walletMsg}</p>}
+            <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginBottom: "16px" }}>
+              <button className="casino-btn casino-btn--gold" onClick={async () => {
+                setWalletMsg("");
+                const res = await fetch("/api/auth/balance", {
+                  method: "POST", credentials: "include",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ amount: walletAmount, type: "deposit" })
+                });
+                const data = await res.json();
+                if (data.success) { setBalance(data.balance); setWalletMsg(`✅ Deposited $${walletAmount}`); }
+                else setWalletMsg("Error: " + data.message);
+              }}>Deposit</button>
+              <button className="casino-btn casino-btn--ghost" onClick={async () => {
+                setWalletMsg("");
+                const res = await fetch("/api/auth/balance", {
+                  method: "POST", credentials: "include",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ amount: -walletAmount, type: "withdraw" })
+                });
+                const data = await res.json();
+                if (data.success) { setBalance(data.balance); setWalletMsg(`✅ Withdrawn $${walletAmount}`); }
+                else setWalletMsg("Error: " + data.message);
+              }}>Withdraw</button>
+            </div>
+            <button className="casino-btn casino-btn--ghost" onClick={() => { setShowWallet(false); setWalletMsg(""); }}>Close</button>
+          </div>
+        </div>
+      )}              
       <Footer />
     </div>
   );
