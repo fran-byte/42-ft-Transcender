@@ -52,7 +52,7 @@ function Game() {
     }
   });
 
-  const [roomId] = useState(storedRoom.id || "solo-table");
+  const [roomId] = useState(storedRoom.mode === "Solo" ? "solo-table-" + authUser?.id : storedRoom.id);
   const [tableLabel] = useState(storedRoom.name || "Solo Table");
   const [gameState, setGameState] = useState(null);
   const [myId, setMyId] = useState("");
@@ -72,9 +72,9 @@ function Game() {
 
   const [balance, setBalance] = useState(() => {
     const storedBalance = Number(localStorage.getItem(balanceKey));
-    if (Number.isNaN(storedBalance) || storedBalance <= 0) {
-      localStorage.setItem(balanceKey, "5");
-      return 5;
+    if (Number.isNaN(storedBalance) || storedBalance < 100) {
+      localStorage.setItem(balanceKey, "1000");
+      return 1000;
     }
     return storedBalance;
   });
@@ -124,9 +124,9 @@ function Game() {
       setSessionScore(Number(localStorage.getItem(newScoreKey) || 0));
 
       const storedBalance = Number(localStorage.getItem(newBalanceKey));
-      if (Number.isNaN(storedBalance) || storedBalance <= 0) {
+      if (Number.isNaN(storedBalance) || storedBalance < 100) {
         localStorage.setItem(newBalanceKey, "5");
-        setBalance(5);
+        setBalance(1000);
       } else {
         setBalance(storedBalance);
       }

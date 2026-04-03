@@ -131,9 +131,11 @@ io.on('connection', (socket) => {
 
 function checkEndGame(roomId, game) {
     if (game.gameState === 'finished') {
+        if (game._resetTimer) return;
         game.clearTurnTimer();
-        setTimeout(() => {
+        game._resetTimer = setTimeout(() => {
             if (games[roomId]) {
+                game._resetTimer = null;
                 game.resetRound();
                 emitUpdate(roomId, game);
             }
