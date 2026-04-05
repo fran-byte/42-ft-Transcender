@@ -34,8 +34,28 @@ error() {
     echo -e "${RED}❌ $1${RESET}"
 }
 
+# Función para limpiar datos antiguos de la base de datos
+clean_database_data() {
+    if [ -d "./data/postgres" ] && [ "$(ls -A ./data/postgres 2>/dev/null)" ]; then
+        warn "Se encontraron datos antiguos de la base de datos en ./data/postgres"
+        echo -e "${YELLOW}¿Deseas limpiarlos para empezar desde cero? (S/n)${RESET}"
+        read -r response
+        if [[ ! "$response" =~ ^([nN][oO]|[nN])$ ]]; then
+            echo -e "${GREEN}🧹 Limpiando datos antiguos de la base de datos...${RESET}"
+            sudo rm -rf ./data/postgres
+            sudo mkdir -p ./data/postgres
+            sudo chown -R $(id -u):$(id -g) ./data
+            echo -e "${GREEN}✓ Datos de base de datos limpiados${RESET}"
+        fi
+    else
+        # Crear la carpeta si no existe
+        sudo mkdir -p ./data/postgres
+        sudo chown -R $(id -u):$(id -g) ./data
+    fi
+}
+
 # 1. Corregir estructura de directorios
-step "1/6 Corrigiendo estructura de directorios..."
+step "1/7 Corrigiendo estructura de directorios..."
 
 # Renombrar ngnix -> nginx si existe
 if [ -d "./requirements/ngnix" ]; then
@@ -59,12 +79,12 @@ fi
 echo -e "${GREEN}✓ Estructura de directorios corregida${RESET}"
 
 # 2. Crear directorio para certificados
-step "2/6 Creando directorio para certificados SSL..."
+step "2/7 Creando directorio para certificados SSL..."
 mkdir -p ./secrets/certs
 echo -e "${GREEN}✓ Directorio creado: ./secrets/certs/${RESET}"
 
 # 3. Generar certificados SSL autofirmados
-step "3/6 Generando certificados SSL autofirmados..."
+step "3/7 Generando certificados SSL autofirmados..."
 
 if [ -f "./secrets/certs/blackjack.local.crt" ] && [ -f "./secrets/certs/blackjack.local.key" ]; then
     warn "Los certificados ya existen. ¿Quieres regenerarlos? (s/N)"
@@ -92,15 +112,16 @@ else
 fi
 
 # 4. Configurar archivo .env
-step "4/6 Configurando variables de entorno..."
+step "4/7 Configurando variables de entorno..."
 
+create_env=false
 if [ -f ".env" ]; then
     warn "El archivo .env ya existe. ¿Quieres sobrescribirlo? (s/N)"
     read -r response
-    if [[ ! "$response" =~ ^([sS][iI]|[sS])$ ]]; then
-        echo -e "${BLUE}ℹ️  Usando .env existente${RESET}"
-    else
+    if [[ "$response" =~ ^([sS][iI]|[sS])$ ]]; then
         create_env=true
+    else
+        echo -e "${BLUE}ℹ️  Usando .env existente${RESET}"
     fi
 else
     create_env=true
@@ -135,8 +156,13 @@ EOF
     echo -e "  JWT_SECRET: ${JWT_PASS}"
 fi
 
-# 5. Añadir entrada a /etc/hosts (solo para desarrollo local)
-step "5/6 Configurando /etc/hosts para desarrollo local..."
+# 5. Limpiar base de datos antigua
+step "5/7 Preparando base de datos..."
+clean_database_data
+echo -e "${GREEN}✓ Base de datos preparada${RESET}"
+
+# 6. Añadir entrada a /etc/hosts (solo para desarrollo local)
+step "6/7 Configurando /etc/hosts para desarrollo local..."
 
 if grep -q "blackjack.local" /etc/hosts 2>/dev/null; then
     echo -e "${BLUE}ℹ️  blackjack.local ya está en /etc/hosts${RESET}"
@@ -155,8 +181,8 @@ else
     fi
 fi
 
-# 6. Verificar docker y docker-compose
-step "6/6 Verificando Docker..."
+# 7. Verificar docker y docker-compose
+step "7/7 Verificando Docker..."
 
 if ! command -v docker &> /dev/null; then
     error "Docker no está instalado."
@@ -181,6 +207,7 @@ echo -e "  ✓ ./secrets/certs/blackjack.local.crt"
 echo -e "  ✓ ./secrets/certs/blackjack.local.key"
 echo -e "  ✓ ./.env"
 echo -e "  ✓ ./requirements/nginx/conf.d/blackjack.conf"
+echo -e "  ✓ ./data/postgres (limpio)"
 echo ""
 echo -e "${YELLOW}Próximos pasos:${RESET}"
 echo -e "  1. Revisa el archivo .env y ajusta si es necesario"
@@ -201,6 +228,7 @@ if [[ ! "$response" =~ ^([nN][oO]|[nN])$ ]]; then
     make re || docker-compose up -d --build
     echo ""
     echo -e "${GREEN}✅ ¡Todo listo! Accede a: https://blackjack.local${RESET}"
+    echo -e "${BLUE}   make logs    # Para ver los logs en tiempo real${RESET}"
 else
     echo -e "${BLUE}Cuando estés listo, ejecuta: ${GREEN}make re${RESET}"
 fi

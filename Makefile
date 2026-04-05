@@ -37,10 +37,20 @@ down:
 
 # 6. 'make fclean': BORRADO TOTAL (Incluye Base de Datos y volúmenes)
 # Úsalo si quieres empezar de cero absoluto.
+#fclean:
+#	@echo "$(RED)🔥 NUKING EVERYTHING (Containers, Networks, Images, Volumes)...$(RESET)"
+#	$(COMPOSE) down -v --rmi all --remove-orphans
+#	@echo "$(GREEN)✅ Sistema limpio y reseteado.$(RESET)"
+
 fclean:
 	@echo "$(RED)🔥 NUKING EVERYTHING (Containers, Networks, Images, Volumes)...$(RESET)"
 	$(COMPOSE) down -v --rmi all --remove-orphans
+	@echo "$(RED)🗑️  Removing local database files...$(RESET)"
+	@sudo rm -rf ./data/postgres
+	@sudo mkdir -p ./data/postgres
+	@sudo chown -R $$(id -u):$$(id -g) ./data
 	@echo "$(GREEN)✅ Sistema limpio y reseteado.$(RESET)"
+
 
 # 7. 'make re': Reinicio total (Borra todo y vuelve a levantar)
 re: fclean up
