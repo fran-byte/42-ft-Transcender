@@ -64,6 +64,7 @@ function Game() {
   const [showWallet, setShowWallet] = useState(false);
   const [walletAmount, setWalletAmount] = useState(100);
   const [walletMsg, setWalletMsg] = useState("");
+  const isWalletAmountValid = Number.isFinite(walletAmount) && walletAmount >= 10 && walletAmount <= 10000;
   const userStorageKey = authUser?.id || authUser?.username || "guest";
   const scoreKey = `blackjackSessionScore_${userStorageKey}`;
   const balanceKey = `blackjackBalance_${userStorageKey}`;
@@ -807,14 +808,14 @@ function Game() {
                     <div className="status-mini-panel__item">
                     <span>Balance</span>
                     <strong>{balance}</strong>
-                    <button
-                      className="casino-btn casino-btn--ghost"
-                      style={{ fontSize: "0.7rem", padding: "2px 8px", marginLeft: "8px" }}
-                      onClick={() => setShowWallet(true)}
-                      type="button"
-                    >
-                      💰 Wallet
-                    </button>
+                      <button
+                        className="wallet-trigger"
+                        onClick={() => setShowWallet(true)}
+                        type="button"
+                      >
+                        <span className="wallet-trigger__icon">💰</span>
+                        <span>Wallet</span>
+                      </button>
                   </div>
 
                   <div className="status-mini-panel__item">
@@ -873,55 +874,126 @@ function Game() {
           </div>
         </section>
       </main>
-      {showWallet && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
-          background: "rgba(0,0,0,0.7)", zIndex: 1000,
-          display: "flex", alignItems: "center", justifyContent: "center"
-        }}>
-          <div style={{
-            background: "#1a1a2e", border: "1px solid #gold", borderRadius: "12px",
-            padding: "32px", minWidth: "320px", color: "white", textAlign: "center"
-          }}>
-            <h2>💰 Wallet</h2>
-            <p style={{ color: "#aaa" }}>Current balance: <strong>${balance}</strong></p>
-            <input
-              type="number"
-              min="10"
-              max="10000"
-              value={walletAmount}
-              onChange={(e) => setWalletAmount(Number(e.target.value))}
-              style={{ padding: "8px", borderRadius: "6px", width: "100%", marginBottom: "16px", textAlign: "center" }}
-            />
-            {walletMsg && <p style={{ color: walletMsg.includes("Error") ? "red" : "lightgreen" }}>{walletMsg}</p>}
-            <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginBottom: "16px" }}>
-              <button className="casino-btn casino-btn--gold" onClick={async () => {
-                setWalletMsg("");
-                const res = await fetch("/api/auth/balance", {
-                  method: "POST", credentials: "include",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ amount: walletAmount, type: "deposit" })
-                });
-                const data = await res.json();
-                if (data.success) { setBalance(data.balance); setWalletMsg(`✅ Deposited $${walletAmount}`); }
-                else setWalletMsg("Error: " + data.message);
-              }}>Deposit</button>
-              <button className="casino-btn casino-btn--ghost" onClick={async () => {
-                setWalletMsg("");
-                const res = await fetch("/api/auth/balance", {
-                  method: "POST", credentials: "include",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ amount: -walletAmount, type: "withdraw" })
-                });
-                const data = await res.json();
-                if (data.success) { setBalance(data.balance); setWalletMsg(`✅ Withdrawn $${walletAmount}`); }
-                else setWalletMsg("Error: " + data.message);
-              }}>Withdraw</button>
+      {/* WALLET LOGIC AND CSS */}
+          {showWallet && (
+        <div className="wallet-modal" onClick={() => { setShowWallet(false); setWalletMsg(""); }}>
+          <div
+            className="wallet-modal__card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="wallet-modal__header">
+              <div>
+                <span className="wallet-modal__eyebrow">Bankroll</span>
+                <h2>Wallet</h2>
+              </div>
+
+              <button
+                className="wallet-modal__close"
+                onClick={() => { setShowWallet(false); setWalletMsg(""); }}
+                type="button"
+                aria-label="Close wallet"
+              >
+                ✕
+              </button>
             </div>
-            <button className="casino-btn casino-btn--ghost" onClick={() => { setShowWallet(false); setWalletMsg(""); }}>Close</button>
+
+            <div className="wallet-balance">
+              <span className="wallet-balance__label">Current balance</span>
+              <strong className="wallet-balance__value">${balance}</strong>
+            </div>
+
+            <div className="wallet-form">
+              <label htmlFor="wallet-amount" className="wallet-form__label">
+                Amount
+              </label>
+              <input
+                id="wallet-amount"
+                className="wallet-form__input"
+                type="number"
+                min="10"
+                max="10000"
+                value={walletAmount}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setWalletAmount(value === "" ? 0 : Number(value));
+                }}/>
+            </div>
+
+            {walletMsg && (
+              <p
+                className={`wallet-message ${
+                  walletMsg.toLowerCase().includes("error")
+                    ? "wallet-message--error"
+                    : "wallet-message--success"
+                }`}
+              >
+                {walletMsg}
+              </p>
+            )}
+
+            <div className="wallet-actions">
+              <button
+                className="casino-btn casino-btn--gold"
+                type="button"
+                disabled={!isWalletAmountValid}
+                onClick={async () => {
+                  if (!isWalletAmountValid) {
+                    setWalletMsg("Error: enter a valid amount between 10 and 10000");
+                    return;
+                  }
+                  setWalletMsg("");
+                  const res = await fetch("/api/auth/balance", {
+                    method: "POST",
+                    credentials: "include",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ amount: walletAmount, type: "deposit" }),
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    setBalance(data.balance);
+                    setWalletMsg(`Deposited +$${walletAmount}`);
+                  } else {
+                    setWalletMsg("Error: " + data.message);
+                  }
+                }}
+              >
+                Deposit
+              </button>
+
+              <button
+                className="casino-btn casino-btn--ghost"
+                type="button"
+                onClick={async () => {
+                  if (!isWalletAmountValid) {
+                    setWalletMsg("Error: enter a valid amount between 10 and 10000");
+                    return;
+                  }
+                  if (walletAmount > balance) {
+                    setWalletMsg("Error: insufficient balance");
+                    return;
+                  }
+                  setWalletMsg("");
+                  const res = await fetch("/api/auth/balance", {
+                    method: "POST",
+                    credentials: "include",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ amount: -walletAmount, type: "withdraw" }),
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    setBalance(data.balance);
+                    setWalletMsg(`Withdrawn -$${walletAmount}`);
+                  } else {
+                    setWalletMsg("Error: " + data.message);
+                  }
+                }}
+              >
+                Withdraw
+              </button>
+            </div>
           </div>
         </div>
-      )}              
+      )}
       <Footer />
     </div>
   );
