@@ -51,8 +51,7 @@ services:
   db:          # Un contenedor para la base de datos : Puerto Interno: 5432
   nginx:       # Un contenedor para el servidor web : Puerto Externo 80 y 443
 
-´´´
-
+```
 
 ### Tecnologías
 
@@ -77,10 +76,4 @@ services:
 
 ### Acceso
 
-```
-
 https://blackjack.local
-
-```
-
-```
