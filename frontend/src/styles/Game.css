@@ -216,7 +216,7 @@
   align-items: stretch;
   gap: 1rem;
   margin-bottom: 1rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .table-hud--centered .hud-box {
@@ -233,6 +233,7 @@
   color: #fff5cf;
   text-align: center;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24);
+  flex: 0 1 220px;
 }
 
 .hud-box__label {
@@ -363,7 +364,7 @@
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  gap: 1.4rem;
+  gap: 2rem;
   flex-wrap: nowrap;
 }
 
@@ -405,14 +406,8 @@
 }
 
 .player-seat--preview {
-  transform: translateY(
-    calc(
-      (
-        (var(--seat-index, 0) - ((var(--seat-total, 1) - 1) / 2)) *
-          (var(--seat-index, 0) - ((var(--seat-total, 1) - 1) / 2))
-      ) * -6px + 18px
-    )
-  );
+  --seat-offset: calc(var(--seat-index, 0) - ((var(--seat-total, 1) - 1) / 2));
+  transform: translateY(calc((var(--seat-offset) * var(--seat-offset) * -70px) + 70px));
 }
 
 .player-seat__badge {
@@ -640,20 +635,27 @@
 
 .bet-chips {
   display: flex;
-  align-items: center;
-  gap: 0.8rem;
   flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
   justify-content: flex-start;
+  margin-top: 0.75rem;
 }
 
 .bet-chip {
-  width: 58px;
-  height: 58px;
+  width: clamp(52px, 7vw, 74px);
+  height: clamp(52px, 7vw, 74px);
   border-radius: 50%;
   border: 3px dashed rgba(255, 255, 255, 0.78);
   font-weight: 800;
-  font-size: 0.95rem;
+  font-size: clamp(0.8rem, 1.5vw, 1rem);
   cursor: grab;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  touch-action: manipulation;
   box-shadow:
     inset 0 0 0 5px rgba(255, 255, 255, 0.1),
     0 8px 14px rgba(0, 0, 0, 0.25);
@@ -858,88 +860,258 @@
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.18);
 }
 
+/* WALLET */
+.wallet-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-left: 0.6rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  color: #f6e7b0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.wallet-trigger:hover {
+  transform: translateY(-1px);
+  border-color: rgba(212, 175, 55, 0.6);
+  background: linear-gradient(180deg, rgba(212, 175, 55, 0.14), rgba(255,255,255,0.04));
+}
+
+.wallet-trigger__icon {
+  font-size: 0.95rem;
+}
+
+.wallet-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(5, 10, 8, 0.74);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+.wallet-modal__card {
+  width: min(100%, 460px);
+  border-radius: 24px;
+  padding: 1.4rem;
+  color: #f7f3e8;
+  background:
+    radial-gradient(circle at top, rgba(212, 175, 55, 0.08), transparent 38%),
+    linear-gradient(180deg, rgba(10, 28, 20, 0.98), rgba(7, 20, 15, 0.98));
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.wallet-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.15rem;
+}
+
+.wallet-modal__eyebrow {
+  display: inline-block;
+  margin-bottom: 0.3rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(246, 231, 176, 0.72);
+}
+
+.wallet-modal__header h2 {
+  margin: 0;
+  font-size: 1.55rem;
+  line-height: 1.1;
+}
+
+.wallet-modal__close {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  color: #f7f3e8;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.wallet-modal__close:hover {
+  transform: scale(1.03);
+  border-color: rgba(212, 175, 55, 0.35);
+  background: rgba(255,255,255,0.08);
+}
+
+.wallet-balance {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  padding: 1rem 1.05rem;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.wallet-balance__label {
+  font-size: 0.84rem;
+  color: rgba(255,255,255,0.68);
+}
+
+.wallet-balance__value {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  color: #f6e7b0;
+}
+
+.wallet-form {
+  margin-bottom: 1rem;
+}
+
+.wallet-form__label {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-size: 0.84rem;
+  color: rgba(255,255,255,0.78);
+}
+
+.wallet-form__input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.1);
+  outline: none;
+  background: rgba(255,255,255,0.05);
+  color: #fff;
+  font-size: 1rem;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.wallet-form__input:focus {
+  border-color: rgba(212, 175, 55, 0.48);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.12);
+  background: rgba(255,255,255,0.07);
+}
+
+.wallet-message {
+  margin: 0 0 1rem;
+  padding: 0.8rem 0.95rem;
+  border-radius: 14px;
+  font-size: 0.9rem;
+}
+
+.wallet-message--success {
+  background: rgba(56, 161, 105, 0.14);
+  border: 1px solid rgba(56, 161, 105, 0.3);
+  color: #b8f5cb;
+}
+
+.wallet-message--error {
+  background: rgba(229, 62, 62, 0.14);
+  border: 1px solid rgba(229, 62, 62, 0.3);
+  color: #ffb4b4;
+}
+
+.wallet-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
 /* RESPONSIVE */
-@media (max-width: 1100px) {
+@media (max-width: 1150px) {
   .blackjack-table {
-    min-height: 980px;
+    min-height: 900px;
+    border-radius: 30px 30px 120px 120px;
+    padding: 1rem 1rem 1.75rem;
   }
 
-  .players-arc {
-    bottom: 210px;
-    gap: 1rem;
-  }
-
-  .player-seat {
-    width: 170px;
-  }
-
-  .player-seat--me {
-    width: 180px;
-  }
-}
-
-@media (max-width: 980px) {
-  .game-controls-bar--inside {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .bet-panel {
-    min-width: 100%;
-  }
-
-  .bet-drop-zone {
-    width: 100%;
-  }
-
-  .players-arc {
-    gap: 1rem;
-  }
-
-  .player-seat__hand-row {
-    flex-direction: column;
-  }
-}
-
-@media (max-width: 900px) {
   .table-hud {
-    justify-content: center;
-    max-width: 700px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    max-width: 760px;
     margin-left: auto;
     margin-right: auto;
   }
 
-  .game-controls-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .action-status-panel--right {
-    margin-left: 0;
-    align-items: stretch;
-  }
-
-  .status-mini-panel--single {
-    justify-content: stretch;
-  }
-
-  .status-mini-panel__item--score {
+  .hud-box {
+    min-width: 0;
+    max-width: none;
     width: 100%;
   }
 
-  .actions-panel {
+  .table-felt-text {
+    top: 22%;
+    width: 90%;
+  }
+    .players-arc {
+    position: static;
+    transform: none;
+    width: 100%;
+    margin-top: 2rem;
+    padding-bottom: 0;
     justify-content: center;
+    gap: 1rem;
   }
 
-  .players-arc {
-    flex-wrap: wrap;
-    gap: 1rem;
-    bottom: 240px;
+  .player-seat--preview-1,
+  .player-seat--preview-2,
+  .player-seat--preview-3,
+  .player-seat--preview-4 {
+    transform: none;
   }
 
   .player-seat__hand-row {
     flex-direction: column;
-    gap: 0.9rem;
+  }
+
+  .game-controls-bar--inside {
+    position: static;
+    left: auto;
+    bottom: auto;
+    transform: none;
+    width: 100%;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1.2rem;
+  }
+
+  .bet-panel {
+    min-width: 100%;
+    order: 2;
+  }
+
+  .bet-drop-zone {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .action-status-panel--right {
+    order: 1;
+    margin-left: 0;
+    align-items: stretch;
+  }
+
+  .wallet-trigger {
+    margin-left: 0;
+    margin-top: 0.45rem;
   }
 }
 
@@ -955,8 +1127,17 @@
   }
 
   .table-hud {
-    flex-direction: column;
-    align-items: center;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    justify-content: stretch;
+    max-width: 100%;
+  }
+
+  .hud-box {
+    min-width: 0;
+    max-width: none;
+    width: 100%;
   }
 
   .table-felt-text {
@@ -977,10 +1158,17 @@
     transform: none;
     width: 100%;
     margin-top: 2rem;
-    padding-bottom: 12rem;
+    padding-bottom: 0;
     justify-content: center;
+    gap: 0.9rem;
   }
 
+  .player-seat--preview-1,
+  .player-seat--preview-2,
+  .player-seat--preview-3,
+  .player-seat--preview-4 {
+    transform: none;
+  }
   .player-seat {
     width: 100%;
     max-width: 340px;
@@ -992,18 +1180,50 @@
   }
 
   .game-controls-bar--inside {
-    width: calc(100% - 2rem);
-    bottom: 16px;
+    position: static;
+    left: auto;
+    bottom: auto;
+    transform: none;
+    width: 100%;
+    margin-top: 2rem;
+    padding-top: 1rem;
+  }
+
+  .bet-panel {
+    order: 2;
+  }
+
+  .action-status-panel--right {
+    order: 1;
+    margin-left: 0;
+    align-items: stretch;
+  }
+
+  .bet-panel__label {
+    text-align: center;
+    width: 100%;
+  }
+
+  .bet-drop-zone {
+    width: 100%;
+  }
+
+  .bet-chips {
+    justify-content: center;
   }
 
   .bet-chip {
-    width: 46px;
-    height: 46px;
-    font-size: 0.82rem;
+    width: 58px;
+    height: 58px;
+  }
+
+  .wallet-actions {
+    grid-template-columns: 1fr;
   }
 
   .actions-panel {
     gap: 0.75rem;
+    justify-content: center;
   }
 
   .casino-action {
@@ -1020,8 +1240,57 @@
     font-size: 0.72rem;
   }
 
-  .player-seat__hand-row {
+}
+
+@media (max-width: 580px) {
+  .player-seat--preview {
+    transform: none !important;
+  }
+
+   .player-seat__cards > *:not(:first-child) {
+    margin-left: -12px;
+  }
+
+  .players-arc {
     flex-direction: column;
-    gap: 0.9rem;
+    align-items: center;
+  }
+  
+  .player-seat {
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .wallet-modal {
+    padding: 0.9rem;
+    align-items: flex-end;
+  }
+
+  .wallet-modal__card {
+    width: 100%;
+    border-radius: 22px 22px 0 0;
+    padding: 1.1rem;
+  }
+
+  .table-hud {
+    grid-template-columns: 1fr;
+  }
+
+  .bet-chips {
+    gap: 0.55rem;
+  }
+
+  .bet-chip {
+    width: 52px;
+    height: 52px;
+    font-size: 0.82rem;
+  }
+
+  .status-mini-panel {
+    justify-content: center;
+  }
+
+  .status-mini-panel__item {
+    width: 100%;
   }
 }
