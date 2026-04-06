@@ -19,29 +19,24 @@ function Game() {
       : {
           id: "solo-table",
           name: "Solo Table",
-          players: 1,
           maxPlayers: 1,
           seats: 1,
           stakes: "$5 / $200",
-          status: "Open",
           mode: "Solo",
         };
-  } catch (error) {
+  } catch {
     storedRoom = {
       id: "solo-table",
       name: "Solo Table",
-      players: 1,
       maxPlayers: 1,
       seats: 1,
       stakes: "$5 / $200",
-      status: "Open",
       mode: "Solo",
     };
   }
 
   const isSoloTable =
     storedRoom.mode === "Solo" || storedRoom.id === "solo-table";
-  const isMultiplayerPreview = !isSoloTable;
 
   const [authUser, setAuthUser] = useState(() => {
     try {
@@ -52,28 +47,57 @@ function Game() {
     }
   });
 
-  const [roomId] = useState(storedRoom.mode === "Solo" ? "solo-table-" + authUser?.id : storedRoom.id);
-  const [tableLabel] = useState(storedRoom.name || "Solo Table");
+  const [roomId] = useState(() =>
+    isSoloTable
+      ? `solo-table-${
+          JSON.parse(localStorage.getItem("user") || "{}")?.id || "guest"
+        }`
+      : storedRoom.id || "blackjack-room-1"
+  );
+
+  const roleStorageKey = useMemo(() => {
+    const tempUser = JSON.parse(localStorage.getItem("user") || "{}");
+    const userId = tempUser?.id || "guest";
+    return `blackjack_role_${roomId}_${userId}`;
+  }, [roomId]);
+
+  const [tableLabel] = useState(storedRoom.name || "Blackjack Table");
   const [gameState, setGameState] = useState(null);
   const [myId, setMyId] = useState("");
+  const [myRole, setMyRole] = useState(() => {
+    try {
+      return sessionStorage.getItem(roleStorageKey) || "player";
+    } catch {
+      return "player";
+    }
+  });
 
   const [selectedBet, setSelectedBet] = useState(25);
-  const [tableBet, setTableBet] = useState(0);
-  const [activeBet, setActiveBet] = useState(0);
   const [isDragOverBetZone, setIsDragOverBetZone] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
   const [walletAmount, setWalletAmount] = useState(100);
   const [walletMsg, setWalletMsg] = useState("");
-  const isWalletAmountValid = Number.isFinite(walletAmount) && walletAmount >= 10 && walletAmount <= 10000;
+
+  const [balance, setBalance] = useState(1000);
+  const [stats, setStats] = useState({
+    gamesPlayed: 0,
+    gamesWon: 0,
+    gamesLost: 0,
+    gamesPushed: 0,
+    blackjacks: 0,
+  });
+
   const userStorageKey = authUser?.id || authUser?.username || "guest";
   const scoreKey = `blackjackSessionScore_${userStorageKey}`;
-  const balanceKey = `blackjackBalance_${userStorageKey}`;
 
   const [sessionScore, setSessionScore] = useState(() => {
     return Number(localStorage.getItem(scoreKey) || 0);
   });
 
-  const [balance, setBalance] = useState(1000);
+  const isWalletAmountValid =
+    Number.isFinite(walletAmount) &&
+    walletAmount >= 10 &&
+    walletAmount <= 10000;
 
   const lastProcessedRoundRef = useRef("");
   const previousDealerCountRef = useRef(0);
@@ -98,25 +122,25 @@ function Game() {
           localStorage.setItem("username", data.user.username);
           localStorage.setItem("email", data.user.email);
           localStorage.setItem("isLoggedIn", "true");
-        }else {
-          console.warn("Unauthenticated user");
+        } else {
           navigate("/login");
         }
       } catch (error) {
-        console.error("Error verifying this user:", error);
+        console.error("Error verifying user:", error);
+        navigate("/login");
       }
     };
 
     verifyUser();
-  }, [authUser]);
+  }, [authUser, navigate]);
 
-    useEffect(() => {
+  useEffect(() => {
+    const bootstrapUserData = async () => {
       if (!authUser?.id && !authUser?.username) return;
 
       const storageUserKey = authUser?.id || authUser?.username || "guest";
       const newScoreKey = `blackjackSessionScore_${storageUserKey}`;
-      const newBalanceKey = `blackjackBalance_${storageUserKey}`;
-      const statsKey = `stats_${authUser?.id || storageUserKey}`;
+      const localStatsKey = `stats_${authUser?.id || storageUserKey}`;
 
       setSessionScore(Number(localStorage.getItem(newScoreKey) || 0));
 
@@ -124,53 +148,107 @@ function Game() {
         setBalance(authUser.balance);
       }
 
-      if (!localStorage.getItem(statsKey)) {
-        localStorage.setItem(
-          statsKey,
-          JSON.stringify({
-            gamesPlayed: 0,
-            gamesWon: 0,
-            gamesLost: 0,
-            gamesPushed: 0,
-            blackjacks: 0,
-          })
-        );
+      try {
+        const statsRes = await fetch("/api/auth/stats", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          const backendStats = statsData?.stats || statsData || {};
+
+          const normalizedStats = {
+            gamesPlayed: Number(backendStats.gamesPlayed || 0),
+            gamesWon: Number(backendStats.gamesWon || 0),
+            gamesLost: Number(backendStats.gamesLost || 0),
+            gamesPushed: Number(backendStats.gamesPushed || 0),
+            blackjacks: Number(backendStats.blackjacks || 0),
+          };
+
+          setStats(normalizedStats);
+          localStorage.setItem(localStatsKey, JSON.stringify(normalizedStats));
+        } else {
+          const rawLocalStats = localStorage.getItem(localStatsKey);
+          if (rawLocalStats) {
+            setStats(JSON.parse(rawLocalStats));
+          } else {
+            const emptyStats = {
+              gamesPlayed: 0,
+              gamesWon: 0,
+              gamesLost: 0,
+              gamesPushed: 0,
+              blackjacks: 0,
+            };
+            setStats(emptyStats);
+            localStorage.setItem(localStatsKey, JSON.stringify(emptyStats));
+          }
+        }
+      } catch (error) {
+        console.error("Error loading stats:", error);
+
+        const rawLocalStats = localStorage.getItem(localStatsKey);
+        if (rawLocalStats) {
+          setStats(JSON.parse(rawLocalStats));
+        }
       }
-    }, [authUser]);
+    };
+
+    bootstrapUserData();
+  }, [authUser]);
 
   useEffect(() => {
     if (!authUser?.id) return;
 
     const onConnect = () => {
-      console.log("Joining room:", roomId, "as user:", authUser);
       setMyId(authUser.id);
+
+      const persistedRole =
+        sessionStorage.getItem(roleStorageKey) || myRole || "player";
 
       socket.emit("join_game", {
         roomId,
         user: authUser,
+        maxPlayers: Number(storedRoom.seats || storedRoom.maxPlayers || 4),
+        preferredRole: isSoloTable ? "player" : persistedRole,
       });
     };
 
+    const onJoinResult = (payload) => {
+      console.log("join_result:", payload);
+      const nextRole = payload?.role || "player";
+      setMyRole(nextRole);
+      sessionStorage.setItem(roleStorageKey, nextRole);
+    };
+
     const onGameUpdate = (state) => {
-      console.log("GAME UPDATE RECEIVED:", state);
       setGameState(state);
     };
 
     socket.on("connect", onConnect);
+    socket.on("join_result", onJoinResult);
     socket.on("game_update", onGameUpdate);
 
     if (!socket.connected) {
       socket.connect();
-    } 
-    else {
+    } else {
       onConnect();
     }
 
     return () => {
       socket.off("connect", onConnect);
+      socket.off("join_result", onJoinResult);
       socket.off("game_update", onGameUpdate);
     };
-  }, [roomId, authUser]);
+  }, [
+    roomId,
+    authUser,
+    storedRoom.seats,
+    storedRoom.maxPlayers,
+    roleStorageKey,
+    myRole,
+    isSoloTable,
+  ]);
 
   const fallbackState = {
     gameState: "waiting",
@@ -179,6 +257,9 @@ function Game() {
     players: {},
     playerOrder: [],
     turn: null,
+    spectators: [],
+    maxPlayers: Number(storedRoom.seats || storedRoom.maxPlayers || 4),
+    canStart: false,
   };
 
   const safeState = gameState || fallbackState;
@@ -189,39 +270,46 @@ function Game() {
   const dealerScore = safeState.dealerScore ?? 0;
   const currentTurn = safeState.turn ?? null;
   const currentGameState = safeState.gameState ?? "waiting";
+  const spectators = safeState.spectators ?? [];
+  const maxPlayers = safeState.maxPlayers ?? 4;
+  const canStart = safeState.canStart ?? false;
 
   const normalizedState = useMemo(() => {
-    if (!isSoloTable) {
-      return {
-        players: rawPlayers,
-        playerOrder: rawPlayerOrder,
-      };
-    }
+    if (isSoloTable) {
+      if (myId && rawPlayers[myId]) {
+        return {
+          players: { [myId]: rawPlayers[myId] },
+          playerOrder: [myId],
+        };
+      }
 
-    if (myId && rawPlayers[myId]) {
-      return {
-        players: { [myId]: rawPlayers[myId] },
-        playerOrder: [myId],
-      };
-    }
+      const firstPlayerId = rawPlayerOrder[0];
+      if (firstPlayerId && rawPlayers[firstPlayerId]) {
+        return {
+          players: { [firstPlayerId]: rawPlayers[firstPlayerId] },
+          playerOrder: [firstPlayerId],
+        };
+      }
 
-    const firstPlayerId = rawPlayerOrder[0];
-    if (firstPlayerId && rawPlayers[firstPlayerId]) {
-      return {
-        players: { [firstPlayerId]: rawPlayers[firstPlayerId] },
-        playerOrder: [firstPlayerId],
-      };
+      return { players: {}, playerOrder: [] };
     }
 
     return {
-      players: {},
-      playerOrder: [],
+      players: rawPlayers,
+      playerOrder: rawPlayerOrder,
     };
   }, [isSoloTable, myId, rawPlayers, rawPlayerOrder]);
 
   const players = normalizedState.players;
   const playerOrder = normalizedState.playerOrder;
-  const myPlayer = players?.[myId] ?? players?.[playerOrder[0]] ?? null;
+  const myPlayer = players?.[myId] ?? null;
+  const myBet = myPlayer?.bet ?? 0;
+
+  const isSpectator = myRole === "spectator";
+  const amIHost = playerOrder[0] === myId;
+  const isMyTurn = currentTurn === myId;
+  const seatedCount = playerOrder.length;
+  const hostId = playerOrder[0] || null;
 
   const calculateHandValue = (hand = []) => {
     let total = 0;
@@ -230,9 +318,8 @@ function Game() {
     for (const card of hand) {
       const value = String(card?.value ?? "").toUpperCase();
 
-      if (["K", "Q", "J"].includes(value)) {
-        total += 10;
-      } else if (value === "A") {
+      if (["K", "Q", "J"].includes(value)) total += 10;
+      else if (value === "A") {
         total += 11;
         aces += 1;
       } else {
@@ -251,39 +338,11 @@ function Game() {
 
   const myHandValue = calculateHandValue(myPlayer?.hand ?? []);
 
-  const previewPlayers = useMemo(() => {
-    if (!isMultiplayerPreview) return [];
-
-    const seatCount = Math.max(
-      2,
-      Number(
-        storedRoom.seats ?? storedRoom.maxPlayers ?? storedRoom.players ?? 2
-      )
-    );
-
-    const currentPlayers = Math.max(1, Number(storedRoom.players ?? 1));
-
-    return Array.from({ length: seatCount }, (_, index) => ({
-      id: `preview-${index + 1}`,
-      label: index === 0 ? "YOU" : `PLAYER ${index + 1}`,
-      isMe: index === 0,
-      occupied: index < currentPlayers,
-    }));
-  }, [
-    isMultiplayerPreview,
-    storedRoom.players,
-    storedRoom.maxPlayers,
-    storedRoom.seats,
-  ]);
-
   const shouldAnimateDealerCard = (index) => {
     if (currentGameState !== "playing") return false;
-
     const previousCount = previousDealerCountRef.current;
     const currentCount = dealerHand.length;
-
     if (currentCount <= previousCount) return false;
-
     return index >= previousCount;
   };
 
@@ -295,10 +354,8 @@ function Game() {
 
   const shouldAnimatePlayerCard = (playerId, index, handLength) => {
     if (currentGameState !== "playing") return false;
-
     const previousCount = previousPlayerCountsRef.current[playerId] ?? 0;
     if (handLength <= previousCount) return false;
-
     return index >= previousCount;
   };
 
@@ -324,114 +381,119 @@ function Game() {
     }
   }, [dealerHand, players, playerOrder, currentGameState]);
 
-    useEffect(() => {
-      if (isMultiplayerPreview) return;
-      if (!gameState || !myPlayer || !authUser?.id) return;
-      if (currentGameState !== "finished") return;
-      if (!myPlayer.result) return;
+  useEffect(() => {
+    if (!gameState || !myPlayer || !authUser?.id) return;
+    if (currentGameState !== "finished") return;
+    if (!myPlayer.result) return;
 
-      const roundKey = JSON.stringify({
-        dealer: dealerHand,
-        hand: myPlayer.hand ?? [],
-        result: myPlayer.result,
-        state: currentGameState,
-        activeBet,
-      });
+    const roundBet = Number(myPlayer?.bet ?? 0);
 
-      if (lastProcessedRoundRef.current === roundKey) return;
+    const roundKey = JSON.stringify({
+      dealer: dealerHand,
+      hand: myPlayer.hand ?? [],
+      result: myPlayer.result,
+      state: currentGameState,
+      bet: roundBet,
+    });
 
-      const pointsToAdd = myPlayer.result === "win" ? 1 : 0;
+    if (lastProcessedRoundRef.current === roundKey) return;
 
-      setSessionScore((prevScore) => {
-        const updatedScore = prevScore + pointsToAdd;
-        localStorage.setItem(scoreKey, String(updatedScore));
-        return updatedScore;
-      });
+    const pointsToAdd = myPlayer.result === "win" ? 1 : 0;
 
-      setBalance((prevBalance) => {
-        let updatedBalance = prevBalance;
+    setSessionScore((prevScore) => {
+      const updatedScore = prevScore + pointsToAdd;
+      localStorage.setItem(scoreKey, String(updatedScore));
+      return updatedScore;
+    });
 
-        if (myPlayer.result === "win") {
-          updatedBalance = prevBalance + activeBet;
-        } else if (myPlayer.result === "lose") {
-          updatedBalance = Math.max(0, prevBalance - activeBet);
-        }
-        // Actualizar balance en la base de datos
-        const amount = updatedBalance - prevBalance;
-        fetch("/api/auth/balance", {
+    setBalance((prevBalance) => {
+      let updatedBalance = prevBalance;
+
+      if (myPlayer.result === "win") {
+        updatedBalance = prevBalance + roundBet;
+      } else if (myPlayer.result === "lose") {
+        updatedBalance = Math.max(0, prevBalance - roundBet);
+      }
+
+      const amount = updatedBalance - prevBalance;
+
+      fetch("/api/auth/balance", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, type: "game_result" }),
+      }).catch((err) => console.error("Error updating balance:", err));
+
+      return updatedBalance;
+    });
+
+    const localStatsKey = `stats_${authUser.id}`;
+
+    const updatedStats = {
+      gamesPlayed: Number(stats.gamesPlayed || 0) + 1,
+      gamesWon:
+        Number(stats.gamesWon || 0) + (myPlayer.result === "win" ? 1 : 0),
+      gamesLost:
+        Number(stats.gamesLost || 0) + (myPlayer.result === "lose" ? 1 : 0),
+      gamesPushed:
+        Number(stats.gamesPushed || 0) + (myPlayer.result === "push" ? 1 : 0),
+      blackjacks:
+        Number(stats.blackjacks || 0) +
+        (myPlayer.status === "blackjack" ? 1 : 0),
+    };
+
+    setStats(updatedStats);
+    localStorage.setItem(localStatsKey, JSON.stringify(updatedStats));
+
+    const saveStats = async () => {
+      try {
+        const res = await fetch("/api/auth/stats", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ amount, type: "game_result" }),
-        }).catch(err => console.error("Error actualizando balance:", err));
-        return updatedBalance;
-      });
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedStats),
+        });
 
-      const statsKey = `stats_${authUser.id}`;
-      const rawStats = localStorage.getItem(statsKey);
-      const previousStats = rawStats
-        ? JSON.parse(rawStats)
-        : {
-            gamesPlayed: 0,
-            gamesWon: 0,
-            gamesLost: 0,
-            gamesPushed: 0,
-            blackjacks: 0,
-          };
+        const data = await res.json();
+        console.log("stats saved:", data);
+      } catch (error) {
+        console.error("Error saving stats:", error);
+      }
+    };
 
-      const updatedStats = {
-        ...previousStats,
-        gamesPlayed: Number(previousStats.gamesPlayed || 0) + 1,
-        gamesWon:
-          Number(previousStats.gamesWon || 0) + (myPlayer.result === "win" ? 1 : 0),
-        gamesLost:
-          Number(previousStats.gamesLost || 0) + (myPlayer.result === "lose" ? 1 : 0),
-        gamesPushed:
-          Number(previousStats.gamesPushed || 0) + (myPlayer.result === "push" ? 1 : 0),
-        blackjacks:
-          Number(previousStats.blackjacks || 0) + (myPlayer.status === "blackjack" ? 1 : 0),
-      };
-
-	const saveStats = async () => {
-    await fetch('/api/auth/stats', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedStats)
-    	});
-	};
-	saveStats();
-      lastProcessedRoundRef.current = roundKey;
-    }, [
-      isMultiplayerPreview,
-      gameState,
-      myPlayer,
-      dealerHand,
-      currentGameState,
-      activeBet,
-      scoreKey,
-      balanceKey,
-      authUser,
-    ]);
+    saveStats();
+    lastProcessedRoundRef.current = roundKey;
+  }, [
+    gameState,
+    myPlayer,
+    dealerHand,
+    currentGameState,
+    scoreKey,
+    authUser,
+    stats,
+  ]);
 
   const handleStart = () => {
-    if (isMultiplayerPreview) return;
-    if (tableBet <= 0) return;
-    if (tableBet > balance) return;
-
-    setActiveBet(tableBet);
-    lastProcessedRoundRef.current = "";
-
+    if (isSpectator) return;
+    if (!amIHost) return;
     socket.emit("start_round", roomId);
   };
 
   const handleHit = () => {
-    if (isMultiplayerPreview) return;
+    if (isSpectator) return;
     socket.emit("action_hit", roomId);
   };
 
   const handleStand = () => {
-    if (isMultiplayerPreview) return;
+    if (isSpectator) return;
     socket.emit("action_stand", roomId);
+  };
+
+  const handleResetRound = () => {
+    if (isSpectator) return;
+    if (!amIHost) return;
+    lastProcessedRoundRef.current = "";
+    socket.emit("reset_round", roomId);
   };
 
   const handleDouble = () => {
@@ -439,14 +501,20 @@ function Game() {
   };
 
   const addChipToBet = (chipValue) => {
-    if (currentGameState !== "waiting" || isMultiplayerPreview) return;
+    if (currentGameState !== "waiting") return;
+    if (isSpectator) return;
+
     setSelectedBet(chipValue);
-    setTableBet((prev) => prev + chipValue);
+    socket.emit("place_bet", {
+      roomId,
+      amount: chipValue,
+    });
   };
 
   const clearBet = () => {
-    if (currentGameState !== "waiting" || isMultiplayerPreview) return;
-    setTableBet(0);
+    if (currentGameState !== "waiting") return;
+    if (isSpectator) return;
+    socket.emit("clear_bet", roomId);
   };
 
   const handleChipSelect = (chipValue) => {
@@ -455,12 +523,17 @@ function Game() {
   };
 
   const handleChipDragStart = (event, chipValue) => {
+    if (currentGameState !== "waiting") return;
+    if (isSpectator) return;
+
     event.dataTransfer.setData("text/plain", String(chipValue));
     event.dataTransfer.effectAllowed = "move";
   };
 
   const handleBetZoneDragOver = (event) => {
-    if (currentGameState !== "waiting" || isMultiplayerPreview) return;
+    if (currentGameState !== "waiting") return;
+    if (isSpectator) return;
+
     event.preventDefault();
     setIsDragOverBetZone(true);
   };
@@ -470,22 +543,24 @@ function Game() {
   };
 
   const handleBetZoneDrop = (event) => {
-    if (currentGameState !== "waiting" || isMultiplayerPreview) return;
+    if (currentGameState !== "waiting") return;
+    if (isSpectator) return;
 
     event.preventDefault();
     const droppedValue = Number(event.dataTransfer.getData("text/plain"));
 
     if (!Number.isNaN(droppedValue) && droppedValue > 0) {
       setSelectedBet(droppedValue);
-      setTableBet((prev) => prev + droppedValue);
+      socket.emit("place_bet", {
+        roomId,
+        amount: droppedValue,
+      });
     }
 
     setIsDragOverBetZone(false);
   };
 
   const gameStatusLabel = useMemo(() => {
-    if (isMultiplayerPreview) return "Preview mode";
-
     switch (currentGameState) {
       case "waiting":
         return "Waiting for players";
@@ -496,15 +571,7 @@ function Game() {
       default:
         return "Loading";
     }
-  }, [currentGameState, isMultiplayerPreview]);
-
-  const amIHost = isSoloTable ? true : playerOrder[0] === myId;
-
-  const isMyTurn = isSoloTable
-    ? currentTurn === myId || currentTurn === playerOrder[0]
-    : currentTurn === myId;
-
-  const seatedCount = isSoloTable ? 1 : playerOrder.length;
+  }, [currentGameState]);
 
   if (!authUser) {
     return (
@@ -543,31 +610,42 @@ function Game() {
               </div>
 
               <div className="hud-box">
-                <span className="hud-box__label">Current Bet</span>
-                <strong>{tableBet}</strong>
+                <span className="hud-box__label">Players</span>
+                <strong>
+                  {seatedCount}/{maxPlayers}
+                </strong>
               </div>
 
               <div className="hud-box">
-                <span className="hud-box__label">Active Bet</span>
-                <strong>{activeBet}</strong>
+                <span className="hud-box__label">Spectators</span>
+                <strong>{spectators.length}</strong>
+              </div>
+
+              <div className="hud-box">
+                <span className="hud-box__label">Your Bet</span>
+                <strong>{myBet}</strong>
+              </div>
+
+              <div className="hud-box">
+                <span className="hud-box__label">Selected Chip</span>
+                <strong>{selectedBet}</strong>
               </div>
             </div>
 
-            {isMultiplayerPreview && (
+            {isSpectator && (
               <div className="multiplayer-banner">
-                Multiplayer mode is still being implemented. Seat layout preview only.
+                You are spectating this table. You can watch live, but you cannot
+                play.
               </div>
             )}
 
-            {(currentGameState === "waiting" || isMultiplayerPreview) && (
-              <div className="table-felt-text">
-                <p className="table-felt-text__title">Blackjack</p>
-                <p>
-                  {storedRoom.stakes} · {storedRoom.seats} seat table ·{" "}
-                  {storedRoom.mode}
-                </p>
-              </div>
-            )}
+            <div className="table-felt-text">
+              <p className="table-felt-text__title">Blackjack</p>
+              <p>
+                {storedRoom.stakes} · {storedRoom.seats || maxPlayers} seat table
+                · {storedRoom.mode}
+              </p>
+            </div>
 
             <div className="dealer-zone">
               <div className="dealer-zone__header">
@@ -576,246 +654,217 @@ function Game() {
               </div>
 
               <div className="dealer-hand">
-                {!isMultiplayerPreview &&
-                  dealerHand.map((card, index) => {
-                    const animate = shouldAnimateDealerCard(index);
+                {dealerHand.map((card, index) => {
+                  const animate = shouldAnimateDealerCard(index);
 
-                    return (
-                      <div
-                        key={`dealer-${card?.value ?? "x"}-${card?.suit ?? "x"}-${index}`}
-                        className={animate ? "deal-card deal-card--dealer" : ""}
-                        style={animate ? { animationDelay: getDealerAnimationDelay(index) } : undefined}
-                      >
-                        <Card value={card?.value} suit={card?.suit} />
-                      </div>
-                    );
-                  })}
-
-                {!isMultiplayerPreview &&
-                  currentGameState === "playing" &&
-                  dealerHand.length > 0 && (
-                    <div className="deal-card deal-card--dealer" style={{ animationDelay: "0.16s" }}>
-                      <Card hidden={true} />
+                  return (
+                    <div
+                      key={`dealer-${card?.value ?? "x"}-${card?.suit ?? "x"}-${index}`}
+                      className={animate ? "deal-card deal-card--dealer" : ""}
+                      style={
+                        animate
+                          ? { animationDelay: getDealerAnimationDelay(index) }
+                          : undefined
+                      }
+                    >
+                      <Card value={card?.value} suit={card?.suit} />
                     </div>
-                  )}
+                  );
+                })}
+
+                {currentGameState === "playing" && dealerHand.length > 0 && (
+                  <div
+                    className="deal-card deal-card--dealer"
+                    style={{ animationDelay: "0.16s" }}
+                  >
+                    <Card hidden={true} />
+                  </div>
+                )}
               </div>
             </div>
 
-            {!isMultiplayerPreview && currentGameState === "waiting" && (
+            {currentGameState === "waiting" && (
               <div className="table-center-message">
                 <p>
                   Waiting for players... <strong>({seatedCount} seated)</strong>
                 </p>
 
-                {amIHost ? (
+                {amIHost && !isSpectator ? (
                   <>
                     <button
                       className="casino-btn casino-btn--gold"
                       onClick={handleStart}
                       type="button"
-                      disabled={tableBet <= 0 || tableBet > balance}
+                      disabled={!canStart}
                     >
                       Deal Cards
                     </button>
 
-                    {tableBet <= 0 && (
+                    {!canStart && (
                       <div className="table-center-message__hint">
-                        Place a bet first
-                      </div>
-                    )}
-
-                    {tableBet > balance && (
-                      <div className="table-center-message__hint">
-                        Not enough balance
+                        All seated players need to place a bet first
                       </div>
                     )}
                   </>
                 ) : (
                   <span className="table-center-message__sub">
-                    The host will start the round when the table is ready
+                    {isSpectator
+                      ? "You are watching this table as spectator"
+                      : "The host will start the round when the table is ready"}
                   </span>
                 )}
               </div>
             )}
 
+            {currentGameState === "finished" && amIHost && !isSpectator && (
+              <div className="table-center-message">
+                <button
+                  className="casino-btn casino-btn--gold"
+                  onClick={handleResetRound}
+                  type="button"
+                >
+                  Next Round
+                </button>
+              </div>
+            )}
+
             <div className="players-arc">
-              {isMultiplayerPreview
-                ? previewPlayers.map((player, index) => (
-                    <article
-                      key={player.id}
-                      className={[
-                        "player-seat",
-                        "player-seat--preview",
-                        player.isMe ? "player-seat--me" : "",
-                        !player.occupied ? "player-seat--empty" : "",
-                      ].join(" ")}
-                      style={{
-                        "--seat-index": index,
-                        "--seat-total": previewPlayers.length,
-                      }}
-                    >
-                      <div className="player-seat__badge">{player.label}</div>
+              {playerOrder.map((playerId, index) => {
+                const player = players?.[playerId];
+                if (!player) return null;
 
-                      <div className="player-seat__cards player-seat__cards--placeholder">
-                        <div className="player-seat__placeholder-card"></div>
-                        <div className="player-seat__placeholder-card"></div>
-                      </div>
+                const isMe = playerId === myId;
+                const isTurn = currentTurn === playerId;
+                const hand = player.hand ?? [];
+                const handValue = calculateHandValue(hand);
 
-                      <div className="player-seat__status">
-                        <span className="thinking-text">
-                          {player.isMe
-                            ? "Ready"
-                            : player.occupied
-                            ? "Waiting"
-                            : "Empty seat"}
+                const shouldHideLastCard =
+                  !isMe && currentGameState === "playing" && hand.length > 0;
+
+                const visibleCards = shouldHideLastCard
+                  ? hand.slice(0, -1)
+                  : hand;
+
+                return (
+                  <article
+                    key={playerId}
+                    className={[
+                      "player-seat",
+                      isMe ? "player-seat--me" : "",
+                      isTurn ? "player-seat--active" : "",
+                    ].join(" ")}
+                    style={{
+                      "--seat-index": index,
+                      "--seat-total": playerOrder.length,
+                    }}
+                  >
+                    <div className="player-seat__badge">
+                      {isMe ? "YOU" : `PLAYER ${index + 1}`}
+                    </div>
+
+                    <div className="player-seat__meta">
+                      <strong>{player.username}</strong>
+                      {playerId === hostId && (
+                        <span className="host-badge">
+                          <span className="host-badge__icon">♛</span>
+                          HOST
                         </span>
-                      </div>
-                    </article>
-                  ))
-                : playerOrder.map((playerId, index) => {
-                    const player = players?.[playerId];
-                    if (!player) return null;
+                      )}
+                    </div>
 
-                    const isMe = playerId === myId || playerId === playerOrder[0];
-                    const isTurn = isSoloTable
-                      ? currentTurn === playerId || currentTurn === myId
-                      : currentTurn === playerId;
-                    const hand = player.hand ?? [];
+                    <div className="player-seat__meta">
+                      <span>Bet: {player.bet ?? 0}</span>
+                    </div>
 
-                    return (
-                      <article
-                        key={playerId}
-                        className={[
-                          "player-seat",
-                          isMe ? "player-seat--me" : "",
-                          isTurn ? "player-seat--active" : "",
-                        ].join(" ")}
-                        style={{
-                          "--seat-index": index,
-                          "--seat-total": playerOrder.length,
-                        }}
-                      >
-                        <div className="player-seat__badge">
-                          {isMe ? "YOU" : `PLAYER ${index + 1}`}
-                        </div>
+                    <div className="player-seat__hand-stack">
+                      <div className="player-seat__cards">
+                        {visibleCards.map((card, cardIndex) => {
+                          const animate = shouldAnimatePlayerCard(
+                            playerId,
+                            cardIndex,
+                            hand.length
+                          );
 
-                        <div className="player-seat__hand-stack">
-                          <div className="player-seat__cards">
-                            {hand.map((card, cardIndex) => {
-                              const animate = shouldAnimatePlayerCard(
-                                playerId,
-                                cardIndex,
-                                hand.length
-                              );
-
-                              return (
-                                <div
-                                  key={`${playerId}-${card?.value ?? "x"}-${card?.suit ?? "x"}-${cardIndex}`}
-                                  className={animate ? "deal-card" : ""}
-                                  style={
-                                    animate
-                                      ? { animationDelay: getPlayerAnimationDelay(playerId, cardIndex) }
-                                      : undefined
-                                  }
-                                >
-                                  <Card value={card?.value} suit={card?.suit} />
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                          {isMe && hand.length > 0 && (
-                            <div className="hand-total-box hand-total-box--below">
-                              <span className="hand-total-box__label">Total</span>
-                              <strong>{myHandValue}</strong>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="player-seat__status">
-                          {player.result && (
-                            <span
-                              className={[
-                                "result-pill",
-                                player.result === "win"
-                                  ? "result-pill--win"
-                                  : player.result === "push"
-                                  ? "result-pill--push"
-                                  : "result-pill--lose",
-                              ].join(" ")}
+                          return (
+                            <div
+                              key={`${playerId}-${card?.value ?? "x"}-${card?.suit ?? "x"}-${cardIndex}`}
+                              className={animate ? "deal-card" : ""}
+                              style={
+                                animate
+                                  ? {
+                                      animationDelay: getPlayerAnimationDelay(
+                                        playerId,
+                                        cardIndex
+                                      ),
+                                    }
+                                  : undefined
+                              }
                             >
-                              {String(player.result).toUpperCase()}
-                            </span>
-                          )}
+                              <Card value={card?.value} suit={card?.suit} />
+                            </div>
+                          );
+                        })}
 
-                          {!isMe && isTurn && (
-                            <span className="thinking-text">Thinking...</span>
-                          )}
+                        {shouldHideLastCard && (
+                          <div className="deal-card">
+                            <Card hidden={true} />
+                          </div>
+                        )}
+                      </div>
+
+                      {isMe && hand.length > 0 && (
+                        <div className="hand-total-box hand-total-box--below">
+                          <span className="hand-total-box__label">Total</span>
+                          <strong>{handValue}</strong>
                         </div>
-                      </article>
-                    );
-                  })}
+                      )}
+                    </div>
+
+                    <div className="player-seat__status">
+                      {player.isDisconnected && (
+                        <span className="thinking-text">Disconnected</span>
+                      )}
+
+                      {!player.isDisconnected && !player.result && player.status && (
+                        <span className="thinking-text">
+                          {String(player.status).toUpperCase()}
+                        </span>
+                      )}
+
+                      {player.result && (
+                        <span
+                          className={[
+                            "result-pill",
+                            player.result === "win"
+                              ? "result-pill--win"
+                              : player.result === "push"
+                              ? "result-pill--push"
+                              : "result-pill--lose",
+                          ].join(" ")}
+                        >
+                          {String(player.result).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
             </div>
 
             <div className="game-controls-bar game-controls-bar--inside">
-              <div className="bet-panel">
-                <div
-                  className={`bet-drop-zone ${isDragOverBetZone ? "is-drag-over" : ""}`}
-                  onDragOver={handleBetZoneDragOver}
-                  onDragLeave={handleBetZoneDragLeave}
-                  onDrop={handleBetZoneDrop}
-                >
-                  <span className="bet-drop-zone__label">Drop chip here</span>
-                  <span className="bet-drop-zone__value">{tableBet}</span>
-                </div>
-
-                <div className="bet-panel__label">
-                  Click chips to add bet or drag them to the table
-                </div>
-
-                <div className="bet-chips">
-                  {[5, 10, 25, 50, 100].map((chip) => (
-                    <button
-                      key={chip}
-                      type="button"
-                      draggable={currentGameState === "waiting" && !isMultiplayerPreview}
-                      className={`bet-chip bet-chip--${chip} ${
-                        selectedBet === chip ? "is-selected" : ""
-                      }`}
-                      onClick={() => handleChipSelect(chip)}
-                      onDragStart={(event) => handleChipDragStart(event, chip)}
-                      disabled={currentGameState !== "waiting" || isMultiplayerPreview}
-                    >
-                      {chip}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="bet-chip-actions">
-                  <button
-                    type="button"
-                    className="casino-btn casino-btn--ghost"
-                    onClick={clearBet}
-                    disabled={currentGameState !== "waiting" || isMultiplayerPreview || tableBet === 0}
-                  >
-                    Clear Bet
-                  </button>
-                </div>
-              </div>
-
               <div className="action-status-panel action-status-panel--right">
                 <div className="status-mini-panel">
-                    <div className="status-mini-panel__item">
+                  <div className="status-mini-panel__item">
                     <span>Balance</span>
                     <strong>{balance}</strong>
-                      <button
-                        className="wallet-trigger"
-                        onClick={() => setShowWallet(true)}
-                        type="button"
-                      >
-                        <span className="wallet-trigger__icon">💰</span>
-                        <span>Wallet</span>
-                      </button>
+                    <button
+                      className="wallet-trigger"
+                      onClick={() => setShowWallet(true)}
+                      type="button"
+                    >
+                      <span className="wallet-trigger__icon">💰</span>
+                      <span>Wallet</span>
+                    </button>
                   </div>
 
                   <div className="status-mini-panel__item">
@@ -829,7 +878,7 @@ function Game() {
                     className="casino-action casino-action--secondary"
                     onClick={handleDouble}
                     disabled={
-                      isMultiplayerPreview ||
+                      isSpectator ||
                       !(
                         currentGameState === "playing" &&
                         isMyTurn &&
@@ -840,14 +889,16 @@ function Game() {
                     title="Backend support not implemented yet"
                   >
                     <span className="casino-action__title">Double</span>
-                    <span className="casino-action__sub">Not available yet</span>
+                    <span className="casino-action__sub">
+                      Not available yet
+                    </span>
                   </button>
 
                   <button
                     className="casino-action casino-action--green"
                     onClick={handleHit}
                     disabled={
-                      isMultiplayerPreview ||
+                      isSpectator ||
                       !(currentGameState === "playing" && isMyTurn)
                     }
                     type="button"
@@ -860,7 +911,7 @@ function Game() {
                     className="casino-action casino-action--gold"
                     onClick={handleStand}
                     disabled={
-                      isMultiplayerPreview ||
+                      isSpectator ||
                       !(currentGameState === "playing" && isMyTurn)
                     }
                     type="button"
@@ -870,13 +921,112 @@ function Game() {
                   </button>
                 </div>
               </div>
+
+              {spectators.length > 0 && (
+                <div className="spectator-panel">
+                  <div className="spectator-panel__header">
+                    <div>
+                      <span className="spectator-panel__eyebrow">Live rail</span>
+                      <h3>Spectators</h3>
+                    </div>
+                    <span className="spectator-panel__count">
+                      {spectators.length}
+                    </span>
+                  </div>
+
+                  <div className="spectator-panel__list">
+                    {spectators.map((spec) => (
+                      <div
+                        key={spec.id}
+                        className={`spectator-pill ${
+                          spec.isDisconnected ? "spectator-pill--offline" : ""
+                        }`}
+                      >
+                        <div className="spectator-pill__avatar">
+                          {spec.avatar ? (
+                            <img src={spec.avatar} alt={spec.username} />
+                          ) : (
+                            <span>
+                              {spec.username?.charAt(0)?.toUpperCase() || "S"}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="spectator-pill__meta">
+                          <strong>{spec.username}</strong>
+                          <span>
+                            {spec.isDisconnected
+                              ? "Disconnected"
+                              : "Watching live"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!isSpectator && (
+                <div className="bet-panel">
+                  <div
+                    className={`bet-drop-zone ${
+                      isDragOverBetZone ? "is-drag-over" : ""
+                    }`}
+                    onDragOver={handleBetZoneDragOver}
+                    onDragLeave={handleBetZoneDragLeave}
+                    onDrop={handleBetZoneDrop}
+                  >
+                    <span className="bet-drop-zone__label">Drop chip here</span>
+                    <span className="bet-drop-zone__value">{myBet}</span>
+                  </div>
+
+                  <div className="bet-panel__label">
+                    Click chips to add bet or drag them to the table
+                  </div>
+
+                  <div className="bet-chips">
+                    {[5, 10, 25, 50, 100].map((chip) => (
+                      <button
+                        key={chip}
+                        type="button"
+                        draggable={currentGameState === "waiting"}
+                        className={`bet-chip bet-chip--${chip} ${
+                          selectedBet === chip ? "is-selected" : ""
+                        }`}
+                        onClick={() => handleChipSelect(chip)}
+                        onDragStart={(event) => handleChipDragStart(event, chip)}
+                        disabled={currentGameState !== "waiting"}
+                      >
+                        {chip}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="bet-chip-actions">
+                    <button
+                      type="button"
+                      className="casino-btn casino-btn--ghost"
+                      onClick={clearBet}
+                      disabled={currentGameState !== "waiting" || myBet === 0}
+                    >
+                      Clear Bet
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </section>
       </main>
-      {/* WALLET LOGIC AND CSS */}
-          {showWallet && (
-        <div className="wallet-modal" onClick={() => { setShowWallet(false); setWalletMsg(""); }}>
+
+      {showWallet && (
+        <div
+          className="wallet-modal"
+          onClick={() => {
+            setShowWallet(false);
+            setWalletMsg("");
+          }}
+        >
           <div
             className="wallet-modal__card"
             onClick={(e) => e.stopPropagation()}
@@ -889,7 +1039,10 @@ function Game() {
 
               <button
                 className="wallet-modal__close"
-                onClick={() => { setShowWallet(false); setWalletMsg(""); }}
+                onClick={() => {
+                  setShowWallet(false);
+                  setWalletMsg("");
+                }}
                 type="button"
                 aria-label="Close wallet"
               >
@@ -916,7 +1069,8 @@ function Game() {
                 onChange={(e) => {
                   const value = e.target.value;
                   setWalletAmount(value === "" ? 0 : Number(value));
-                }}/>
+                }}
+              />
             </div>
 
             {walletMsg && (
@@ -938,17 +1092,26 @@ function Game() {
                 disabled={!isWalletAmountValid}
                 onClick={async () => {
                   if (!isWalletAmountValid) {
-                    setWalletMsg("Error: enter a valid amount between 10 and 10000");
+                    setWalletMsg(
+                      "Error: enter a valid amount between 10 and 10000"
+                    );
                     return;
                   }
+
                   setWalletMsg("");
+
                   const res = await fetch("/api/auth/balance", {
                     method: "POST",
                     credentials: "include",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ amount: walletAmount, type: "deposit" }),
+                    body: JSON.stringify({
+                      amount: walletAmount,
+                      type: "deposit",
+                    }),
                   });
+
                   const data = await res.json();
+
                   if (data.success) {
                     setBalance(data.balance);
                     setWalletMsg(`Deposited +$${walletAmount}`);
@@ -965,21 +1128,31 @@ function Game() {
                 type="button"
                 onClick={async () => {
                   if (!isWalletAmountValid) {
-                    setWalletMsg("Error: enter a valid amount between 10 and 10000");
+                    setWalletMsg(
+                      "Error: enter a valid amount between 10 and 10000"
+                    );
                     return;
                   }
+
                   if (walletAmount > balance) {
                     setWalletMsg("Error: insufficient balance");
                     return;
                   }
+
                   setWalletMsg("");
+
                   const res = await fetch("/api/auth/balance", {
                     method: "POST",
                     credentials: "include",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ amount: -walletAmount, type: "withdraw" }),
+                    body: JSON.stringify({
+                      amount: -walletAmount,
+                      type: "withdraw",
+                    }),
                   });
+
                   const data = await res.json();
+
                   if (data.success) {
                     setBalance(data.balance);
                     setWalletMsg(`Withdrawn -$${walletAmount}`);
@@ -994,6 +1167,7 @@ function Game() {
           </div>
         </div>
       )}
+
       <Footer />
     </div>
   );

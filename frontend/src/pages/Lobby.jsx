@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { socket } from "../socket";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import "../styles/Index.css";
@@ -8,69 +9,59 @@ function Lobby() {
   const navigate = useNavigate();
   const username = localStorage.getItem("username");
   const autoMoveRef = useRef(null);
+
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [lobbyRooms, setLobbyRooms] = useState({});
 
   const tables = useMemo(
     () => [
       {
         id: "solo-table",
         name: "Solo Table",
-        players: 0,
         maxPlayers: 1,
-        seats: 1,
         stakes: "$5 / $200",
-        status: "Open",
         mode: "Solo",
-      },
-      {
-        id: "emerald-room",
-        name: "Emerald Room",
-        players: 2,
-        maxPlayers: 4,
-        seats: 4,
-        stakes: "$5 / $500",
-        status: "Waiting...",
-        mode: "Multiplayer",
+        description: "A private practice table just for you",
       },
       {
         id: "gold-room",
         name: "Golden Table",
-        players: 1,
-        maxPlayers: 4,
-        seats: 4,
+        maxPlayers: 2,
         stakes: "$10 / $1000",
-        status: "Open",
+        mode: "Versus",
+        description: "A two-player table for competitive duels",
+      },
+      {
+        id: "emerald-room",
+        name: "Emerald Room",
+        maxPlayers: 4,
+        stakes: "$5 / $500",
         mode: "Multiplayer",
+        description: "A relaxed table with soft stakes",
       },
       {
         id: "royal-room",
         name: "Royal Lounge",
-        players: 4,
         maxPlayers: 4,
-        seats: 4,
         stakes: "$25 / $2000",
-        status: "Full",
         mode: "Multiplayer",
+        description: "A room for sharper players with bolder bets",
       },
       {
         id: "diamond-room",
         name: "Diamond Room",
-        players: 3,
         maxPlayers: 5,
-        seats: 5,
-        stakes: "$15 / $1500",
-        status: "Open",
+        stakes: "$35 / $3500",
         mode: "Multiplayer",
+        description: "A five-seat premium table for larger hands",
       },
       {
         id: "velvet-room",
         name: "Velvet Room",
-        players: 2,
         maxPlayers: 6,
-        seats: 6,
-        stakes: "$20 / $2500",
-        status: "Waiting...",
+        stakes: "$10 / $1000",
         mode: "Multiplayer",
+        description: "Wider table for +4 players",
       },
     ],
     []
@@ -79,9 +70,6 @@ function Lobby() {
   const visibleCards = 3;
   const maxIndex = Math.max(0, tables.length - visibleCards);
 
-  /* DEFAULT TABLE
-     Ensures the first table (solo table) is available as default
-     when entering the game without manually choosing another table. */
   useEffect(() => {
     const existingSelectedRoom = localStorage.getItem("selectedRoom");
 
@@ -90,8 +78,36 @@ function Lobby() {
     }
   }, [tables]);
 
-  const handleJoinTable = (table, isFull) => {
-    if (isFull) return;
+  useEffect(() => {
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    const handleLobbyState = (rooms) => {
+      console.log("lobby_state recibido:", rooms);
+
+      const mappedRooms = {};
+
+      if (Array.isArray(rooms)) {
+        rooms.forEach((room) => {
+          mappedRooms[room.roomId] = room;
+        });
+      }
+
+      setLobbyRooms(mappedRooms);
+    };
+
+    socket.on("lobby_state", handleLobbyState);
+
+    // pide estado inicial al backend
+    socket.emit("get_lobby_state");
+
+    return () => {
+      socket.off("lobby_state", handleLobbyState);
+    };
+  }, []);
+
+  const handleJoinTable = (table) => {
     localStorage.setItem("selectedRoom", JSON.stringify(table));
     navigate("/game");
   };
@@ -104,8 +120,16 @@ function Lobby() {
     setCurrentIndex((prev) => Math.min(prev + 1, maxIndex));
   };
 
+  const stopAutoMove = () => {
+    if (autoMoveRef.current) {
+      clearInterval(autoMoveRef.current);
+      autoMoveRef.current = null;
+    }
+  };
+
   const startAutoMove = (direction) => {
     stopAutoMove();
+
     autoMoveRef.current = setInterval(() => {
       setCurrentIndex((prev) => {
         if (direction === "right") return Math.min(prev + 1, maxIndex);
@@ -114,62 +138,55 @@ function Lobby() {
     }, 550);
   };
 
-  const stopAutoMove = () => {
-    if (autoMoveRef.current) {
-      clearInterval(autoMoveRef.current);
-      autoMoveRef.current = null;
-    }
-  };
-
   useEffect(() => {
     return () => stopAutoMove();
   }, []);
 
   return (
- <div className="page shell">
-  <Navbar />
+    <div className="page shell">
+      <Navbar />
 
-  <main className="profile-page profile-page--decorated">
-    <div className="profile-bg-cards" aria-hidden="true">
-      <div className="profile-bg-cards__deck profile-bg-cards__deck--rich">
-        <div className="casino-card casino-card--back profile-casino-card profile-casino-card--1">
-          <div className="casino-card__inner"></div>
-        </div>
-
-        <div className="casino-card casino-card--front profile-casino-card profile-casino-card--2">
-          <div className="casino-card__inner">
-            <div className="casino-card__corner casino-card__corner--top">
-              <span>A</span>
-              <span>♠</span>
+      <main className="profile-page profile-page--decorated">
+        <div className="profile-bg-cards" aria-hidden="true">
+          <div className="profile-bg-cards__deck profile-bg-cards__deck--rich">
+            <div className="casino-card casino-card--back profile-casino-card profile-casino-card--1">
+              <div className="casino-card__inner"></div>
             </div>
-            <div className="casino-card__center">♠</div>
-            <div className="casino-card__corner casino-card__corner--bottom">
-              <span>A</span>
-              <span>♠</span>
+
+            <div className="casino-card casino-card--front profile-casino-card profile-casino-card--2">
+              <div className="casino-card__inner">
+                <div className="casino-card__corner casino-card__corner--top">
+                  <span>A</span>
+                  <span>♠</span>
+                </div>
+                <div className="casino-card__center">♠</div>
+                <div className="casino-card__corner casino-card__corner--bottom">
+                  <span>A</span>
+                  <span>♠</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="casino-card casino-card--front profile-casino-card profile-casino-card--3 card-red">
+              <div className="casino-card__inner">
+                <div className="casino-card__corner casino-card__corner--top">
+                  <span>K</span>
+                  <span>♥</span>
+                </div>
+                <div className="casino-card__center">♥</div>
+                <div className="casino-card__corner casino-card__corner--bottom">
+                  <span>K</span>
+                  <span>♥</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-
-        <div className="casino-card casino-card--front profile-casino-card profile-casino-card--3 card-red">
-          <div className="casino-card__inner">
-            <div className="casino-card__corner casino-card__corner--top">
-              <span>K</span>
-              <span>♥</span>
-            </div>
-            <div className="casino-card__center">♥</div>
-            <div className="casino-card__corner casino-card__corner--bottom">
-              <span>K</span>
-              <span>♥</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
         <section className="lobby-header">
           <div className="lobby-header__copy">
             <span className="lobby-header__eyebrow">Lobby</span>
-            <h1>Hi, {username}!</h1>
+            <h1>Hi, {username || "Player"}!</h1>
             <p>Choose a table to start playing</p>
           </div>
 
@@ -188,7 +205,10 @@ function Lobby() {
         <section className="tables-carousel">
           <div
             className="carousel-side-zone carousel-side-zone--left"
-            onMouseEnter={() => goLeft() || startAutoMove("left")}
+            onMouseEnter={() => {
+              goLeft();
+              startAutoMove("left");
+            }}
             onMouseLeave={stopAutoMove}
           >
             <button
@@ -210,7 +230,12 @@ function Lobby() {
               }}
             >
               {tables.map((table) => {
-                const isFull = table.players >= table.maxPlayers;
+                const isSolo = table.mode === "Solo";
+                const roomInfo = lobbyRooms[table.id];
+
+                const playersCount = roomInfo?.playersCount ?? 0;
+                const spectatorsCount = roomInfo?.spectatorsCount ?? 0;
+                const totalConnected = roomInfo?.totalConnected ?? playersCount + spectatorsCount;
 
                 return (
                   <article className="glass-card table-card" key={table.id}>
@@ -220,14 +245,8 @@ function Lobby() {
                         <h3>{table.name}</h3>
                       </div>
 
-                      <span
-                        className={`table-status ${
-                          table.status === "Full"
-                            ? "table-status--danger"
-                            : "table-status--ok"
-                        }`}
-                      >
-                        {table.status}
+                      <span className="table-status">
+                        {isSolo ? "Private" : "Live Room"}
                       </span>
                     </div>
 
@@ -250,20 +269,30 @@ function Lobby() {
                       </div>
 
                       <div>
-                        <small>Seats</small>
+                        <small>Players</small>
                         <strong>
-                          {table.players}/{table.seats}
+                          {playersCount} / {table.maxPlayers}
                         </strong>
                       </div>
+
+                      <div>
+                        <small>Watching</small>
+                        <strong>{spectatorsCount}</strong>
+                      </div>
+                    </div>
+
+                    <p className="table-card__description">{table.description}</p>
+
+                    <div className="table-card__footer-info">
+                      <small>Total connected: {totalConnected}</small>
                     </div>
 
                     <button
                       className="btn btn-gold btn-block"
-                      disabled={isFull}
-                      onClick={() => handleJoinTable(table, isFull)}
+                      onClick={() => handleJoinTable(table)}
                       type="button"
                     >
-                      {isFull ? "Table Full" : "Join Table"}
+                      Join Table
                     </button>
                   </article>
                 );
@@ -273,7 +302,10 @@ function Lobby() {
 
           <div
             className="carousel-side-zone carousel-side-zone--right"
-            onMouseEnter={() => goRight() || startAutoMove("right")}
+            onMouseEnter={() => {
+              goRight();
+              startAutoMove("right");
+            }}
             onMouseLeave={stopAutoMove}
           >
             <button

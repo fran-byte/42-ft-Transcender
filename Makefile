@@ -17,8 +17,9 @@ up:
 	@echo "$(GREEN)Building and starting containers...$(RESET)"
 	$(COMPOSE) up -d --build
 	@echo "$(GREEN)✅ Todo listo! Accede a:$(RESET)"
-	@echo "   Frontend: http://localhost:5173"
-	@echo "   Backend:  http://localhost:3000"
+	@echo "      http://localhost"
+# @echo "   Frontend: http://localhost:5173"
+# @echo "   Backend:  http://localhost:3000"
 
 # 3. 'make logs': Ver qué está pasando (console.log, errores, etc)
 logs:
