@@ -391,8 +391,14 @@ function Game() {
           Number(previousStats.blackjacks || 0) + (myPlayer.status === "blackjack" ? 1 : 0),
       };
 
-      localStorage.setItem(statsKey, JSON.stringify(updatedStats));
-
+	const saveStats = async () => {
+    await fetch('/api/auth/stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedStats)
+    	});
+	};
+	saveStats();
       lastProcessedRoundRef.current = roundKey;
     }, [
       isMultiplayerPreview,

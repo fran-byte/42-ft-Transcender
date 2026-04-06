@@ -67,19 +67,19 @@ function Register() {
       localStorage.setItem("username", data.user.username);
       localStorage.setItem("email", data.user.email);
 
-      if (!localStorage.getItem(`stats_${data.user.id}`)) {
-        localStorage.setItem(
-          `stats_${data.user.id}`,
-          JSON.stringify({
-            gamesPlayed: 0,
-            gamesWon: 0,
-            gamesLost: 0,
-            gamesPushed: 0,
-            blackjacks: 0,
-            winrate: 0,
-          })
-        );
-      }
+     // if (!localStorage.getItem(`stats_${data.user.id}`)) {
+       // localStorage.setItem(
+         // `stats_${data.user.id}`,
+          // JSON.stringify({
+           // gamesPlayed: 0,
+            // gamesWon: 0,
+            // gamesLost: 0,
+            // gamesPushed: 0,
+            // blackjacks: 0,
+            // winrate: 0,
+          // })
+        // );
+     // }
 
       navigate("/profile");
     } catch (error) {

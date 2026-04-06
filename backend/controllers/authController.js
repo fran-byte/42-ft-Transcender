@@ -264,3 +264,52 @@ exports.updateBalance = async (req, res) => {
     }
     
 };
+
+exports.getStats = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const result = await pool.query(
+            `SELECT games_played, games_won, games_lost, games_pushed, blackjacks 
+             FROM users WHERE id = $1`,
+            [userId]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: "Usuario no encontrado" });
+        }
+        
+        res.json({
+            gamesPlayed: parseInt(result.rows[0].games_played) || 0,
+            gamesWon: parseInt(result.rows[0].games_won) || 0,
+            gamesLost: parseInt(result.rows[0].games_lost) || 0,
+            gamesPushed: parseInt(result.rows[0].games_pushed) || 0,
+            blackjacks: parseInt(result.rows[0].blackjacks) || 0
+        });
+    } catch (error) {
+        console.error("Error en getStats:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+exports.updateStats = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { gamesPlayed, gamesWon, gamesLost, gamesPushed, blackjacks } = req.body;
+        
+        await pool.query(
+            `UPDATE users SET 
+                games_played = $1, 
+                games_won = $2, 
+                games_lost = $3, 
+                games_pushed = $4,
+                blackjacks = $5
+             WHERE id = $6`,
+            [gamesPlayed, gamesWon, gamesLost, gamesPushed, blackjacks || 0, userId]
+        );
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Error en updateStats:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+};

@@ -13,6 +13,9 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 RESET='\033[0m'
 
+export LC_ALL=C
+export LANG=C
+
 echo -e "${BLUE}"
 echo "╔═══════════════════════════════════════════╗"
 echo "║   🎰 Blackjack Setup con Nginx y SSL     ║"

@@ -7,15 +7,7 @@ import "../styles/Index.css";
 function Profile() {
   const navigate = useNavigate();
 
-  const [user, setUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem("user");
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-
+  const [user, setUser] = useState(null);
   const [stats, setStats] = useState({
     gamesPlayed: 0,
     gamesWon: 0,
@@ -23,7 +15,6 @@ function Profile() {
     gamesPushed: 0,
     blackjacks: 0,
   });
-
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,16 +37,22 @@ function Profile() {
         localStorage.setItem("username", data.user.username);
         localStorage.setItem("email", data.user.email);
 
-        const rawStats = localStorage.getItem(`stats_${data.user.id}`);
-        const parsedStats = rawStats ? JSON.parse(rawStats) : null;
-
-        setStats({
-          gamesPlayed: Number(parsedStats?.gamesPlayed ?? 0),
-          gamesWon: Number(parsedStats?.gamesWon ?? 0),
-          gamesLost: Number(parsedStats?.gamesLost ?? 0),
-          gamesPushed: Number(parsedStats?.gamesPushed ?? 0),
-          blackjacks: Number(parsedStats?.blackjacks ?? 0),
+        // 🔥 NUEVO: Cargar estadísticas desde el backend
+        const statsRes = await fetch("/api/auth/stats", {
+          method: "GET",
+          credentials: "include",
         });
+
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          setStats({
+            gamesPlayed: statsData.gamesPlayed || 0,
+            gamesWon: statsData.gamesWon || 0,
+            gamesLost: statsData.gamesLost || 0,
+            gamesPushed: statsData.gamesPushed || 0,
+            blackjacks: statsData.blackjacks || 0,
+          });
+        }
       } catch (error) {
         console.error("Error cargando perfil:", error);
         navigate("/login");

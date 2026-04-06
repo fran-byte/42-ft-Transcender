@@ -14,4 +14,7 @@ router.get('/verify', authMiddleware, authController.verifyToken);
 router.get('/balance', authMiddleware, authController.getBalance);
 router.post('/balance', authMiddleware, authController.updateBalance);
 
+router.get('/stats', authMiddleware, authController.getStats);
+router.post('/stats', authMiddleware, authController.updateStats);
+
 module.exports = router;
