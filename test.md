@@ -14,14 +14,12 @@
 
 - **Método**: Intentar acceder a la ruta protegida del frontend (por ejemplo, `https://blackjack.local/game`) sin haber iniciado sesión.
 - **Resultado esperado**: Redirección automática a `/login` (mediante `ProtectedRoute` de React).
-- **Resultado obtenido**: Al acceder sin cookie, el componente `ProtectedRoute` detecta la ausencia de autenticación y redirige a `/login`. Se comprobó manualmente en el navegador (borrando cookies o usando una ventana de incógnito).  
-  **→ OK**
+- **Resultado obtenido**: Al acceder sin cookie, el componente `ProtectedRoute` detecta la ausencia de autenticación y redirige a `/login`. Se comprobó manualmente en el navegador (borrando cookies o usando una ventana de incógnito).
 
 ### Prueba 6: Cookie httpOnly no accesible desde JS : OK
 
 - **Método**: Iniciar sesión y desde la consola del navegador ejecutar `console.log(document.cookie)`.
 - **Resultado esperado**: No mostrar el token JWT.
-- **Resultado obtenido**: Se verificó en las herramientas de desarrollador (Application → Cookies) que la cookie `token` tiene la columna `HttpOnly = true`. Además, `document.cookie` no mostró el token.  
-  **→ OK**
+- **Resultado obtenido**: Se verificó en las herramientas de desarrollador (Application → Cookies) que la cookie `token` tiene la columna `HttpOnly = true`. Además, `document.cookie` no mostró el token.
 
 ---
