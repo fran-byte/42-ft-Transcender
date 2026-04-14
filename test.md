@@ -1,10 +1,10 @@
 # TEST AUTENTICACIÓN
 
-## Pruebas de autenticación realizadas
+## Pruebas de autenticación realizadas y pasadas
 
 ### Prueba 1: Registro con username ya existente : OK
 
-### Prueba 2: Registro con email ya existente : BUG Nos deja registrar otro usuario con un mail ya registrado
+### Prueba 2: Registro con email ya existente : OK
 
 ### Prueba 3: Registro con password < 6 caracteres : OK
 
@@ -23,3 +23,21 @@
 - **Resultado obtenido**: Se verificó en las herramientas de desarrollador (Application → Cookies) que la cookie `token` tiene la columna `HttpOnly = true`. Además, `document.cookie` no mostró el token.
 
 ---
+
+## BALANCE Y APUESTAS
+
+### Prueba 1: Apostar mas de lo que tienes en saldo en SOLO TABLE: BUG Deja apostar teniedo Balance 0
+
+### Prueba 2: Apostar mas de lo que tienes en saldo en GLODEN TABLE: BUG Deja apostar teniedo Balance 0
+
+### Prueba 3: Apostar mas de lo que tienes en saldo en EMERAL ROOM: BUG Deja apostar teniedo Balance 0
+
+### Prueba 4: Apostar mas de lo que tienes en saldo en ROYAL LOUNGE: BUG Deja apostar teniedo Balance 0
+
+### Prueba 5: Apostar mas de lo que tienes en saldo en DIAMON ROOM: BUG Deja apostar teniedo Balance 0
+
+### Prueba 6: Apostar mas de lo que tienes en saldo en VELVET ROOM: BUG Deja apostar teniedo Balance 0
+
+- EL Backend no valida el Balance al hacer place_bet, Solamente BlackjackGame.placeBet existe en Memoria.
+
+## DEPOSITO Y RETIRO desde el Wallet limites min 10$ maximo 10000$ : OK
