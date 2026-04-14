@@ -40,4 +40,12 @@
 
 - EL Backend no valida el Balance al hacer place_bet, Solamente BlackjackGame.placeBet existe en Memoria.
 
-## DEPOSITO Y RETIRO desde el Wallet limites min 10$ maximo 10000$ : OK
+### Prueba 7 : Depósito y Retiro desde el Wallet limites min 10$ maximo 10000$ : OK
+
+-(pero.. precisa correción el Bug anterior)
+
+- Hay un bug relacionado con el anterior si se corrige el anterior no nos daria fallo (aun así verificar despues de corregir el anterior)
+
+### Prueba 8: APOSTAR más del máximo de la mesa: BUG nos deja apostar por encima del máximo
+
+- Creo que no está implementado en el backend este tope.
