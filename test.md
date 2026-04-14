@@ -10,7 +10,7 @@
 
 ### Prueba 4: Login con credenciales incorrectas : OK
 
-### Prueba 5: Acceder a `/game` sin cookie JWT : OK
+### Prueba 5: Acceder a `/lobby` sin cookie JWT : OK
 
 - **Método**: Intentar acceder a la ruta protegida del frontend (ejemplo, `https://blackjack.local/lobby`) sin haber iniciado sesión.
 - **Resultado esperado**: Redirección automática a `/login` (mediante `ProtectedRoute` de React).
