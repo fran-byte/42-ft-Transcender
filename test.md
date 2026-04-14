@@ -12,7 +12,7 @@
 
 ### Prueba 5: Acceder a `/game` sin cookie JWT : OK
 
-- **Método**: Intentar acceder a la ruta protegida del frontend (por ejemplo, `https://blackjack.local/game`) sin haber iniciado sesión.
+- **Método**: Intentar acceder a la ruta protegida del frontend (ejemplo, `https://blackjack.local/game`) sin haber iniciado sesión.
 - **Resultado esperado**: Redirección automática a `/login` (mediante `ProtectedRoute` de React).
 - **Resultado obtenido**: Al acceder sin cookie, el componente `ProtectedRoute` detecta la ausencia de autenticación y redirige a `/login`. Se comprobó manualmente en el navegador (borrando cookies o usando una ventana de incógnito).
 
