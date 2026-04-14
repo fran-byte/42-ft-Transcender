@@ -1045,6 +1045,14 @@ main {
   border: 1px solid rgba(255, 227, 153, 0.12);
 }
 
+.table-card__description {
+  margin: 0 0 1rem;
+  color: rgba(255, 255, 255, 0.78);
+  line-height: 1.5;
+  min-height: 3.25rem;
+  font-size: 0.96rem;
+}
+
 .table-card__top {
   display: flex;
   align-items: start;

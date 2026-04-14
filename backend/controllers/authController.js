@@ -229,40 +229,76 @@ exports.getBalance = async (req, res) => {
 };
 
 // Actualizar balance del usuario (ingresar, retirar, resultado partida)
+// Actualizar balance del usuario
 exports.updateBalance = async (req, res) => {
     try {
         const { amount, type } = req.body;
-        // type: 'deposit' | 'withdraw' | 'game_result'
-        // amount: positivo para ingresar, negativo para retirar
 
         if (amount === undefined || !type) {
-            return res.status(400).json({ success: false, message: 'amount y type son requeridos' });
+            return res.status(400).json({
+                success: false,
+                message: 'amount y type son requeridos'
+            });
         }
 
-        // Obtener balance actual
-        const current = await pool.query(
-            'SELECT balance FROM users WHERE id = $1',
-            [req.user.userId]
-        );
+        const numericAmount = Number(amount);
 
-        const currentBalance = parseFloat(current.rows[0].balance);
-        const newBalance = currentBalance + parseFloat(amount);
+        if (!Number.isFinite(numericAmount)) {
+            return res.status(400).json({
+                success: false,
+                message: 'amount debe ser un número válido'
+            });
+        }
 
-        if (newBalance < 0) {
-            return res.status(400).json({ success: false, message: 'Saldo insuficiente' });
+        if (!['deposit', 'withdraw', 'game_result'].includes(type)) {
+            return res.status(400).json({
+                success: false,
+                message: 'type inválido'
+            });
+        }
+
+        if ((type === 'deposit' || type === 'withdraw') && numericAmount <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'amount debe ser un número positivo'
+            });
+        }
+
+        let signedAmount = numericAmount;
+
+        if (type === 'withdraw') {
+            signedAmount = -numericAmount;
         }
 
         const result = await pool.query(
-            'UPDATE users SET balance = $1 WHERE id = $2 RETURNING balance',
-            [newBalance, req.user.userId]
+            `
+            UPDATE users
+            SET balance = balance + $1
+            WHERE id = $2
+              AND balance + $1 >= 0
+            RETURNING balance
+            `,
+            [signedAmount, req.user.userId]
         );
 
-        res.json({ success: true, balance: parseFloat(result.rows[0].balance) });
+        if (result.rows.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Saldo insuficiente o usuario no encontrado'
+            });
+        }
+
+        res.json({
+            success: true,
+            balance: parseFloat(result.rows[0].balance)
+        });
     } catch (error) {
         console.error('Error en updateBalance:', error);
-        res.status(500).json({ success: false, message: 'Error en el servidor' });
+        res.status(500).json({
+            success: false,
+            message: 'Error en el servidor'
+        });
     }
-    
 };
 
 exports.getStats = async (req, res) => {

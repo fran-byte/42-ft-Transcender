@@ -19,6 +19,8 @@ function Lobby() {
         id: "solo-table",
         name: "Solo Table",
         maxPlayers: 1,
+        minBet: 5,
+        maxBet: 200,
         stakes: "$5 / $200",
         mode: "Solo",
         description: "A private practice table just for you",
@@ -27,6 +29,8 @@ function Lobby() {
         id: "gold-room",
         name: "Golden Table",
         maxPlayers: 2,
+        minBet: 10,
+        maxBet: 1000,
         stakes: "$10 / $1000",
         mode: "Versus",
         description: "A two-player table for competitive duels",
@@ -35,6 +39,8 @@ function Lobby() {
         id: "emerald-room",
         name: "Emerald Room",
         maxPlayers: 4,
+        minBet: 5,
+        maxBet: 500,
         stakes: "$5 / $500",
         mode: "Multiplayer",
         description: "A relaxed table with soft stakes",
@@ -43,6 +49,8 @@ function Lobby() {
         id: "royal-room",
         name: "Royal Lounge",
         maxPlayers: 4,
+        minBet: 25,
+        maxBet: 2000,
         stakes: "$25 / $2000",
         mode: "Multiplayer",
         description: "A room for sharper players with bolder bets",
@@ -51,6 +59,8 @@ function Lobby() {
         id: "diamond-room",
         name: "Diamond Room",
         maxPlayers: 5,
+        minBet: 35,
+        maxBet: 3500,
         stakes: "$35 / $3500",
         mode: "Multiplayer",
         description: "A five-seat premium table for larger hands",
@@ -59,6 +69,8 @@ function Lobby() {
         id: "velvet-room",
         name: "Velvet Room",
         maxPlayers: 6,
+        minBet: 10,
+        maxBet: 1000,
         stakes: "$10 / $1000",
         mode: "Multiplayer",
         description: "Wider table for +4 players",
@@ -66,7 +78,7 @@ function Lobby() {
     ],
     []
   );
-
+  
   const visibleCards = 3;
   const maxIndex = Math.max(0, tables.length - visibleCards);
 
@@ -84,8 +96,6 @@ function Lobby() {
     }
 
     const handleLobbyState = (rooms) => {
-      console.log("lobby_state recibido:", rooms);
-
       const mappedRooms = {};
 
       if (Array.isArray(rooms)) {
@@ -98,8 +108,6 @@ function Lobby() {
     };
 
     socket.on("lobby_state", handleLobbyState);
-
-    // pide estado inicial al backend
     socket.emit("get_lobby_state");
 
     return () => {
@@ -237,6 +245,21 @@ function Lobby() {
                 const spectatorsCount = roomInfo?.spectatorsCount ?? 0;
                 const totalConnected = roomInfo?.totalConnected ?? playersCount + spectatorsCount;
 
+                const isFull = playersCount >= table.maxPlayers;
+                const isInGame = roomInfo?.gameState === "playing";
+
+                const statusLabel = isSolo
+                  ? "Private"
+                  : isFull
+                    ? "Full"
+                    : isInGame
+                      ? "In Game"
+                      : "Live Room";
+
+                const statusClass = isFull
+                  ? "table-status table-status--danger"
+                  : "table-status table-status--ok";
+                
                 return (
                   <article className="glass-card table-card" key={table.id}>
                     <div className="table-card__top">
@@ -245,9 +268,7 @@ function Lobby() {
                         <h3>{table.name}</h3>
                       </div>
 
-                      <span className="table-status">
-                        {isSolo ? "Private" : "Live Room"}
-                      </span>
+                       <span className={statusClass}>{statusLabel}</span>
                     </div>
 
                     <div className="table-preview">

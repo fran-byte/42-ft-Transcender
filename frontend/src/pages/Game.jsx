@@ -22,6 +22,8 @@ function Game() {
           maxPlayers: 1,
           seats: 1,
           stakes: "$5 / $200",
+          minBet: 5,
+          maxBet: 200,
           mode: "Solo",
         };
   } catch {
@@ -31,6 +33,8 @@ function Game() {
       maxPlayers: 1,
       seats: 1,
       stakes: "$5 / $200",
+      minBet: 5,
+      maxBet: 200,
       mode: "Solo",
     };
   }
@@ -78,7 +82,7 @@ function Game() {
   const [walletAmount, setWalletAmount] = useState(100);
   const [walletMsg, setWalletMsg] = useState("");
 
-  const [balance, setBalance] = useState(1000);
+  const [balance, setBalance] = useState(0);
   const [stats, setStats] = useState({
     gamesPlayed: 0,
     gamesWon: 0,
@@ -103,10 +107,26 @@ function Game() {
   const previousDealerCountRef = useRef(0);
   const previousPlayerCountsRef = useRef({});
 
+  const syncBalance = (newBalance) => {
+    const numericBalance = Number(newBalance ?? 0);
+
+    setBalance(numericBalance);
+
+    setAuthUser((prev) => {
+      if (!prev) return prev;
+
+      const updatedUser = {
+        ...prev,
+        balance: numericBalance,
+      };
+
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      return updatedUser;
+    });
+  };
+
   useEffect(() => {
     const verifyUser = async () => {
-      if (authUser?.id) return;
-
       try {
         const res = await fetch(`${API_URL}/api/auth/verify`, {
           method: "GET",
@@ -117,7 +137,8 @@ function Game() {
 
         if (res.ok && data.success) {
           setAuthUser(data.user);
-          setBalance(data.user.balance ?? 1000);
+          setBalance(Number(data.user.balance ?? 0));
+
           localStorage.setItem("user", JSON.stringify(data.user));
           localStorage.setItem("username", data.user.username);
           localStorage.setItem("email", data.user.email);
@@ -132,7 +153,7 @@ function Game() {
     };
 
     verifyUser();
-  }, [authUser, navigate]);
+  }, [navigate]);
 
   useEffect(() => {
     const bootstrapUserData = async () => {
@@ -144,8 +165,20 @@ function Game() {
 
       setSessionScore(Number(localStorage.getItem(newScoreKey) || 0));
 
-      if (authUser?.balance !== undefined) {
-        setBalance(authUser.balance);
+      try {
+        const balanceRes = await fetch("/api/auth/balance", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (balanceRes.ok) {
+          const balanceData = await balanceRes.json();
+          if (balanceData.success) {
+            syncBalance(balanceData.balance);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading balance:", error);
       }
 
       try {
@@ -259,6 +292,8 @@ function Game() {
     turn: null,
     spectators: [],
     maxPlayers: Number(storedRoom.seats || storedRoom.maxPlayers || 4),
+    minBet: Number(storedRoom.minBet || 5),
+    maxBet: Number(storedRoom.maxBet || 500),
     canStart: false,
   };
 
@@ -406,26 +441,31 @@ function Game() {
       return updatedScore;
     });
 
-    setBalance((prevBalance) => {
-      let updatedBalance = prevBalance;
+    let updatedBalance = balance;
 
-      if (myPlayer.result === "win") {
-        updatedBalance = prevBalance + roundBet;
-      } else if (myPlayer.result === "lose") {
-        updatedBalance = Math.max(0, prevBalance - roundBet);
-      }
+    if (myPlayer.result === "win") {
+      updatedBalance = balance + roundBet;
+    } else if (myPlayer.result === "lose") {
+      updatedBalance = Math.max(0, balance - roundBet);
+    }
 
-      const amount = updatedBalance - prevBalance;
+    const amount = updatedBalance - balance;
 
+    if (amount !== 0) {
       fetch("/api/auth/balance", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount, type: "game_result" }),
-      }).catch((err) => console.error("Error updating balance:", err));
-
-      return updatedBalance;
-    });
+      })
+        .then(async (res) => {
+          const data = await res.json();
+          if (data.success) {
+            syncBalance(data.balance);
+          }
+        })
+        .catch((err) => console.error("Error updating balance:", err));
+    }
 
     const localStatsKey = `stats_${authUser.id}`;
 
@@ -471,6 +511,7 @@ function Game() {
     scoreKey,
     authUser,
     stats,
+    balance,
   ]);
 
   const handleStart = () => {
@@ -503,6 +544,8 @@ function Game() {
   const addChipToBet = (chipValue) => {
     if (currentGameState !== "waiting") return;
     if (isSpectator) return;
+
+    if (chipValue > (myPlayer?.chips ?? 0)) return;
 
     setSelectedBet(chipValue);
     socket.emit("place_bet", {
@@ -627,8 +670,10 @@ function Game() {
               </div>
 
               <div className="hud-box">
-                <span className="hud-box__label">Selected Chip</span>
-                <strong>{selectedBet}</strong>
+                <span className="hud-box__label">Stakes</span>
+                <strong>
+                  {safeState.minBet} / {safeState.maxBet}
+                </strong>
               </div>
             </div>
 
@@ -1113,7 +1158,7 @@ function Game() {
                   const data = await res.json();
 
                   if (data.success) {
-                    setBalance(data.balance);
+                    syncBalance(data.balance);
                     setWalletMsg(`Deposited +$${walletAmount}`);
                   } else {
                     setWalletMsg("Error: " + data.message);
@@ -1146,7 +1191,7 @@ function Game() {
                     credentials: "include",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      amount: -walletAmount,
+                      amount: walletAmount,
                       type: "withdraw",
                     }),
                   });
@@ -1154,7 +1199,7 @@ function Game() {
                   const data = await res.json();
 
                   if (data.success) {
-                    setBalance(data.balance);
+                    syncBalance(data.balance);
                     setWalletMsg(`Withdrawn -$${walletAmount}`);
                   } else {
                     setWalletMsg("Error: " + data.message);

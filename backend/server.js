@@ -3,6 +3,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const { Pool } = require("pg");
 const BlackjackGame = require("./game/BlackjackGame");
 const authRoutes = require("./routes/auth");
 
@@ -10,11 +11,78 @@ const app = express();
 const PORT = 3000;
 const allowedOrigin = "https://blackjack.local";
 
+// DB
+const pool = new Pool({
+  host: process.env.DB_HOST || "database",
+  user: process.env.DB_USER || "transcendence",
+  password: process.env.DB_PASSWORD || "transcendence",
+  database: process.env.DB_NAME || "transcendence",
+  port: 5432,
+});
+
+// ROOMS
+const ROOM_CONFIGS = {
+  "solo-table": {
+    id: "solo-table",
+    roomName: "Solo Table",
+    maxPlayers: 1,
+    minBet: 5,
+    maxBet: 200,
+    mode: "Solo",
+    description: "A private practice table just for you",
+  },
+  "gold-room": {
+    id: "gold-room",
+    roomName: "Golden Table",
+    maxPlayers: 2,
+    minBet: 10,
+    maxBet: 1000,
+    mode: "Versus",
+    description: "A two-player table for competitive duels",
+  },
+  "emerald-room": {
+    id: "emerald-room",
+    roomName: "Emerald Room",
+    maxPlayers: 4,
+    minBet: 5,
+    maxBet: 500,
+    mode: "Multiplayer",
+    description: "A relaxed table with soft stakes",
+  },
+  "royal-room": {
+    id: "royal-room",
+    roomName: "Royal Lounge",
+    maxPlayers: 4,
+    minBet: 25,
+    maxBet: 2000,
+    mode: "Multiplayer",
+    description: "A room for sharper players with bolder bets",
+  },
+  "diamond-room": {
+    id: "diamond-room",
+    roomName: "Diamond Room",
+    maxPlayers: 5,
+    minBet: 35,
+    maxBet: 3500,
+    mode: "Multiplayer",
+    description: "A five-seat premium table for larger hands",
+  },
+  "velvet-room": {
+    id: "velvet-room",
+    roomName: "Velvet Room",
+    maxPlayers: 6,
+    minBet: 10,
+    maxBet: 1000,
+    mode: "Multiplayer",
+    description: "Wider table for +4 players",
+  },
+};
+
 app.use(
   cors({
     origin: allowedOrigin,
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
@@ -45,22 +113,51 @@ const emitUpdate = (roomId, game) => {
 };
 
 const emitLobbyState = () => {
-  const lobbyRooms = Object.values(games).map((game) => {
+  const lobbyRooms = Object.values(ROOM_CONFIGS).map((roomConfig) => {
+    const game = games[roomConfig.id];
+
+    if (!game) {
+      return {
+        roomId: roomConfig.id,
+        roomName: roomConfig.roomName,
+        playersCount: 0,
+        spectatorsCount: 0,
+        totalConnected: 0,
+        maxPlayers: roomConfig.maxPlayers,
+        gameState: "waiting",
+        minBet: roomConfig.minBet,
+        maxBet: roomConfig.maxBet,
+        mode: roomConfig.mode,
+      };
+    }
+
     const connectedPlayers = game.playerOrder
       .map((id) => game.players[id])
-      .filter((player) => player && player.socketId !== null);
+      .filter(
+        (player) =>
+          player &&
+          player.socketIds instanceof Set &&
+          player.socketIds.size > 0
+      );
 
     const connectedSpectators = game.spectators.filter(
-      (spectator) => spectator && spectator.socketId !== null
+      (spectator) =>
+        spectator &&
+        spectator.socketIds instanceof Set &&
+        spectator.socketIds.size > 0
     );
 
     return {
       roomId: game.id,
+      roomName: game.roomName,
       playersCount: connectedPlayers.length,
       spectatorsCount: connectedSpectators.length,
       totalConnected: connectedPlayers.length + connectedSpectators.length,
       maxPlayers: game.maxPlayers,
       gameState: game.gameState,
+      minBet: game.minBet,
+      maxBet: game.maxBet,
+      mode: game.mode,
     };
   });
 
@@ -74,54 +171,91 @@ io.on("connection", (socket) => {
   console.log(`🔌 NUEVA CONEXIÓN: ${socket.id}`);
   emitLobbyState();
 
-  socket.on("join_game", ({ roomId, user, maxPlayers, preferredRole }) => {
-    try {
+  socket.on("get_lobby_state", () => {
+    emitLobbyState();
+  });
+
+  socket.on(
+    "join_game",
+    async ({ roomId, user, maxPlayers, preferredRole }) => {
+      try {
         if (!roomId || !user || !user.id || !user.username) {
-        console.error("❌ Intento de join_game inválido");
-        return;
+          console.error("❌ Intento de join_game inválido");
+          return;
+        }
+
+        const roomConfig = ROOM_CONFIGS[roomId];
+        if (!roomConfig) {
+          console.error(`❌ Room inválida: ${roomId}`);
+          socket.emit("join_result", {
+            success: false,
+            reason: "invalid_room",
+          });
+          return;
         }
 
         currentUserId = user.id;
         currentRoomId = roomId;
 
         if (!games[roomId]) {
-        games[roomId] = new BlackjackGame(
+          games[roomId] = new BlackjackGame(
             roomId,
             (gameState) => {
-            io.to(roomId).emit("game_update", gameState);
+              io.to(roomId).emit("game_update", gameState);
             },
-            Number(maxPlayers) || 4
-        );
+            roomConfig
+          );
 
-        console.log(
-            `✨ Sala creada: ${roomId} (maxPlayers=${Number(maxPlayers) || 4})`
-        );
+          console.log(
+            `✨ Sala creada: ${roomId} (maxPlayers=${roomConfig.maxPlayers}, minBet=${roomConfig.minBet}, maxBet=${roomConfig.maxBet})`
+          );
         }
 
         const game = games[roomId];
-
         socket.join(roomId);
 
-        const joinResult = game.addPlayer(
-        user.id,
-        socket.id,
-        user.username,
-        user.avatar || null,
-        preferredRole || "player"
+        const balanceResult = await pool.query(
+          "SELECT balance FROM users WHERE id = $1",
+          [user.id]
         );
 
-        socket.emit("join_result", joinResult);
+        const dbBalance =
+          balanceResult.rows.length > 0
+            ? Number(balanceResult.rows[0].balance)
+            : 0;
+
+        const joinResult = game.addPlayer(
+          user.id,
+          socket.id,
+          user.username,
+          user.avatar || null,
+          preferredRole || "player",
+          dbBalance
+        );
+
+        socket.emit("join_result", {
+          ...joinResult,
+          roomConfig: {
+            roomId: roomConfig.id,
+            roomName: roomConfig.roomName,
+            maxPlayers: roomConfig.maxPlayers,
+            minBet: roomConfig.minBet,
+            maxBet: roomConfig.maxBet,
+            mode: roomConfig.mode,
+          },
+        });
 
         console.log(
-        `✅ ${user.username} (${user.id}) unido a ${roomId} como ${joinResult.role}`
+          `✅ ${user.username} (${user.id}) unido a ${roomId} como ${joinResult.role} con chips=${dbBalance}`
         );
 
         emitUpdate(roomId, game);
         emitLobbyState();
-    } catch (error) {
+      } catch (error) {
         console.error("❌ Error en join_game:", error);
+      }
     }
-    });
+  );
 
   socket.on("start_round", (roomId) => {
     try {
@@ -216,14 +350,31 @@ io.on("connection", (socket) => {
       const game = games[roomId];
       if (!game || !currentUserId) return;
 
-      const ok = game.placeBet(currentUserId, Number(amount));
+      const numericAmount = Number(amount);
+      const ok = game.placeBet(currentUserId, numericAmount);
+
       if (!ok) {
+        const player = game.players[currentUserId];
+
         console.log("⛔ Bet rechazada", {
           roomId,
           currentUserId,
-          amount,
-          isPlayer: !!game.players[currentUserId],
+          amount: numericAmount,
+          isPlayer: !!player,
           isSpectator: game.spectators.some((s) => s.userId === currentUserId),
+          currentBet: player?.bet ?? null,
+          chips: player?.chips ?? null,
+          minBet: game.minBet,
+          maxBet: game.maxBet,
+        });
+
+        socket.emit("bet_error", {
+          success: false,
+          message: "Invalid bet for this table or insufficient chips.",
+          minBet: game.minBet,
+          maxBet: game.maxBet,
+          chips: player?.chips ?? 0,
+          currentBet: player?.bet ?? 0,
         });
         return;
       }
@@ -259,11 +410,11 @@ io.on("connection", (socket) => {
           game.removePlayer(currentUserId, socket.id);
 
           const activePlayers = Object.values(game.players).filter(
-            (p) => p && p.socketId !== null
+            (p) => p && p.socketIds instanceof Set && p.socketIds.size > 0
           );
 
           const activeSpectators = game.spectators.filter(
-            (s) => s && s.socketId !== null
+            (s) => s && s.socketIds instanceof Set && s.socketIds.size > 0
           );
 
           if (
