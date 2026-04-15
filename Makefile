@@ -17,7 +17,7 @@ up:
 	@echo "$(GREEN)Building and starting containers...$(RESET)"
 	$(COMPOSE) up -d --build
 	@echo "$(GREEN)✅ Todo listo! Accede a:$(RESET)"
-	@echo "      http://localhost"
+	@echo "      https://localhost"
 # @echo "   Frontend: http://localhost:5173"
 # @echo "   Backend:  http://localhost:3000"
 

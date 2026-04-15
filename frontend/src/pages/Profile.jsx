@@ -17,6 +17,7 @@ function Profile() {
   });
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -54,6 +55,20 @@ function Profile() {
           });
         }
 
+        const leaderboardRes = await fetch("/api/auth/leaderboard", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (leaderboardRes.ok) {
+          const leaderboardData = await leaderboardRes.json();
+          setLeaderboard(
+            Array.isArray(leaderboardData.leaderboard)
+              ? leaderboardData.leaderboard.slice(0, 3)
+              : []
+          );
+        }
+
         const historyRes = await fetch("/api/auth/history", {
           method: "GET",
           credentials: "include",
@@ -61,7 +76,11 @@ function Profile() {
 
         if (historyRes.ok) {
           const historyData = await historyRes.json();
-          setHistory(Array.isArray(historyData.history) ? historyData.history : []);
+          setHistory(
+            Array.isArray(historyData.history)
+              ? historyData.history.slice(0, 10)
+              : []
+          );
         }
       } catch (error) {
         console.error("Error cargando perfil:", error);
@@ -74,7 +93,6 @@ function Profile() {
     loadProfile();
   }, [navigate]);
 
-  // print history result
   const getResultLabel = (result) => {
     if (result === "win") return "Win";
     if (result === "lose") return "Loss";
@@ -117,6 +135,69 @@ function Profile() {
     localStorage.removeItem("selectedRoom");
 
     navigate("/login");
+  };
+
+  const top1 = leaderboard[0] || null;
+  const top2 = leaderboard[1] || null;
+  const top3 = leaderboard[2] || null;
+
+  const renderPodiumCard = (player, rank, extraClass = "") => {
+    if (!player) {
+      return (
+        <article
+          className={`podium-slot podium-slot--empty podium-slot--rank-${rank} ${extraClass}`}
+          aria-hidden="true"
+        >
+          <div className={`podium-block podium-block--rank-${rank}`}>
+            <div className="podium-block__top">
+              <div className="podium-block__avatar">
+                <span>?</span>
+              </div>
+
+              <div className="podium-block__meta">
+                <strong>Empty</strong>
+                <span>No player</span>
+              </div>
+            </div>
+
+            <div className="podium-block__rank">#{rank}</div>
+          </div>
+        </article>
+      );
+    }
+
+    const isCurrentUser = String(player.id) === String(user?.id);
+    const playerInitial = player.username?.charAt(0)?.toUpperCase() || "?";
+
+    return (
+      <article
+        className={`podium-slot podium-slot--rank-${rank} ${extraClass} ${
+          isCurrentUser ? "podium-slot--me" : ""
+        }`}
+      >
+        <div className={`podium-block podium-block--rank-${rank}`}>
+          <div className="podium-block__top">
+            <div className="podium-block__avatar">
+              <span>{playerInitial}</span>
+            </div>
+
+            <div className="podium-block__meta">
+              <strong>
+                {player.username}
+                {isCurrentUser ? " (You)" : ""}
+              </strong>
+
+              <span className="podium-block__balance">
+                <span className="podium-block__coin">◉</span>
+                {Number(player.balance || 0)}
+              </span>
+            </div>
+          </div>
+
+          <div className="podium-block__rank">#{rank}</div>
+        </div>
+      </article>
+    );
   };
 
   if (loading) {
@@ -193,6 +274,7 @@ function Profile() {
             </button>
           </div>
         </section>
+
         <section className="stats-grid stats-grid--profile">
           <article className="glass-card stat-card stat-card--highlight">
             <span>Win Rate</span>
@@ -225,44 +307,100 @@ function Profile() {
           </article>
         </section>
 
-        <section className="glass-card profile-history">
-          <div className="profile-history__header">
-            <span className="profile-hero__eyebrow">History</span>
-            <h2>Recent Games</h2>
-          </div>
-
-          {history.length === 0 ? (
-            <p className="profile-history__empty">No games played yet.</p>
-          ) : (
-            <div className="profile-history__list">
-              {history.map((match, index) => (
-                <article
-                  key={`${match.playedAt || index}-${index}`}
-                  className="history-item"
-                >
-                  <div className="history-item__main">
-                    <strong>{match.roomName || "Blackjack Table"}</strong>
-                    <span>
-                      {match.playedAt
-                        ? new Date(match.playedAt).toLocaleString()
-                        : "Unknown date"}
-                    </span>
-                  </div>
-
-                  <div className="history-item__meta">
-                    <span className={`history-badge ${getResultClass(match.result)}`}>
-                      {getResultLabel(match.result)}
-                    </span>
-                    <span>Bet: {match.bet ?? 0}</span>
-                    <span>Your score: {match.score ?? 0}</span>
-                    <span>Dealer: {match.dealerScore ?? 0}</span>
-                    <span>Chips after: {match.chipsAfter ?? 0}</span>
-                  </div>
-                </article>
-              ))}
+        <div className="profile-bottom-grid">
+          <section className="glass-card profile-leaderboard">
+            <div className="profile-leaderboard__header">
+              <span className="profile-hero__eyebrow">Leaderboard</span>
+              <h2>Top 3 Players</h2>
             </div>
-          )}
-        </section>
+
+            {leaderboard.length === 0 ? (
+              <p className="profile-history__empty">No leaderboard data yet.</p>
+            ) : (
+              <div className="podium">
+                <div className="podium__stage">
+                  {renderPodiumCard(top2, 2, "podium__slot podium__slot--left")}
+                  {renderPodiumCard(
+                    top1,
+                    1,
+                    "podium__slot podium__slot--center"
+                  )}
+                  {renderPodiumCard(
+                    top3,
+                    3,
+                    "podium__slot podium__slot--right"
+                  )}
+                </div>
+
+                <div className="leaderboard-mini-list">
+                  {leaderboard.map((player, index) => {
+                    const rank = index + 1;
+                    const isCurrentUser = String(player.id) === String(user?.id);
+
+                    return (
+                      <div
+                        key={player.id || index}
+                        className={`leaderboard-mini-item ${
+                          isCurrentUser ? "leaderboard-mini-item--me" : ""
+                        }`}
+                      >
+                        <span className={`leaderboard-mini-item__rank rank-${rank}`}>
+                          #{rank}
+                        </span>
+                        <strong>{player.username}</strong>
+                        <span className="leaderboard-mini-item__balance">
+                          <span className="leaderboard-mini-item__coin">◉</span>
+                          {Number(player.balance || 0)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="glass-card profile-history">
+            <div className="profile-history__header">
+              <span className="profile-hero__eyebrow">History</span>
+              <h2>Recent Games</h2>
+            </div>
+
+            {history.length === 0 ? (
+              <p className="profile-history__empty">No games played yet.</p>
+            ) : (
+              <div className="profile-history__list">
+                {history.map((match, index) => (
+                  <article
+                    key={`${match.playedAt || index}-${index}`}
+                    className="history-item"
+                  >
+                    <div className="history-item__main">
+                      <strong>{match.roomName || "Blackjack Table"}</strong>
+                      <span>
+                        {match.playedAt
+                          ? new Date(match.playedAt).toLocaleString()
+                          : "Unknown date"}
+                      </span>
+                    </div>
+
+                    <div className="history-item__meta">
+                      <span
+                        className={`history-badge ${getResultClass(match.result)}`}
+                      >
+                        {getResultLabel(match.result)}
+                      </span>
+                      <span>Bet: {match.bet ?? 0}</span>
+                      <span>Your score: {match.score ?? 0}</span>
+                      <span>Dealer: {match.dealerScore ?? 0}</span>
+                      <span>Chips after: {match.chipsAfter ?? 0}</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       </main>
 
       <Footer />

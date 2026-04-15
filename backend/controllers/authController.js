@@ -2,7 +2,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
 
-// Configuración de la base de datos
+// Database configuration
 const pool = new Pool({
   host: process.env.DB_HOST || "database",
   user: process.env.DB_USER || "transcendence",
@@ -15,13 +15,13 @@ const JWT_SECRET =
   process.env.JWT_SECRET || "tu_super_secreto_cambiar_en_produccion";
 const SALT_ROUNDS = 10;
 
-// Cerrar sesión
+// Log out
 exports.logout = (req, res) => {
   res.clearCookie("token");
   res.json({ success: true, message: "Sesión cerrada" });
 };
 
-// Registro
+// Sign up
 exports.register = async (req, res) => {
   try {
     const { username, email, password } = req.body;
@@ -197,7 +197,7 @@ exports.verifyToken = async (req, res) => {
   }
 };
 
-// Obtener balance
+// GET balance
 exports.getBalance = async (req, res) => {
   try {
     const result = await pool.query("SELECT balance FROM users WHERE id = $1", [
@@ -224,7 +224,7 @@ exports.getBalance = async (req, res) => {
   }
 };
 
-// Actualizar balance
+// Update balance
 exports.updateBalance = async (req, res) => {
   try {
     const { amount, type } = req.body;
@@ -284,7 +284,7 @@ exports.updateBalance = async (req, res) => {
   }
 };
 
-// Historial
+// History
 exports.getHistory = async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -303,7 +303,7 @@ exports.getHistory = async (req, res) => {
       FROM game_history
       WHERE user_id = $1
       ORDER BY played_at DESC
-      LIMIT 10
+      LIMIT 5
       `,
       [userId]
     );
@@ -394,6 +394,35 @@ exports.updateStats = async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message,
+    });
+  }
+};
+
+// Leaderboard
+exports.getLeaderboard = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT id, username, balance
+      FROM users
+      ORDER BY balance DESC, username ASC
+      LIMIT 3
+      `
+    );
+
+    res.json({
+      success: true,
+      leaderboard: result.rows.map((row) => ({
+        id: row.id,
+        username: row.username,
+        balance: Number(row.balance),
+      })),
+    });
+  } catch (error) {
+    console.error("Error en getLeaderboard:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error en el servidor",
     });
   }
 };

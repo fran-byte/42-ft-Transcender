@@ -433,31 +433,17 @@ function Game() {
       return updatedScore;
     });
 
-    let updatedBalance = balance;
-
-    if (myPlayer.result === "win") {
-      updatedBalance = balance + roundBet;
-    } else if (myPlayer.result === "lose") {
-      updatedBalance = Math.max(0, balance - roundBet);
-    }
-
-    const amount = updatedBalance - balance;
-
-    if (amount !== 0) {
-      fetch("/api/auth/balance", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount, type: "game_result" }),
+    fetch("/api/auth/balance", {
+      method: "GET",
+      credentials: "include",
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (data.success) {
+          syncBalance(data.balance);
+        }
       })
-        .then(async (res) => {
-          const data = await res.json();
-          if (data.success) {
-            syncBalance(data.balance);
-          }
-        })
-        .catch((err) => console.error("Error updating balance:", err));
-    }
+      .catch((err) => console.error("Error refreshing balance:", err));
 
     const localStatsKey = `stats_${authUser.id}`;
 
@@ -503,7 +489,6 @@ function Game() {
     scoreKey,
     authUser,
     stats,
-    balance,
   ]);
 
   const handleStart = () => {
