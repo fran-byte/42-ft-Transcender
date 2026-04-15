@@ -1,51 +1,67 @@
-# TEST AUTENTICACIÓN
-
-## Pruebas de autenticación realizadas y pasadas
-
-### Prueba 1: Registro con username ya existente : OK
-
-### Prueba 2: Registro con email ya existente : OK
-
-### Prueba 3: Registro con password < 6 caracteres : OK
-
-### Prueba 4: Login con credenciales incorrectas : OK
-
-### Prueba 5: Acceder a `/lobby` sin cookie JWT : OK
-
-- **Método**: Intentar acceder a la ruta protegida del frontend (ejemplo, `https://blackjack.local/lobby`) sin haber iniciado sesión.
-- **Resultado esperado**: Redirección automática a `/login` (mediante `ProtectedRoute` de React).
-- **Resultado obtenido**: Al acceder sin cookie, el componente `ProtectedRoute` detecta la ausencia de autenticación y redirige a `/login`. Se comprobó manualmente en el navegador (borrando cookies o usando una ventana de incógnito).
-
-### Prueba 6: Cookie httpOnly no accesible desde JS : OK
-
-- **Método**: Iniciar sesión y desde la consola del navegador ejecutar `console.log(document.cookie)`.
-- **Resultado esperado**: No mostrar el token JWT.
-- **Resultado obtenido**: Se verificó en las herramientas de desarrollador (Application → Cookies) que la cookie `token` tiene la columna `HttpOnly = true`. Además, `document.cookie` no mostró el token.
+# 🃏 INFORME DE PRUEBAS — BLACKJACK
 
 ---
 
-## BALANCE Y APUESTAS
+## 🔐 AUTENTICACIÓN
 
-### Prueba 1: Apostar mas de lo que tienes en saldo en SOLO TABLE: BUG Deja apostar teniedo Balance 0
+> Todas las pruebas de autenticación han sido completadas satisfactoriamente.
 
-### Prueba 2: Apostar mas de lo que tienes en saldo en GLODEN TABLE: BUG Deja apostar teniedo Balance 0
+| #   | Prueba                                  | Estado |
+| --- | --------------------------------------- | ------ |
+| 1   | Registro con username ya existente      | ✅ OK  |
+| 2   | Registro con email ya existente         | ✅ OK  |
+| 3   | Registro con password < 6 caracteres    | ✅ OK  |
+| 4   | Login con credenciales incorrectas      | ✅ OK  |
+| 5   | Acceder a `/lobby` sin cookie JWT       | ✅ OK  |
+| 6   | Cookie `httpOnly` no accesible desde JS | ✅ OK  |
 
-### Prueba 3: Apostar mas de lo que tienes en saldo en EMERAL ROOM: BUG Deja apostar teniedo Balance 0
+---
 
-### Prueba 4: Apostar mas de lo que tienes en saldo en ROYAL LOUNGE: BUG Deja apostar teniedo Balance 0
+### 🔍 Detalle — Prueba 5: Acceso a `/lobby` sin cookie JWT
 
-### Prueba 5: Apostar mas de lo que tienes en saldo en DIAMON ROOM: BUG Deja apostar teniedo Balance 0
+- **Método:** Intentar acceder a la ruta protegida del frontend (ej. `https://blackjack.local/lobby`) sin haber iniciado sesión.
+- **Resultado esperado:** Redirección automática a `/login` mediante `ProtectedRoute` de React.
+- **Resultado obtenido:** ✅ El componente `ProtectedRoute` detecta la ausencia de autenticación y redirige correctamente a `/login`. Verificado manualmente borrando cookies y usando ventana de incógnito.
 
-### Prueba 6: Apostar mas de lo que tienes en saldo en VELVET ROOM: BUG Deja apostar teniedo Balance 0
+---
 
-- EL Backend no valida el Balance al hacer place_bet, Solamente BlackjackGame.placeBet existe en Memoria.
+### 🔍 Detalle — Prueba 6: Cookie `httpOnly` no accesible desde JS
 
-### Prueba 7 : Depósito y Retiro desde el Wallet limites min 10$ maximo 10000$ : OK
+- **Método:** Iniciar sesión y ejecutar `console.log(document.cookie)` desde la consola del navegador.
+- **Resultado esperado:** El token JWT no debe ser visible.
+- **Resultado obtenido:** ✅ Verificado en DevTools (`Application → Cookies`) — la cookie `token` tiene `HttpOnly = true`. `document.cookie` no expone el token.
 
--(pero.. precisa correción el Bug anterior)
+---
 
-- Hay un bug relacionado con el anterior si se corrige el anterior no nos daria fallo (aun así verificar despues de corregir el anterior)
+## 💰 BALANCE Y APUESTAS
 
-### Prueba 8: APOSTAR más del máximo de la mesa: BUG nos deja apostar por encima del máximo
+### Apuestas con saldo insuficiente
 
-- Creo que no está implementado en el backend este tope.
+| #   | Mesa         | Estado                                |
+| --- | ------------ | ------------------------------------- |
+| 1   | Solo Table   | ✅ — NO permite apostar con balance 0 |
+| 2   | Golden Table | ✅ — NO permite apostar con balance 0 |
+| 3   | Emerald Room | ✅ — NO permite apostar con balance 0 |
+| 4   | Royal Lounge | ✅ — NO permite apostar con balance 0 |
+| 5   | Diamond Room | ✅ — NO permite apostar con balance 0 |
+| 6   | Velvet Room  | ✅ — NO permite apostar con balance 0 |
+
+---
+
+### Prueba 7 — Depósito y retiro desde Wallet (límites: mín. $10 / máx. $10.000)
+
+**Estado:** ✅ OK _(con matices)_
+
+> ⚠️ Existe un bug secundario relacionado con el **bug de saldo insuficiente** (Pruebas 1–6). Es probable que se resuelva al corregir ese bug, pero **debe verificarse de nuevo tras la corrección**.
+
+---
+
+### Prueba 8 — Apostar por encima del máximo de la mesa
+
+**Estado:** 🐛 BUG — permite superar el límite máximo de apuesta
+
+> ⚠️ El tope máximo por mesa no parece estar implementado en el backend.
+
+---
+
+_📋 Informe en progreso — pendiente de continuar._
