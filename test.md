@@ -59,6 +59,7 @@
 | 3   | Sin saldo             | 🐛 — SI deja apostar con Balance 0 BUG Balance/Wallet       |
 | 4   | Operaciones de Wallet | 🐛 — Incongruencias del wallet al sumar o restar cantidades |
 
----
+- El principal problema de estos bugs es la desincronización entre el Wallet y el balance real. El balance REAL funciona correctamente (no permite apostar si el saldo real es 0, aunque no se displaye correctamente debido a la interación de la wallet), pero al mostrarse en la interfaz, el Wallet presenta un balance ficticio o desactualizado.
+- ***
 
 _📋 Informe en progreso — pendiente de continuar._
