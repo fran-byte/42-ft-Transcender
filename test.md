@@ -54,8 +54,8 @@
 
 | #   | BlackJAck             | Estado                                                      |
 | --- | --------------------- | ----------------------------------------------------------- |
-| 1   | Retiro min            | ✅ — NO permite retirar/Ingresar < $10                      |
-| 2   | Retiro máx            | ✅ — NO permite retirar/Ingresar < $10000                   |
+| 1   | Retirar/ingresar min  | ✅ — NO permite retirar/Ingresar < $10                      |
+| 2   | Retirar/ingresar min  | ✅ — NO permite retirar/Ingresar < $10000                   |
 | 3   | Sin saldo             | 🐛 — SI deja apostar con Balance 0 BUG Balance/Wallet       |
 | 4   | Operaciones de Wallet | 🐛 — Incongruencias del wallet al sumar o restar cantidades |
 
