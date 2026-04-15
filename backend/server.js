@@ -164,6 +164,54 @@ const emitLobbyState = () => {
   io.emit("lobby_state", lobbyRooms);
 };
 
+const persistFinishedGame = async (game) => {
+  try {
+    const dealerScore = game.calculateScore(game.dealerHand);
+
+    for (const userId of game.playerOrder) {
+      const player = game.players[userId];
+      if (!player) continue;
+
+      await pool.query(
+        `
+        INSERT INTO game_history (
+          user_id,
+          room_id,
+          room_name,
+          result,
+          bet,
+          player_score,
+          dealer_score,
+          chips_after
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `,
+        [
+          userId,
+          game.id,
+          game.roomName,
+          player.result || "unknown",
+          player.bet || 0,
+          player.score || 0,
+          dealerScore || 0,
+          player.chips || 0,
+        ]
+      );
+
+      await pool.query(
+        `
+        UPDATE users
+        SET balance = $1
+        WHERE id = $2
+        `,
+        [player.chips || 0, userId]
+      );
+    }
+  } catch (error) {
+    console.error("❌ Error guardando historial:", error);
+  }
+};
+
 io.on("connection", (socket) => {
   let currentUserId = null;
   let currentRoomId = null;
@@ -175,87 +223,84 @@ io.on("connection", (socket) => {
     emitLobbyState();
   });
 
-  socket.on(
-    "join_game",
-    async ({ roomId, user, maxPlayers, preferredRole }) => {
-      try {
-        if (!roomId || !user || !user.id || !user.username) {
-          console.error("❌ Intento de join_game inválido");
-          return;
-        }
+  socket.on("join_game", async ({ roomId, user, preferredRole }) => {
+    try {
+      if (!roomId || !user || !user.id || !user.username) {
+        console.error("❌ Intento de join_game inválido");
+        return;
+      }
 
-        const roomConfig = ROOM_CONFIGS[roomId];
-        if (!roomConfig) {
-          console.error(`❌ Room inválida: ${roomId}`);
-          socket.emit("join_result", {
-            success: false,
-            reason: "invalid_room",
-          });
-          return;
-        }
-
-        currentUserId = user.id;
-        currentRoomId = roomId;
-
-        if (!games[roomId]) {
-          games[roomId] = new BlackjackGame(
-            roomId,
-            (gameState) => {
-              io.to(roomId).emit("game_update", gameState);
-            },
-            roomConfig
-          );
-
-          console.log(
-            `✨ Sala creada: ${roomId} (maxPlayers=${roomConfig.maxPlayers}, minBet=${roomConfig.minBet}, maxBet=${roomConfig.maxBet})`
-          );
-        }
-
-        const game = games[roomId];
-        socket.join(roomId);
-
-        const balanceResult = await pool.query(
-          "SELECT balance FROM users WHERE id = $1",
-          [user.id]
-        );
-
-        const dbBalance =
-          balanceResult.rows.length > 0
-            ? Number(balanceResult.rows[0].balance)
-            : 0;
-
-        const joinResult = game.addPlayer(
-          user.id,
-          socket.id,
-          user.username,
-          user.avatar || null,
-          preferredRole || "player",
-          dbBalance
-        );
-
+      const roomConfig = ROOM_CONFIGS[roomId];
+      if (!roomConfig) {
+        console.error(`❌ Room inválida: ${roomId}`);
         socket.emit("join_result", {
-          ...joinResult,
-          roomConfig: {
-            roomId: roomConfig.id,
-            roomName: roomConfig.roomName,
-            maxPlayers: roomConfig.maxPlayers,
-            minBet: roomConfig.minBet,
-            maxBet: roomConfig.maxBet,
-            mode: roomConfig.mode,
-          },
+          success: false,
+          reason: "invalid_room",
         });
+        return;
+      }
+
+      currentUserId = user.id;
+      currentRoomId = roomId;
+
+      if (!games[roomId]) {
+        games[roomId] = new BlackjackGame(
+          roomId,
+          (gameState) => {
+            io.to(roomId).emit("game_update", gameState);
+          },
+          roomConfig
+        );
 
         console.log(
-          `✅ ${user.username} (${user.id}) unido a ${roomId} como ${joinResult.role} con chips=${dbBalance}`
+          `✨ Sala creada: ${roomId} (maxPlayers=${roomConfig.maxPlayers}, minBet=${roomConfig.minBet}, maxBet=${roomConfig.maxBet})`
         );
-
-        emitUpdate(roomId, game);
-        emitLobbyState();
-      } catch (error) {
-        console.error("❌ Error en join_game:", error);
       }
+
+      const game = games[roomId];
+      socket.join(roomId);
+
+      const balanceResult = await pool.query(
+        "SELECT balance FROM users WHERE id = $1",
+        [user.id]
+      );
+
+      const dbBalance =
+        balanceResult.rows.length > 0
+          ? Number(balanceResult.rows[0].balance)
+          : 0;
+
+      const joinResult = game.addPlayer(
+        user.id,
+        socket.id,
+        user.username,
+        user.avatar || null,
+        preferredRole || "player",
+        dbBalance
+      );
+
+      socket.emit("join_result", {
+        ...joinResult,
+        roomConfig: {
+          roomId: roomConfig.id,
+          roomName: roomConfig.roomName,
+          maxPlayers: roomConfig.maxPlayers,
+          minBet: roomConfig.minBet,
+          maxBet: roomConfig.maxBet,
+          mode: roomConfig.mode,
+        },
+      });
+
+      console.log(
+        `✅ ${user.username} (${user.id}) unido a ${roomId} como ${joinResult.role} con chips=${dbBalance}`
+      );
+
+      emitUpdate(roomId, game);
+      emitLobbyState();
+    } catch (error) {
+      console.error("❌ Error en join_game:", error);
     }
-  );
+  });
 
   socket.on("start_round", (roomId) => {
     try {
@@ -288,7 +333,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("action_hit", (roomId) => {
+  socket.on("action_hit", async (roomId) => {
     try {
       const game = games[roomId];
       if (!game || !currentUserId) return;
@@ -299,14 +344,21 @@ io.on("connection", (socket) => {
       }
 
       console.log(`👊 HIT de usuario: ${currentUserId}`);
+
+      const wasFinished = game.gameState === "finished";
+
       game.hit(currentUserId);
       emitUpdate(roomId, game);
+
+      if (!wasFinished && game.gameState === "finished") {
+        await persistFinishedGame(game);
+      }
     } catch (error) {
       console.error("❌ Error en action_hit:", error);
     }
   });
 
-  socket.on("action_stand", (roomId) => {
+  socket.on("action_stand", async (roomId) => {
     try {
       const game = games[roomId];
       if (!game || !currentUserId) return;
@@ -317,8 +369,15 @@ io.on("connection", (socket) => {
       }
 
       console.log(`✋ STAND de usuario: ${currentUserId}`);
+
+      const wasFinished = game.gameState === "finished";
+
       game.stand(currentUserId);
       emitUpdate(roomId, game);
+
+      if (!wasFinished && game.gameState === "finished") {
+        await persistFinishedGame(game);
+      }
     } catch (error) {
       console.error("❌ Error en action_stand:", error);
     }
@@ -417,11 +476,7 @@ io.on("connection", (socket) => {
             (s) => s && s.socketIds instanceof Set && s.socketIds.size > 0
           );
 
-          if (
-            activePlayers.length === 0 &&
-            activeSpectators.length === 0 &&
-            game.gameState === "waiting"
-          ) {
+          if (activePlayers.length === 0 && activeSpectators.length === 0) {
             console.log(`🗑️ Sala ${currentRoomId} vacía. Eliminando.`);
             game.clearTurnTimer();
             delete games[currentRoomId];

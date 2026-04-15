@@ -14,12 +14,15 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS game_history (
     id SERIAL PRIMARY KEY,
-    user_id INT NOT NULL,
-    result VARCHAR(20) NOT NULL,
-    amount_won DECIMAL(10, 2) NOT NULL,
-    game_data JSONB,
-    played_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    room_id TEXT NOT NULL,
+    room_name TEXT NOT NULL,
+    result TEXT NOT NULL,
+    bet NUMERIC NOT NULL DEFAULT 0,
+    player_score INTEGER NOT NULL DEFAULT 0,
+    dealer_score INTEGER NOT NULL DEFAULT 0,
+    chips_after NUMERIC NOT NULL DEFAULT 0,
+    played_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Insertamos un usuario de test para poder loguearnos luego

@@ -16,6 +16,7 @@ function Profile() {
     blackjacks: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [history, setHistory] = useState([]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -37,7 +38,6 @@ function Profile() {
         localStorage.setItem("username", data.user.username);
         localStorage.setItem("email", data.user.email);
 
-        // 🔥 NUEVO: Cargar estadísticas desde el backend
         const statsRes = await fetch("/api/auth/stats", {
           method: "GET",
           credentials: "include",
@@ -53,6 +53,16 @@ function Profile() {
             blackjacks: statsData.blackjacks || 0,
           });
         }
+
+        const historyRes = await fetch("/api/auth/history", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (historyRes.ok) {
+          const historyData = await historyRes.json();
+          setHistory(Array.isArray(historyData.history) ? historyData.history : []);
+        }
       } catch (error) {
         console.error("Error cargando perfil:", error);
         navigate("/login");
@@ -63,6 +73,21 @@ function Profile() {
 
     loadProfile();
   }, [navigate]);
+
+  // print history result
+  const getResultLabel = (result) => {
+    if (result === "win") return "Win";
+    if (result === "lose") return "Loss";
+    if (result === "push") return "Push";
+    return "Unknown";
+  };
+
+  const getResultClass = (result) => {
+    if (result === "win") return "history-badge--win";
+    if (result === "lose") return "history-badge--lose";
+    if (result === "push") return "history-badge--push";
+    return "";
+  };
 
   const username = user?.username || "Player";
   const email = user?.email || "No email";
@@ -168,8 +193,12 @@ function Profile() {
             </button>
           </div>
         </section>
-
         <section className="stats-grid stats-grid--profile">
+          <article className="glass-card stat-card stat-card--highlight">
+            <span>Win Rate</span>
+            <strong>{formattedWinrate}</strong>
+          </article>
+
           <article className="glass-card stat-card">
             <span>Total Hands</span>
             <strong>{stats.gamesPlayed}</strong>
@@ -194,11 +223,45 @@ function Profile() {
             <span>Blackjacks</span>
             <strong>{stats.blackjacks}</strong>
           </article>
+        </section>
 
-          <article className="glass-card stat-card stat-card--highlight">
-            <span>Win Rate</span>
-            <strong>{formattedWinrate}</strong>
-          </article>
+        <section className="glass-card profile-history">
+          <div className="profile-history__header">
+            <span className="profile-hero__eyebrow">History</span>
+            <h2>Recent Games</h2>
+          </div>
+
+          {history.length === 0 ? (
+            <p className="profile-history__empty">No games played yet.</p>
+          ) : (
+            <div className="profile-history__list">
+              {history.map((match, index) => (
+                <article
+                  key={`${match.playedAt || index}-${index}`}
+                  className="history-item"
+                >
+                  <div className="history-item__main">
+                    <strong>{match.roomName || "Blackjack Table"}</strong>
+                    <span>
+                      {match.playedAt
+                        ? new Date(match.playedAt).toLocaleString()
+                        : "Unknown date"}
+                    </span>
+                  </div>
+
+                  <div className="history-item__meta">
+                    <span className={`history-badge ${getResultClass(match.result)}`}>
+                      {getResultLabel(match.result)}
+                    </span>
+                    <span>Bet: {match.bet ?? 0}</span>
+                    <span>Your score: {match.score ?? 0}</span>
+                    <span>Dealer: {match.dealerScore ?? 0}</span>
+                    <span>Chips after: {match.chipsAfter ?? 0}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
       </main>
 

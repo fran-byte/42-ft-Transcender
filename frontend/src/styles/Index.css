@@ -859,6 +859,89 @@ main {
     inset 0 0 0 1px rgba(250, 204, 21, 0.12);
 }
 
+.profile-history {
+  position: relative;
+  z-index: 1;
+  margin-top: 1.25rem;
+  padding: 1.5rem;
+}
+
+.profile-history__header {
+  margin-bottom: 1rem;
+}
+
+.profile-history__header h2 {
+  margin: 0;
+}
+
+.profile-history__empty {
+  margin: 0;
+  color: var(--muted);
+}
+
+.profile-history__list {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.history-item__main {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.history-item__main strong {
+  font-size: 1rem;
+}
+
+.history-item__main span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.history-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: flex-end;
+}
+
+.history-item__meta span {
+  padding: 0.38rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.88rem;
+}
+
+.history-badge {
+  font-weight: 700;
+}
+
+.history-badge--win {
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  color: #86efac;
+}
+
+.history-badge--lose {
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
+}
+
+.history-badge--push {
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  color: #fde68a;
+}
+
 /* CIRCLE & PILL BUTTONS */
 .btn-circle__content {
   position: relative;
@@ -1311,6 +1394,13 @@ main {
 }
 
 @media (max-width: 760px) {
+  .history-item {
+    flex-direction: column;
+  }
+
+  .history-item__meta {
+    justify-content: flex-start;
+  }
   .navbar__inner {
     padding: 0.8rem 1rem;
     flex-direction: column;

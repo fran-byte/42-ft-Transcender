@@ -50,16 +50,8 @@ function Game() {
       return null;
     }
   });
-
-  const [roomId] = useState(() =>
-    isSoloTable
-      ? `solo-table-${
-          JSON.parse(localStorage.getItem("user") || "{}")?.id || "guest"
-        }`
-      : storedRoom.id || "blackjack-room-1"
-  );
-
-  const roleStorageKey = useMemo(() => {
+    const [roomId] = useState(() => storedRoom.id || "solo-table");
+    const roleStorageKey = useMemo(() => {
     const tempUser = JSON.parse(localStorage.getItem("user") || "{}");
     const userId = tempUser?.id || "guest";
     return `blackjack_role_${roomId}_${userId}`;
