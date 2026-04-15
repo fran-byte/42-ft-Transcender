@@ -52,15 +52,11 @@
 
 **Estado:** ✅ OK _(con matices)_
 
-> ⚠️ Existe un bug secundario relacionado con el **bug de saldo insuficiente** (Pruebas 1–6). Es probable que se resuelva al corregir ese bug, pero **debe verificarse de nuevo tras la corrección**.
-
----
-
-### Prueba 8 — Apostar por encima del máximo de la mesa
-
-**Estado:** 🐛 BUG — permite superar el límite máximo de apuesta
-
-> ⚠️ El tope máximo por mesa no parece estar implementado en el backend.
+| #   | BlackJAck  | Estado                                                |
+| --- | ---------- | ----------------------------------------------------- |
+| 1   | Retiro min | ✅ — NO permite retirar/Ingresar < $10                |
+| 2   | Retiro máx | ✅ — NO permite retirar/Ingresar < $10000             |
+| 3   | Sin sado   | 🐛 — SI deja apostar con Balance 0 BUG Balance/Wallet |
 
 ---
 
