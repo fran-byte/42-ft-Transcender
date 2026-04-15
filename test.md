@@ -50,7 +50,7 @@
 
 ### Prueba 7 — Depósito y retiro desde Wallet (límites: mín. $10 / máx. $10.000)
 
-**Estado:** ✅ OK _(con matices)_
+**Estado:** 🐛 Aún con BUGs
 
 | #   | BlackJAck  | Estado                                                |
 | --- | ---------- | ----------------------------------------------------- |
