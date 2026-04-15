@@ -35,16 +35,16 @@
 
 ## 💰 BALANCE Y APUESTAS
 
-### Apuestas con saldo insuficiente
+### Apuestas máxima permitida por mesa
 
-| #   | Mesa         | Estado                                |
-| --- | ------------ | ------------------------------------- |
-| 1   | Solo Table   | ✅ — NO permite apostar con balance 0 |
-| 2   | Golden Table | ✅ — NO permite apostar con balance 0 |
-| 3   | Emerald Room | ✅ — NO permite apostar con balance 0 |
-| 4   | Royal Lounge | ✅ — NO permite apostar con balance 0 |
-| 5   | Diamond Room | ✅ — NO permite apostar con balance 0 |
-| 6   | Velvet Room  | ✅ — NO permite apostar con balance 0 |
+| #   | Mesa         | Estado                          |
+| --- | ------------ | ------------------------------- |
+| 1   | Solo Table   | ✅ — NO permite apostar > $200  |
+| 2   | Golden Table | ✅ — NO permite apostar > $1000 |
+| 3   | Emerald Room | ✅ — NO permite apostar > $500  |
+| 4   | Royal Lounge | ✅ — NO permite apostar > $2000 |
+| 5   | Diamond Room | ✅ — NO permite apostar > $3500 |
+| 6   | Velvet Room  | ✅ — NO permite apostar > $1000 |
 
 ---
 
