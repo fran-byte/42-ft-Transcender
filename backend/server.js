@@ -223,6 +223,22 @@ io.on("connection", (socket) => {
     emitLobbyState();
   });
 
+  socket.on("sync_wallet_balance", ({ roomId, userId, balance }) => {
+    try {
+      const game = games[roomId];
+      if (!game) return;
+      if (!currentUserId || String(currentUserId) !== String(userId)) return;
+
+      const ok = game.updatePlayerWallet(userId, Number(balance));
+      if (!ok) return;
+
+      emitUpdate(roomId, game);
+      emitLobbyState();
+    } catch (error) {
+      console.error("❌ Error en sync_wallet_balance:", error);
+    }
+  });
+
   socket.on("join_game", async ({ roomId, user, preferredRole }) => {
     try {
       if (!roomId || !user || !user.id || !user.username) {

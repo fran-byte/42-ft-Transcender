@@ -1136,8 +1136,16 @@ function Game() {
 
                   if (data.success) {
                     syncBalance(data.balance);
-                    setWalletMsg(`Deposited +$${walletAmount}`);
-                  } else {
+                    
+                    socket.emit("sync_wallet_balance", {
+                    roomId,
+                    userId: authUser.id,
+                    balance: Number(data.balance),
+                  });
+
+                  setWalletMsg(`Deposited +$${walletAmount}`);
+                }
+                else {
                     setWalletMsg("Error: " + data.message);
                   }
                 }}
@@ -1177,8 +1185,15 @@ function Game() {
 
                   if (data.success) {
                     syncBalance(data.balance);
+                    socket.emit("sync_wallet_balance", {
+                      roomId,
+                      userId: authUser.id,
+                      balance: Number(data.balance),
+                    });
+
                     setWalletMsg(`Withdrawn -$${walletAmount}`);
-                  } else {
+                  }
+                  else {
                     setWalletMsg("Error: " + data.message);
                   }
                 }}

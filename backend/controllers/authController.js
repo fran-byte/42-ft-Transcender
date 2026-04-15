@@ -238,16 +238,24 @@ exports.updateBalance = async (req, res) => {
 
     const numericAmount = Number(amount);
 
-    if (!Number.isFinite(numericAmount)) {
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       return res.status(400).json({
         success: false,
         message: "amount inválido",
       });
     }
 
-    const current = await pool.query("SELECT balance FROM users WHERE id = $1", [
-      req.user.userId,
-    ]);
+    if (!["deposit", "withdraw"].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: "type inválido",
+      });
+    }
+
+    const current = await pool.query(
+      "SELECT balance FROM users WHERE id = $1",
+      [req.user.userId]
+    );
 
     if (current.rows.length === 0) {
       return res.status(404).json({
@@ -257,7 +265,14 @@ exports.updateBalance = async (req, res) => {
     }
 
     const currentBalance = parseFloat(current.rows[0].balance);
-    const newBalance = currentBalance + numericAmount;
+
+    let newBalance = currentBalance;
+
+    if (type === "deposit") {
+      newBalance = currentBalance + numericAmount;
+    } else if (type === "withdraw") {
+      newBalance = currentBalance - numericAmount;
+    }
 
     if (newBalance < 0) {
       return res.status(400).json({

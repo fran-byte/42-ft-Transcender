@@ -338,6 +338,19 @@ class BlackjackGame {
     return true;
   }
 
+  updatePlayerWallet(userId, newBalance) {
+    const player = this.players[userId];
+    if (!player || player.isDisconnected) return false;
+
+    if (!Number.isFinite(newBalance) || newBalance < 0) return false;
+
+    if (this.gameState !== "waiting") return false;
+    if ((player.bet ?? 0) > 0) return false;
+
+    player.chips = newBalance;
+    return true;
+  }
+
   canStartRound() {
     if (this.gameState !== "waiting") return false;
 
