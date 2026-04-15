@@ -56,6 +56,6 @@
 | --- | -------------------- | ----------------------------------------- |
 | 1   | Retirar/ingresar min | ✅ — NO permite retirar/Ingresar < $10    |
 | 2   | Retirar/ingresar máx | ✅ — NO permite retirar/Ingresar > $10000 |
-| 3   | Sin saldo            | ✅ — NO permite con 0 de Balance          |
+| 3   | Sin saldo            | ✅ — NO permite apostar con 0 de Balance  |
 
 _📋 Informe en progreso — pendiente de continuar._
