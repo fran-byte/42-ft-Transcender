@@ -12,8 +12,10 @@ services:
       - DB_PASSWORD=${POSTGRES_PASSWORD}
       - DB_NAME=${POSTGRES_DB}
       - JWT_SECRET=${JWT_SECRET}
+      - ML_SERVICE_URL=http://ml-service:5000
     depends_on:
       - db
+      - ml-service
     command: sh -c "npm install && npm run dev"
 
   frontend:
@@ -33,8 +35,8 @@ services:
     container_name: blackjack-nginx
     image: nginx:alpine
     ports:
-      - "80:80"
-      - "443:443"
+      - "8080:80"
+      - "8443:443"
     volumes:
       - ./requirements/nginx/conf.d/blackjack.conf:/etc/nginx/conf.d/blackjack.conf
       - ./secrets/certs/blackjack.local.crt:/etc/ssl/certs/blackjack.local.crt
@@ -42,6 +44,16 @@ services:
     depends_on:
       - frontend
       - backend
+      - ml-service
+
+  ml-service:
+    container_name: blackjack-ml-service
+    build: ./ml_service
+    working_dir: /app
+    environment:
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "5000:5000"
 
   db:
     image: postgres:15-alpine
