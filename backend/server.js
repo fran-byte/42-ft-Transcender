@@ -1,3 +1,4 @@
+const client = require('prom-client');
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -95,6 +96,14 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use("/api/auth", authRoutes);
+
+const collectDefaultMetrics = client.collectDefaultMetrics;
+collectDefaultMetrics();
+
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', client.register.contentType);
+  res.end(await client.register.metrics());
+});
 
 const httpServer = http.createServer(app);
 
