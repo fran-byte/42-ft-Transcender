@@ -11,6 +11,95 @@ const authRoutes = require("./routes/auth");
 const app = express();
 const PORT = 3000;
 const allowedOrigin = "https://blackjack.local";
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://ml-service:5000";
+
+// ML Service helper using native http
+async function callMLService(playerHand, dealerVisible, playerScore) {
+  return new Promise((resolve) => {
+    const data = JSON.stringify({
+      player_hand: playerHand,
+      dealer_visible: dealerVisible,
+      player_score: playerScore,
+    });
+
+    const options = {
+      hostname: "ml-service",
+      port: 5000,
+      path: "/predict",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": data.length,
+      },
+      timeout: 5000,
+    };
+
+    const req = http.request(options, (res) => {
+      let body = "";
+      res.on("data", (chunk) => (body += chunk));
+      res.on("end", () => {
+        try {
+          resolve(JSON.parse(body));
+        } catch {
+          resolve({ action: "stand", confidence: 0 });
+        }
+      });
+    });
+
+    req.on("error", () => resolve({ action: "stand", confidence: 0 }));
+    req.on("timeout", () => {
+      req.destroy();
+      resolve({ action: "stand", confidence: 0 });
+    });
+
+    req.write(data);
+    req.end();
+  });
+}
+
+async function callMLServiceEnhanced(playerScore, dealerVisible, usableAce, trueCount) {
+  return new Promise((resolve) => {
+    const data = JSON.stringify({
+      player_score: playerScore,
+      dealer_visible: dealerVisible,
+      usable_ace: usableAce,
+      true_count: trueCount,
+    });
+
+    const options = {
+      hostname: "ml-service",
+      port: 5000,
+      path: "/predict",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": data.length,
+      },
+      timeout: 5000,
+    };
+
+    const req = http.request(options, (res) => {
+      let body = "";
+      res.on("data", (chunk) => (body += chunk));
+      res.on("end", () => {
+        try {
+          resolve(JSON.parse(body));
+        } catch {
+          resolve({ action: "stand", confidence: 0 });
+        }
+      });
+    });
+
+    req.on("error", () => resolve({ action: "stand", confidence: 0 }));
+    req.on("timeout", () => {
+      req.destroy();
+      resolve({ action: "stand", confidence: 0 });
+    });
+
+    req.write(data);
+    req.end();
+  });
+}
 
 // DB
 const pool = new Pool({
@@ -274,7 +363,58 @@ io.on("connection", (socket) => {
           (gameState) => {
             io.to(roomId).emit("game_update", gameState);
           },
-          roomConfig
+          roomConfig,
+          async (botId, botPlayer, dealerVisibleCard) => {
+            const game = games[roomId];
+            if (!game) return;
+
+            const playerScore = game.calculateScore(botPlayer.hand);
+            const usableAce = game.hasUsableAce(botPlayer.hand);
+            const trueCount = Math.round(game.getTrueCount());
+            const dealerValue = parseInt(dealerVisibleCard.value, 10) || 10;
+
+            let action = "stand";
+            try {
+              const mlResponse = await callMLServiceEnhanced(
+                playerScore,
+                dealerValue,
+                usableAce,
+                trueCount
+              );
+              action = mlResponse.action || "stand";
+            } catch (error) {
+              console.error("ML Service error:", error);
+              action = Math.random() < 0.5 ? "hit" : "stand";
+            }
+
+            if (action === "hit") {
+              game.hit(botId);
+            } else {
+              game.stand(botId);
+            }
+
+            if (game.gameState !== "finished") {
+              game.nextTurn();
+            }
+
+            if (game.emitUpdate) {
+              game.emitUpdate(game.getPublicState());
+            }
+          },
+          async (userId) => {
+            try {
+              const result = await pool.query(
+                "SELECT balance FROM users WHERE id = $1",
+                [userId]
+              );
+              if (result.rows.length > 0) {
+                return Number(result.rows[0].balance);
+              }
+            } catch (error) {
+              console.error("Error syncBalance:", error);
+            }
+            return null;
+          }
         );
 
         console.log(
@@ -295,13 +435,21 @@ io.on("connection", (socket) => {
           ? Number(balanceResult.rows[0].balance)
           : 0;
 
+      const existingPlayer = games[roomId]?.players?.[user.id];
+      let playerChips = existingPlayer?.chips ?? dbBalance;
+
+      if (existingPlayer) {
+        console.log(`♻️ Usando chips del juego: ${playerChips} (DB: ${dbBalance})`);
+        await pool.query('UPDATE users SET balance = $1 WHERE id = $2', [playerChips, user.id]);
+      }
+
       const joinResult = game.addPlayer(
         user.id,
         socket.id,
         user.username,
         user.avatar || null,
         preferredRole || "player",
-        dbBalance
+        playerChips
       );
 
       socket.emit("join_result", {
@@ -429,13 +577,15 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("place_bet", ({ roomId, amount }) => {
+  socket.on("place_bet", async ({ roomId, amount }) => {
     try {
       const game = games[roomId];
       if (!game || !currentUserId) return;
 
       const numericAmount = Number(amount);
-      const ok = game.placeBet(currentUserId, numericAmount);
+      console.log(`📥 place_bet received: user=${currentUserId}, amount=${numericAmount}, room=${roomId}`);
+
+      const ok = await game.placeBet(currentUserId, numericAmount);
 
       if (!ok) {
         const player = game.players[currentUserId];
@@ -482,6 +632,7 @@ io.on("connection", (socket) => {
       console.error("❌ Error en clear_bet:", error);
     }
   });
+
     socket.on("leave_room", (roomId) => {
     try {
       if (!roomId || !currentUserId) return;
@@ -497,6 +648,41 @@ io.on("connection", (socket) => {
       console.error("❌ Error en leave_room:", error);
     }
   });
+
+  socket.on("add_ai_player", (data) => {
+    try {
+      const { roomId, botId, botName } = data;
+      const game = games[roomId];
+      if (!game) return;
+
+      const aiBotId = botId || `ai_bot_${Date.now()}`;
+      const result = game.addAIPlayer(aiBotId, botName || "Dealer Bot");
+
+      socket.emit("add_ai_result", result);
+      emitUpdate(roomId, game);
+      emitLobbyState();
+    } catch (error) {
+      console.error("❌ Error en add_ai_player:", error);
+    }
+  });
+
+  socket.on("remove_ai_player", (data) => {
+    try {
+      const { roomId, botId } = data;
+      const game = games[roomId];
+      if (!game) return;
+
+      const result = game.removeAIPlayer(botId);
+
+      socket.emit("remove_ai_result", result);
+      emitUpdate(roomId, game);
+      emitLobbyState();
+    } catch (error) {
+      console.error("❌ Error en remove_ai_player:", error);
+    }
+  });
+
+
   socket.on("disconnect", () => {
     try {
       console.log(`💀 Socket desconectado: ${socket.id} (User: ${currentUserId})`);

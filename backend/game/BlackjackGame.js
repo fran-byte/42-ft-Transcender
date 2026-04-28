@@ -278,6 +278,139 @@ class BlackjackGame {
     return { role: "player", success: true };
   }
 
+  addAIPlayer(botId, botName = "Dealer Bot") {
+    if (this.getSeatedPlayersCount() >= this.maxPlayers) {
+      return { success: false, reason: "table_full" };
+    }
+
+    if (this.players[botId]) {
+      return { success: true, reason: "already_exists" };
+    }
+
+    const player = {
+      id: botId,
+      username: botName,
+      avatar: null,
+      hand: [],
+      score: 0,
+      status: "waiting",
+      result: null,
+      bet: 0,
+      chips: 1000,
+      isSpectator: false,
+      isDisconnected: false,
+      isAI: true,
+      disconnectTimer: null,
+      socketIds: new Set(),
+    };
+
+    this.players[botId] = player;
+    this.playerOrder.push(botId);
+
+    return { success: true, reason: "ai_added", player: { id: botId, username: botName } };
+  }
+
+  removeAIPlayer(botId) {
+    const player = this.players[botId];
+    if (!player || !player.isAI) {
+      return { success: false, reason: "not_found" };
+    }
+
+    delete this.players[botId];
+    this.playerOrder = this.playerOrder.filter((id) => id !== botId);
+
+    return { success: true, reason: "ai_removed" };
+  }
+
+  getDeckInfo() {
+    return {
+      cards: [...this.deck.cards],
+      total: 312,
+      remaining: this.deck.cards.length,
+    };
+  }
+
+  calculateAdvantage() {
+    const cards = this.deck.cards;
+    if (cards.length === 0) return 0;
+
+    let runningCount = 0;
+    for (const card of cards) {
+      const v = card.value;
+      if (["2", "3", "4", "5", "6"].includes(v)) {
+        runningCount += 1;
+      } else if (["10", "J", "Q", "K", "A"].includes(v)) {
+        runningCount -= 1;
+      }
+    }
+
+    const numDecks = cards.length / 52;
+    const trueCount = numDecks > 0 ? runningCount / numDecks : 0;
+
+    const baseAdvantage = -0.005;
+    const advantage = baseAdvantage + (trueCount * 0.005);
+
+    return advantage;
+  }
+
+  calculateKellyBet(userId) {
+    const player = this.players[userId];
+    if (!player || player.chips <= 0) return 0;
+
+    const advantage = this.calculateAdvantage();
+    const bankroll = player.chips;
+    const minBet = this.minBet;
+    const maxBet = this.maxBet;
+
+    console.log(`📊 Kelly debug: player=${userId}, bankroll=${bankroll}, advantage=${advantage}, minBet=${minBet}, maxBet=${maxBet}`);
+
+    const p = 0.5 + advantage;
+    const odds = 1.5;
+    const kellyFraction = (odds * p - (1 - p)) / odds;
+    const halfKelly = Math.max(0, kellyFraction * 0.5);
+
+    let bet = halfKelly * bankroll;
+    
+    console.log(`📊 Kelly debug: p=${p}, kellyFraction=${kellyFraction}, halfKelly=${halfKelly}, bet_raw=${bet}`);
+
+    bet = Math.max(minBet, Math.min(maxBet, Math.floor(bet)));
+
+    console.log(`📊 Kelly debug: bet_final=${bet}`);
+
+    if (bet < minBet) {
+      bet = minBet;
+    }
+    if (bet > player.chips) {
+      bet = player.chips;
+    }
+
+    return bet;
+  }
+
+  aiPlaceBets() {
+    this.playerOrder.forEach((id) => {
+      const player = this.players[id];
+      if (!player?.isAI) return;
+
+      console.log(`🤖 IA ${id} tiene chips=${player.chips}, bet_actual=${player.bet}`);
+
+      if (player.chips <= 0 && player.bet === 0) {
+        console.log(`🤖 IA ${id} sin fichas ni apuesta. Eliminando después de ronda.`);
+        return;
+      }
+
+      if (player.chips > 0 && player.bet === 0) {
+        const betAmount = this.calculateKellyBet(id);
+        console.log(`🤖 IA ${id} calculado Kelly bet: ${betAmount}`);
+        
+        if (betAmount > 0) {
+          this.placeBet(id, betAmount);
+          console.log(`🤖 IA ${id} apostó: ${betAmount}, chips restantes: ${player.chips}`);
+        }
+      }
+    });
+  }
+
   removePlayer(userId, socketId) {
     const player = this.players[userId];
 
@@ -301,7 +434,7 @@ class BlackjackGame {
     }
   }
 
-  placeBet(userId, amount) {
+  async placeBet(userId, amount) {
     if (this.gameState !== "waiting") return false;
 
     const player = this.players[userId];
@@ -312,14 +445,32 @@ class BlackjackGame {
     player.isBetting = true;
 
     try {
-      if (amount > player.chips) return false;
+      if (!player.isAI && this.syncBalance) {
+        try {
+          const dbBalance = await this.syncBalance(userId);
+          if (dbBalance !== null && dbBalance !== undefined) {
+            player.chips = dbBalance;
+          }
+        } catch (syncError) {
+          console.error("Error syncing balance:", syncError);
+        }
+      }
+
+      if (amount > player.chips) {
+        console.log(`⛔ Apuesta rechazada: ${amount} > chips: ${player.chips}`);
+        return false;
+      }
 
       const nextBet = player.bet + amount;
 
-      if (nextBet > this.maxBet) return false;
+      if (nextBet > this.maxBet) {
+        console.log(`⛔ Apuesta rechazada: ${nextBet} > maxBet: ${this.maxBet}`);
+        return false;
+      }
 
       player.bet = nextBet;
       player.chips -= amount;
+      console.log(`💰 Apuesta: user=${userId}, bet=${player.bet}, chips=${player.chips}`);
 
       return true;
     } finally {
@@ -352,17 +503,32 @@ class BlackjackGame {
   }
 
   canStartRound() {
-    if (this.gameState !== "waiting") return false;
+    console.log(`🎯 canStartRound llamado para ${this.id}`);
+
+    this.playerOrder.forEach((id) => {
+      const player = this.players[id];
+      if (player?.isAI && player.bet === 0) {
+        console.log(`🤖 IA ${id} necesita apuesta, bet_actual=${player.bet}`);
+        const betAmount = this.calculateKellyBet(id);
+        console.log(`🤖 calculateKellyBet retornó: ${betAmount}`);
+        if (betAmount > 0) {
+          this.placeBet(id, betAmount);
+        }
+      }
+    });
 
     const activePlayers = this.getActivePlayerIds().map((id) => this.players[id]);
     if (activePlayers.length === 0) return false;
 
-    return activePlayers.every(
+    const allBetsValid = activePlayers.every(
       (player) =>
         player &&
         player.bet >= this.minBet &&
         player.bet <= this.maxBet
     );
+    
+    console.log(`🎯 canStartRound resultado: ${allBetsValid}`);
+    return allBetsValid;
   }
 
   promoteSpectatorsToPlayers() {
@@ -432,6 +598,8 @@ class BlackjackGame {
       }
     });
 
+    this.aiPlaceBets();
+
     this.turn = this.playerOrder[0];
 
     if (
@@ -479,6 +647,12 @@ class BlackjackGame {
   startTurnTimer() {
     this.clearTurnTimer();
     const currentTurnUserId = this.turn;
+    const currentPlayer = this.players[currentTurnUserId];
+
+    if (currentPlayer?.isAI && this.onAITurn) {
+      this.onAITurn(currentTurnUserId, currentPlayer, this.dealerHand[0]);
+      return;
+    }
 
     this.turnTimer = setTimeout(() => {
       console.log(`⏰ TIEMPO AGOTADO para ${currentTurnUserId}. STAND automático.`);
@@ -535,10 +709,13 @@ class BlackjackGame {
 
   resolveWinners() {
     const dealerScore = this.calculateScore(this.dealerHand);
+    console.log(`🃏Resolver ganadores: dealerScore=${dealerScore}`);
 
     this.playerOrder.forEach((id) => {
       const player = this.players[id];
       if (!player) return;
+      const betAmount = player.bet;
+      const chipsBefore = player.chips;
 
       if (player.status === "blackjack" && dealerScore !== 21) {
         player.result = "win";
@@ -558,7 +735,19 @@ class BlackjackGame {
         player.chips += player.bet;
       }
 
-      if (player.chips < 0) player.chips = 0;
+if (player.chips < 0) player.chips = 0;
+       
+      const chipsChanged = player.chips !== chipsBefore;
+      console.log(`🏆 user=${id}, result=${player.result}, bet=${betAmount}, chips_before=${chipsBefore}, chips_after=${player.chips}, changed=${chipsChanged}`);
+    });
+
+    this.playerOrder.forEach((id) => {
+      const player = this.players[id];
+      if (player?.isAI && player.chips <= 0) {
+        console.log(`🤖 IA ${id} sin fiches. Eliminando.`);
+        delete this.players[id];
+        this.playerOrder = this.playerOrder.filter((pid) => pid !== id);
+      }
     });
   }
 
@@ -585,7 +774,32 @@ class BlackjackGame {
     return score;
   }
 
-  resetRound() {
+  hasUsableAce(hand) {
+    let score = 0;
+    let aces = 0;
+
+    for (const card of hand) {
+      if (["J", "Q", "K"].includes(card.value)) {
+        score += 10;
+      } else if (card.value === "A") {
+        aces += 1;
+        score += 11;
+      } else {
+        score += parseInt(card.value, 10);
+      }
+    }
+
+    if (aces === 0) return false;
+
+    while (score > 21 && aces > 0) {
+      score -= 10;
+      aces -= 1;
+    }
+
+    return score < 21 && aces > 0;
+  }
+
+  getTrueCount() {
     this.clearTurnTimer();
     this.gameState = "waiting";
     this.dealerHand = [];
@@ -628,6 +842,7 @@ class BlackjackGame {
         bet: p.bet,
         chips: p.chips,
         isDisconnected: p.isDisconnected,
+        isAI: p.isAI || false,
         connectedSockets: p.socketIds ? p.socketIds.size : 0,
       };
     });

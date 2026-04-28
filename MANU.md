@@ -24,12 +24,6 @@ Este es un archivo md para organizarme todas mis tareas
 - Integrar servicio en el compose
 
 
-### Cambiar backend para implementar IA
-
-- Usar barajas que se reinicien cada x rondas
-
-- Hacer que al repartirse una carta ya no pueda volver a salir???
-
 
 ### Modelos
 
@@ -70,11 +64,12 @@ OUTPUT: hit or stand
 - 2. Nueva función para añadir IA a la mesa (con espacio disponible)
 - 3. Nueva función para eliminar IA
 - 4. Modificar loop de turnos: si players[turn].isAI === true, ejecutar modelo ML en lugar de esperar input de socket
-- 5. Reutilizar todo lo demás (hit, stand, calculateScore, deal, resolveWinners)
 
 ## Algoritmo DQN
 
 - Hacerlo con pytorch desde scratch
+
+- Generar datos para el entrenamiento
 
 ## Microservicio
 
@@ -85,7 +80,15 @@ OUTPUT: hit or stand
 - Gestionar timeout haciendo Stand
 
 
-## Prometheus y Graphana
+### IA
 
-- 
+- Calcular True Count
+
+- Hacer apuesta en función del true count
+
+- Elegir mejor jugada (DQN)
+
+- ## Replicar código python para blackjack
+
+Suma_jugador, Carta_visible_dealer, Tiene_as_usable, True_count
 
