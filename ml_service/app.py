@@ -62,10 +62,18 @@ def predict():
     if not data:
         return jsonify({ 'error': 'No data provided' }), 400
 
-    player_score = data.get('player_score', 0)
-    dealer_visible = data.get('dealer_visible')
-    usable_ace = data.get('usable_ace', False)
-    true_count = data.get('true_count', 0)
+    try:
+        player_score = int(data['player_score'])
+        dealer_visible = int(data['dealer_visible'])
+        usable_ace = bool(data.get('usable_ace', False))
+        true_count = float(data.get('true_count', 0))
+    except (KeyError, ValueError, TypeError) as e:
+        return jsonify({ 'error': f'Invalid input: {e}' }), 400
+
+    if not (4 <= player_score <= 21):
+        return jsonify({ 'error': 'player_score must be between 4 and 21' }), 400
+    if not (1 <= dealer_visible <= 11):
+        return jsonify({ 'error': 'dealer_visible must be between 1 and 11' }), 400
 
     if model is not None:
         X = [player_score, dealer_visible, int(usable_ace), true_count]

@@ -511,6 +511,22 @@ function Game() {
     socket.emit("reset_round", roomId);
   };
 
+  const canAddAI = amIHost && seatedCount < maxPlayers && currentGameState === "waiting";
+
+  const handleAddAI = () => {
+    if (!canAddAI) return;
+    socket.emit("add_ai_player", {
+      roomId,
+      botId: `ai_bot_${Date.now()}`,
+      botName: "Dealer Bot",
+    });
+  };
+
+  const handleRemoveAI = (botId) => {
+    if (!amIHost) return;
+    socket.emit("remove_ai_player", { roomId, botId });
+  };
+
   const handleDouble = () => {
     console.log("Double action is not implemented in the backend yet.");
   };
@@ -719,6 +735,16 @@ function Game() {
                       Deal Cards
                     </button>
 
+                    {canAddAI && (
+                      <button
+                        className="casino-btn casino-btn--secondary"
+                        onClick={handleAddAI}
+                        type="button"
+                      >
+                        🤖 Add AI
+                      </button>
+                    )}
+
                     {!canStart && (
                       <div className="table-center-message__hint">
                         All seated players need to place a bet first
@@ -778,7 +804,7 @@ function Game() {
                     }}
                   >
                     <div className="player-seat__badge">
-                      {isMe ? "YOU" : `PLAYER ${index + 1}`}
+                      {player.isAI ? "BOT" : isMe ? "YOU" : `PLAYER ${index + 1}`}
                     </div>
 
                     <div className="player-seat__meta">
@@ -787,6 +813,21 @@ function Game() {
                         <span className="host-badge">
                           <span className="host-badge__icon">♛</span>
                           HOST
+                        </span>
+                      )}
+                      {player.isAI && (
+                        <span className="ai-badge">
+                          <span className="ai-badge__icon">🤖</span>
+                          AI
+                          {amIHost && (
+                            <button
+                              className="remove-ai-btn"
+                              onClick={() => handleRemoveAI(playerId)}
+                              title="Remove AI Player"
+                            >
+                              ×
+                            </button>
+                          )}
                         </span>
                       )}
                     </div>
