@@ -1,7 +1,7 @@
 const Deck = require("./Deck");
 
 class BlackjackGame {
-  constructor(id, emitUpdate, config = {}) {
+  constructor(id, emitUpdate, config = {}, onAITurn = null, syncBalance = null) {
     const normalizedConfig =
       typeof config === "number"
         ? { maxPlayers: config }
@@ -15,6 +15,8 @@ class BlackjackGame {
 
     this.id = id;
     this.emitUpdate = emitUpdate;
+    this.onAITurn = onAITurn;
+    this.syncBalance = syncBalance;
 
     this.maxPlayers = normalizedConfig.maxPlayers;
     this.minBet = normalizedConfig.minBet;
@@ -445,17 +447,6 @@ class BlackjackGame {
     player.isBetting = true;
 
     try {
-      if (!player.isAI && this.syncBalance) {
-        try {
-          const dbBalance = await this.syncBalance(userId);
-          if (dbBalance !== null && dbBalance !== undefined) {
-            player.chips = dbBalance;
-          }
-        } catch (syncError) {
-          console.error("Error syncing balance:", syncError);
-        }
-      }
-
       if (amount > player.chips) {
         console.log(`⛔ Apuesta rechazada: ${amount} > chips: ${player.chips}`);
         return false;
@@ -800,6 +791,21 @@ if (player.chips < 0) player.chips = 0;
   }
 
   getTrueCount() {
+    const cards = this.deck.cards;
+    if (cards.length === 0) return 0;
+
+    let runningCount = 0;
+    for (const card of cards) {
+      const v = card.value;
+      if (["2", "3", "4", "5", "6"].includes(v)) runningCount += 1;
+      else if (["10", "J", "Q", "K", "A"].includes(v)) runningCount -= 1;
+    }
+
+    const numDecks = cards.length / 52;
+    return numDecks > 0 ? runningCount / numDecks : 0;
+  }
+
+  resetRound() {
     this.clearTurnTimer();
     this.gameState = "waiting";
     this.dealerHand = [];

@@ -1,14 +1,13 @@
-FROM python:3.13-alpine
+FROM python:3.12-slim
 
 WORKDIR /app
-
-RUN apk add --no-cache gcc g++ musl-dev libffi-dev openssl-dev
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py .
+COPY train/ ./train/
 
 EXPOSE 5000
 
-CMD ["python", "app.py"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "app:app"]

@@ -521,11 +521,12 @@ io.on("connection", (socket) => {
       const wasFinished = game.gameState === "finished";
 
       game.hit(currentUserId);
-      emitUpdate(roomId, game);
 
       if (!wasFinished && game.gameState === "finished") {
         await persistFinishedGame(game);
       }
+
+      emitUpdate(roomId, game);
     } catch (error) {
       console.error("❌ Error en action_hit:", error);
     }
@@ -546,11 +547,12 @@ io.on("connection", (socket) => {
       const wasFinished = game.gameState === "finished";
 
       game.stand(currentUserId);
-      emitUpdate(roomId, game);
 
       if (!wasFinished && game.gameState === "finished") {
         await persistFinishedGame(game);
       }
+
+      emitUpdate(roomId, game);
     } catch (error) {
       console.error("❌ Error en action_stand:", error);
     }
@@ -616,6 +618,19 @@ io.on("connection", (socket) => {
       emitUpdate(roomId, game);
     } catch (error) {
       console.error("❌ Error en place_bet:", error);
+    }
+  });
+
+  socket.on("sync_wallet_balance", ({ roomId, userId, balance }) => {
+    try {
+      const game = games[roomId];
+      if (!game) return;
+      const player = game.players[userId];
+      if (!player) return;
+      player.chips = Number(balance);
+      emitUpdate(roomId, game);
+    } catch (error) {
+      console.error("❌ Error en sync_wallet_balance:", error);
     }
   });
 

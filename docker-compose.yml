@@ -16,7 +16,7 @@ services:
     depends_on:
       - db
       - ml-service
-    command: sh -c "npm install && npm run dev"
+    command: npm run dev
 
   frontend:
     container_name: blackjack-frontend

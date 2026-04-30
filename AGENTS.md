@@ -2,7 +2,7 @@
 
 ## Overview
 
-Full-stack multiplayer Blackjack game built for the 42 ft-transcender project. Features real-time gameplay via WebSockets, user authentication with JWT cookies, PostgreSQL database, Docker-based deployment, and AI opponent powered by machine learning.
+Full-stack multiplayer Blackjack game built for the 42 ft-transcender project. Features real-time gameplay via WebSockets, user authentication with JWT cookies, PostgreSQL database, Docker-based deployment, and AI opponent powered by a DQN model trained with NumPy.
 
 ---
 
@@ -13,11 +13,11 @@ Full-stack multiplayer Blackjack game built for the 42 ft-transcender project. F
 | Layer | Technology |
 |-------|------------|
 | Frontend | React 19 + Vite 7 |
-| Backend | Node.js + Express 5 |
+| Backend | Node.js + Express 5 + nodemon |
 | Database | PostgreSQL 15 |
 | Real-time | Socket.io 4.8 |
 | Auth | JWT (httpOnly cookies) |
-| ML Service | Python 3.13 + Flask + TensorFlow |
+| ML Service | Python 3.12 + Flask + NumPy + Gunicorn |
 | Deployment | Docker Compose + Nginx |
 
 ### Services (Docker)
@@ -25,20 +25,15 @@ Full-stack multiplayer Blackjack game built for the 42 ft-transcender project. F
 ```
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
 │   Nginx     │───▶│  Frontend   │───▶│   Backend   │
-│   :8080     │    │   :5173     │    │   :3000     │
+│ :8080/:8443 │    │   :5173     │    │   :3000     │
 └─────────────┘    └─────────────┘    └─────────────┘
                                               │
-                                              ▼
-                                        ┌─────────────┐
-                                        │  PostgreSQL │
-                                        │   :5432     │
-                                        └─────────────┘
-                                              │
-                                              ▼
-                                        ┌─────────────┐
-                                        │ ML Service  │
-                                        │   :5000     │
-                                        └─────────────┘
+                                    ┌─────────┴─────────┐
+                                    ▼                   ▼
+                              ┌──────────┐       ┌────────────┐
+                              │PostgreSQL│       │ ML Service │
+                              │  :5432   │       │   :5000    │
+                              └──────────┘       └────────────┘
 ```
 
 ---
@@ -54,20 +49,24 @@ password_hash VARCHAR(255) NOT NULL
 balance       DECIMAL(10,2) DEFAULT 1000.00
 games_played  INTEGER DEFAULT 0
 games_won     INTEGER DEFAULT 0
-games_lost     INTEGER DEFAULT 0
-games_pushed   INTEGER DEFAULT 0
+games_lost    INTEGER DEFAULT 0
+games_pushed  INTEGER DEFAULT 0
 blackjacks    INTEGER DEFAULT 0
 created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ```
 
 ### `game_history` Table
 ```sql
-id          SERIAL PRIMARY KEY
-user_id     INT REFERENCES users(id)
-result      VARCHAR(20)
-amount_won  DECIMAL(10,2)
-game_data   JSONB
-played_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+id           SERIAL PRIMARY KEY
+user_id      INT REFERENCES users(id)
+room_id      VARCHAR(50)
+room_name    VARCHAR(100)
+result       VARCHAR(20)
+bet          DECIMAL(10,2)
+player_score INTEGER
+dealer_score INTEGER
+chips_after  DECIMAL(10,2)
+played_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ```
 
 ---
@@ -82,10 +81,12 @@ played_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 | POST | `/login` | Public | Login, returns JWT in httpOnly cookie |
 | POST | `/logout` | Public | Clear JWT cookie |
 | GET | `/verify` | JWT | Verify token, return user data |
-| GET | `/balance` | JWT | Get current balance |
+| GET | `/balance` | JWT | Get current balance from DB |
 | POST | `/balance` | JWT | Deposit/withdraw (body: `{ amount, type }`) |
 | GET | `/stats` | JWT | Get player statistics |
 | POST | `/stats` | JWT | Update player statistics |
+| GET | `/history` | JWT | Last 5 game history entries |
+| GET | `/leaderboard` | JWT | Top 3 players by balance |
 
 ### WebSocket Events (Server → Client)
 
@@ -93,7 +94,8 @@ played_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 |-------|---------|-------------|
 | `game_update` | `{gameState}` | Full game state broadcast |
 | `lobby_state` | `[{roomId, playersCount, ...}]` | Lobby rooms info |
-| `join_result` | `{role, success, ...}` | Join confirmation |
+| `join_result` | `{role, success, roomConfig, ...}` | Join confirmation |
+| `bet_error` | `{message, minBet, maxBet, chips}` | Bet rejected details |
 | `add_ai_result` | `{success, reason, player}` | Result of adding AI player |
 | `remove_ai_result` | `{success, reason}` | Result of removing AI player |
 
@@ -101,15 +103,17 @@ played_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
 | Event | Payload | Description |
 |-------|---------|-------------|
-| `join_game` | `{roomId, user, maxPlayers, preferredRole}` | Join a table |
+| `join_game` | `{roomId, user, preferredRole}` | Join a table |
 | `start_round` | `roomId` | Host starts round (all bets required) |
-| `place_bet` | `{roomId, amount}` | Place a bet |
-| `clear_bet` | `roomId` | Clear current bet |
+| `place_bet` | `{roomId, amount}` | Add chips to bet |
+| `clear_bet` | `roomId` | Clear current bet (refunds chips) |
 | `action_hit` | `roomId` | Request a card |
 | `action_stand` | `roomId` | End turn |
 | `reset_round` | `roomId` | Host resets for next round |
+| `sync_wallet_balance` | `{roomId, userId, balance}` | Sync in-game chips after deposit/withdraw |
 | `add_ai_player` | `{roomId, botId, botName}` | Add AI opponent to table |
 | `remove_ai_player` | `{roomId, botId}` | Remove AI opponent from table |
+| `get_lobby_state` | — | Request current lobby state |
 
 ---
 
@@ -117,18 +121,25 @@ played_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
 ### BlackjackGame Class (`backend/game/BlackjackGame.js`)
 
+**Constructor:**
+```javascript
+new BlackjackGame(id, emitUpdate, config, onAITurn, syncBalance)
+```
+- `onAITurn(botId, botPlayer, dealerVisibleCard)` — callback fired when it's an AI player's turn
+- `syncBalance` — removed from `placeBet`; balance is authoritative in-memory during a session
+
 **Key Properties:**
 - `id`: Room identifier
-- `maxPlayers`: Maximum players (default 6)
-- `deck`: 6-deck shoe (312 cards)
-- `players`: Map of userId → player object
+- `maxPlayers`, `minBet`, `maxBet`, `roomName`, `mode`
+- `deck`: 6-deck shoe (312 cards, `Deck.js`)
+- `players`: `{ [userId]: playerObject }`
 - `playerOrder`: Array of active player IDs
 - `spectators`: Array of spectator objects
 - `dealerHand`: Dealer's cards
 - `gameState`: `"waiting" | "playing" | "finished"`
 - `turn`: Current player userId or `"dealer"`
-- `onAITurn`: Callback function for AI decision-making
-- `syncBalance`: Callback function for syncing balance with database
+- `onAITurn`: Callback for AI decision-making
+- `syncBalance`: Stored but not used during betting (balance is in-memory during session)
 
 **Player Object:**
 ```javascript
@@ -139,46 +150,47 @@ played_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   status: "waiting" | "playing" | "blackjack" | "busted" | "stood",
   result: "win" | "lose" | "push" | null,
   bet: number,
-  chips: number,
+  chips: number,       // authoritative in-memory balance
   isDisconnected: boolean,
-  isAI: boolean,          // NEW: AI opponent flag
-  isSpectator: boolean
+  isAI: boolean,
+  isSpectator: boolean,
+  socketIds: Set        // supports multiple tabs
 }
 ```
 
 **Key Methods:**
-- `addPlayer(userId, socketId, username, avatar, preferredRole)` - Join table
-- `addAIPlayer(botId, botName)` - Add AI opponent to table
-- `removeAIPlayer(botId)` - Remove AI opponent from table
-- `removePlayer(userId, socketId)` - Handle disconnect
-- `placeBet(userId, amount)` - Place wager (async, syncs with DB)
-- `clearBet(userId)` - Clear current bet
-- `canStartRound()` - Check if all players have bets
-- `startRound(requestingUserId)` - Deal cards, start gameplay
-- `hit(userId)` - Draw a card
-- `stand(userId)` - End turn
-- `playDealerTurn()` - Dealer plays (hit on <17)
-- `resolveWinners()` - Calculate results
-- `getPublicState()` - Return sanitized state for clients
-- `resetRound()` - Prepare for next round
-- `calculateKellyBet(userId)` - Calculate bet using Kelly Criterion
-- `aiPlaceBets()` - Automatically place bets for AI players
-- `calculateAdvantage()` - Calculate player advantage using Hi-Lo system
-- `getDeckInfo()` - Get remaining cards in deck
+- `addPlayer(userId, socketId, username, avatar, preferredRole, chips)` — join table
+- `addAIPlayer(botId, botName)` — add AI opponent
+- `removeAIPlayer(botId)` — remove AI opponent
+- `removePlayer(userId, socketId)` — handle disconnect
+- `placeBet(userId, amount)` — place wager (in-memory only, no DB sync per-bet)
+- `clearBet(userId)` — refund bet to chips
+- `canStartRound()` — check all players have valid bets
+- `startRound(requestingUserId)` — deal cards, begin gameplay
+- `hit(userId)` — draw a card
+- `stand(userId)` — end turn
+- `playDealerTurn()` — dealer plays (hit on <17)
+- `resolveWinners()` — calculate win/lose/push results and update `player.chips`
+- `getPublicState()` — sanitized state for clients
+- `resetRound()` — prepare for next round (resets hands/bets, promotes spectators)
+- `getTrueCount()` — Hi-Lo card counting using remaining deck cards
+- `calculateAdvantage()` — player advantage based on true count
+- `calculateKellyBet(userId)` — Kelly Criterion bet sizing
+- `aiPlaceBets()` — auto-bet for AI players using Kelly Criterion
 
-**Kelly Criterion Implementation:**
-- Uses Quarter-Kelly fraction (0.25) for conservative betting
-- Base advantage: -0.005 (house edge)
-- Hi-Lo card counting for true count calculation
-- Bet sizing: `minBet <= KellyBet <= maxBet`
+**Balance flow:**
+1. On `join_game`: `player.chips` is loaded from DB balance
+2. During game: `player.chips` updated in-memory (bets, wins, losses)
+3. On `finished`: `persistFinishedGame()` writes `player.chips` to DB **before** `emitUpdate`
+4. Frontend reads `myPlayer.chips` from `game_update` — no separate API call needed
+5. Wallet deposit/withdraw: updates DB via REST, then emits `sync_wallet_balance` → server updates `player.chips` in-memory
 
 **Special Behaviors:**
-- AI opponents auto-bet when round starts
-- AI players are automatically removed when out of chips
+- AI opponents auto-bet using Kelly Criterion before round start
+- AI players removed when chips reach 0
 - Auto-promote spectators to players when seats open
 - 15-second turn timer (auto-stand on timeout)
 - 20-second disconnect grace period
-- Skip players with 21 natural on turn start
 
 ---
 
@@ -186,13 +198,13 @@ played_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
 ### Overview
 
-Python microservice for AI decision-making in Blackjack. Provides predictions for hit/stand decisions and can be extended with trained DQN models.
+Python microservice (`python:3.12-slim`) serving a DQN model trained with NumPy. Runs via Gunicorn in production.
 
 ### Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/health` | GET | Health check |
+| `/health` | GET | Health check + model load status |
 | `/predict` | POST | Get AI decision (hit/stand) |
 
 ### Predict Request/Response
@@ -200,9 +212,10 @@ Python microservice for AI decision-making in Blackjack. Provides predictions fo
 **Request:**
 ```json
 {
-  "player_hand": [{"value": "K", "suit": "hearts"}],
-  "dealer_visible": {"value": "5", "suit": "hearts"},
-  "player_score": 10
+  "player_score": 15,
+  "dealer_visible": 9,
+  "usable_ace": false,
+  "true_count": 2
 }
 ```
 
@@ -210,20 +223,26 @@ Python microservice for AI decision-making in Blackjack. Provides predictions fo
 ```json
 {
   "action": "hit",
-  "confidence": 0.5,
-  "player_score": 10,
-  "dealer_visible": {"value": "5", "suit": "hearts"}
+  "confidence": 0.73,
+  "player_score": 15,
+  "dealer_visible": 9,
+  "usable_ace": false,
+  "true_count": 2
 }
 ```
 
-### Future: DQN Training
+### DQN Architecture
+```
+Input: 4 neurons (player_score, dealer_visible, usable_ace, true_count)
+    ↓ ReLU
+Dense: 32 neurons
+    ↓ ReLU
+Dense: 32 neurons
+    ↓ Softmax
+Output: 2 neurons (Q-hit, Q-stand)
+```
 
-The ML service is designed to integrate with a trained DQN model for better decision-making:
-
-- **Input**: (player_score, dealer_visible, usable_ace)
-- **Output**: Q(hit), Q(stand)
-- **Architecture**: 3-layer dense network (32→32→2)
-- **Training**: Q-learning with experience replay
+Model stored as `ml_service/train/blackjack_dqn.npz`. Trained on 500K states using basic strategy as ground truth.
 
 ---
 
@@ -231,34 +250,33 @@ The ML service is designed to integrate with a trained DQN model for better deci
 
 ### Pages (`frontend/src/pages/`)
 
-- **Home.jsx** - Landing page
-- **Login.jsx** - User login form
-- **Register.jsx** - User registration form
-- **Profile.jsx** - User stats and logout
-- **Lobby.jsx** - Table selection carousel
-- **Game.jsx** - Main blackjack table UI
+- **Home.jsx** — Landing page
+- **Login.jsx** — User login form
+- **Register.jsx** — User registration form
+- **Profile.jsx** — User stats, game history, leaderboard, logout
+- **Lobby.jsx** — Table selection carousel (6 hardcoded tables)
+- **Game.jsx** — Main blackjack table UI (1200+ lines, candidate for splitting)
+- **Terms.jsx**, **Privacy.jsx** — Static pages
 
 ### Components (`frontend/src/components/`)
 
-- **Navbar.jsx** - Navigation header
-- **Footer.jsx** - Site footer
-- **Card.jsx** - 3D card rendering with flip animation
-- **ProtectedRoute.jsx** - Route guard for authenticated pages
-
-### Game UI Features
-
-- Real-time multiplayer gameplay
-- Player betting with chip animations
-- AI opponent integration with "Add AI" button
-- Remove AI button (for host)
-- AI badge indicator
-- Wallet modal for deposit/withdraw
+- **Navbar.jsx** — Navigation header
+- **Footer.jsx** — Site footer
+- **Card.jsx** — 3D card rendering with flip animation
+- **ProtectedRoute.jsx** — Route guard (checks localStorage `username`/`email`)
 
 ### State Management
 
-- Auth: JWT via httpOnly cookies + localStorage cache
-- Game state: Socket.io + React useState
-- Balance/stats: API calls to backend
+- Auth: JWT via httpOnly cookies + localStorage cache (`user`, `username`, `email`, `isLoggedIn`)
+- Game state: Socket.io events → React useState
+- Balance: `myPlayer.chips` from game state is source of truth; synced to `balance` state via `syncBalance()`
+- Stats: fetched from backend on load, updated optimistically in frontend after each round
+
+### Known Limitations / Not Implemented
+
+- Double Down — button exists in UI but backend not implemented
+- `frontend/src/services/socket.js` — empty placeholder file
+- Route protection is client-side only (localStorage check)
 
 ---
 
@@ -266,36 +284,42 @@ The ML service is designed to integrate with a trained DQN model for better deci
 
 ```
 backend/
-├── server.js              # Express + Socket.io entry point
-├── routes/auth.js        # Auth API routes
-├── controllers/authController.js  # Auth logic
+├── server.js                    # Express + Socket.io entry, room management, game events
+├── routes/auth.js               # Auth route definitions
+├── controllers/authController.js # Auth + balance + stats + history + leaderboard
 ├── middleware/authMiddleware.js  # JWT verification
+├── dj.js                        # Separate DB pool (candidate for consolidation)
 └── game/
-    ├── BlackjackGame.js  # Core game logic
-    └── Deck.js           # 6-deck shoe
+    ├── BlackjackGame.js         # Core game logic (players, deck, rounds, AI)
+    └── Deck.js                  # 6-deck shoe with Fisher-Yates shuffle
 
 ml_service/
-├── app.py               # Flask API with /health and /predict
-├── requirements.txt     # flask, gunicorn
-├── Dockerfile           # Python 3.10-alpine
-└── train/               # DQN training scripts (future)
-    └── dqn_agent.py
+├── app.py                       # Flask API (/health, /predict), DQN inference
+├── requirements.txt             # flask==3.0.0, gunicorn==21.2.0, numpy==1.26.4
+├── Dockerfile                   # python:3.12-slim, gunicorn CMD
+└── train/
+    ├── train.py                 # NumPy DQN training script
+    └── blackjack_dqn.npz       # Trained model weights
 
 frontend/
 ├── src/
-│   ├── App.jsx          # React Router setup
-│   ├── main.jsx         # Entry point
-│   ├── socket.js        # Socket.io client instance
-│   ├── pages/           # Route components
-│   ├── components/      # Reusable UI
-│   └── styles/          # CSS files
-└── package.json
+│   ├── App.jsx                  # React Router setup
+│   ├── main.jsx                 # Entry point
+│   ├── socket.js                # Socket.io client (SOCKET_URL hardcoded to "")
+│   ├── pages/                   # Route components
+│   ├── components/              # Reusable UI
+│   └── styles/                  # CSS files
+└── vite.config.js               # Proxy to backend:3000, allowedHosts: blackjack.local
 
 database/
-└── init.sql             # Schema initialization
+└── init.sql                     # Schema + seed data
 
-docker-compose.yml        # Service orchestration
-Makefile                  # Dev commands
+requirements/nginx/conf.d/
+├── app.conf                     # Primary nginx config (routes /, /api, /socket.io, /ml)
+└── blackjack.conf               # Alt config (missing /ml route, no HTTPS)
+
+docker-compose.yml               # 5 services: backend, frontend, nginx, ml-service, db
+Makefile                         # make up/down/logs/re/fclean/ps/prune
 ```
 
 ---
@@ -303,46 +327,33 @@ Makefile                  # Dev commands
 ## Development Commands
 
 ```bash
-# Start all services
-make up         # or just 'make'
-
-# View logs
-make logs
-
-# Stop services
-make stop
-
-# Full reset (including DB)
-make fclean
-
-# Rebuild and restart
-make re
-
-# Check container status
-make ps
+make up       # Build & start all containers
+make logs     # Stream logs
+make stop     # Pause containers
+make down     # Stop & remove containers (keeps DB data)
+make fclean   # Full reset including DB volume
+make re       # fclean + up
+make ps       # Container status
+make prune    # Docker cleanup
 ```
+
+Access: `https://blackjack.local:8443` or `http://localhost:8080`
+Add `127.0.0.1 blackjack.local` to `/etc/hosts` if needed.
 
 ---
 
-## Environment Variables (.env)
+## Environment Variables (`.env`)
 
 ```
-# Database
 POSTGRES_USER=blackjack_user
 POSTGRES_PASSWORD=your_secure_password_here
 POSTGRES_DB=blackjack_db
 DB_HOST=db
-
-# JWT Secret (genera uno seguro con: openssl rand -hex 32)
-JWT_SECRET=your_jwt_secret_here
-
-# Data path for Docker volumes (no trailing slash)
+JWT_SECRET=your_jwt_secret_here   # generate: openssl rand -hex 32
 DATA_PATH=./data
-
-# Backend runs on port 3000
-# Frontend runs on port 5173
-# ML Service runs on port 5000
-# Nginx runs on port 8080 (HTTP)
+REACT_APP_API_URL=...             # defined but not used in code (hardcoded "")
+VITE_WS_URL=...                   # defined but not used in code (hardcoded "")
+VITE_API_URL=...                  # defined but not used in code (hardcoded "")
 ```
 
 ---
@@ -350,76 +361,32 @@ DATA_PATH=./data
 ## Security Notes
 
 - Passwords hashed with bcrypt (10 rounds)
-- JWT stored in httpOnly cookies (XSS protected)
+- JWT stored in httpOnly cookies (XSS protected), 7-day expiry
 - CORS restricted to `https://blackjack.local`
-- SameSite=strict for CSRF protection
-- Input validation on all endpoints
+- SameSite=strict on cookies
+- Parameterized SQL queries (no injection risk)
+- ML service internal only (not exposed to internet in production)
+
+## Known Security Issues (pending fix)
+
+- JWT_SECRET has insecure hardcoded fallback in `authController.js` and `authMiddleware.js`
+- Route protection in frontend is localStorage-only (bypasseable)
+- No rate limiting on API or Socket.io events
+- Nginx missing security headers (CSP, X-Frame-Options, etc.)
+- Sensitive user data stored in localStorage
+- `VITE_API_URL` / `VITE_WS_URL` env vars defined but ignored in code
 
 ---
 
-## Known Limitations
+## Rooms Configuration
 
-- Double/Split actions not implemented in backend
-- No actual money or real payments
-- Single table per room (not tournament mode)
-- No chat between players
+Defined in `backend/server.js` (`ROOM_CONFIGS`):
 
----
-
-## AI Opponent Features
-
-### Current Implementation
-- DQN-trained hit/stand decision (77% accuracy)
-- Kelly Criterion betting strategy
-- Hi-Lo card counting for advantage calculation
-- Automatic bet placement before round starts
-- Automatic removal when out of chips
-- Manual removal by host
-
-### Future Enhancements
-- DQN-trained model for better decisions
-- Multiple difficulty levels
-- Learning from player behavior
-
-### DQN Implementation (In Progress)
-
-#### State Representation
-- **Input State**: `(player_score, dealer_upcard, usable_ace, true_count)`
-- **Dimensions**: 4 input neurons
-- **Example**: `(15, 9, False, 2)` → player has 15, dealer shows 9, no usable ace, true count +2
-
-#### DQN Architecture
-```
-Input: 4 neurons (score, dealer_card, usableAce, trueCount)
-    ↓
-Dense: 32 neurons (ReLU)
-    ↓
-Dense: 32 neurons (ReLU)
-    ↓
-Output: 2 neurons (Q-hit, Q-stand)
-```
-
-#### Training Configuration
-- **States generated**: 500,000
-- **Framework**: NumPy (custom neural network, no external ML dependencies)
-- **Model format**: NumPy (`.npz`) for production
-- **Training location**: Local machine (outside Docker)
-
-#### Pipeline
-1. Generate 500K states with optimal action (basic strategy)
-2. Train NumPy neural network (~5-10 min on CPU)
-3. Save as `.npz` format
-4. Integrate with `app.py` `/predict` endpoint
-
-#### Files Created
-```
-ml_service/
-├── app.py                  # Flask API with DQN model loaded
-├── train/
-│   └── train.py           # Training script (NumPy neural network)
-│   └── blackjack_dqn.npz # Trained model (11.4 KB)
-└── simulator/
-    ├── __init__.py
-    ├── blackjack.py       # Deck, cards, scoring
-    └── basic_strategy.py  # Basic strategy lookup table
-```
+| Room ID | Name | Max Players | Min Bet | Max Bet | Mode |
+|---------|------|-------------|---------|---------|------|
+| `solo-table` | Solo Table | 1 | $5 | $200 | Solo |
+| `gold-room` | Golden Table | 2 | $10 | $1000 | Versus |
+| `emerald-room` | Emerald Room | 4 | $5 | $500 | Multiplayer |
+| `royal-room` | Royal Lounge | 4 | $25 | $2000 | Multiplayer |
+| `diamond-room` | Diamond Room | 5 | $35 | $3500 | Multiplayer |
+| `velvet-room` | Velvet Room | 6 | $10 | $1000 | Multiplayer |
