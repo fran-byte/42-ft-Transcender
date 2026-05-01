@@ -473,7 +473,21 @@ io.on("connection", (socket) => {
       console.error("❌ Error en clear_bet:", error);
     }
   });
-
+    socket.on("leave_room", (roomId) => {
+    try {
+      if (!roomId || !currentUserId) return;
+      const game = games[roomId];
+      if (game) {
+        game.removePlayer(currentUserId, socket.id);
+        emitUpdate(roomId, game);
+        emitLobbyState();
+      }
+      socket.leave(roomId);
+      console.log(`🚪 ${currentUserId} abandonó sala ${roomId}`);
+    } catch (error) {
+      console.error("❌ Error en leave_room:", error);
+    }
+  });
   socket.on("disconnect", () => {
     try {
       console.log(`💀 Socket desconectado: ${socket.id} (User: ${currentUserId})`);

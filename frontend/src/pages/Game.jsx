@@ -89,6 +89,20 @@ function Game() {
   const [sessionScore, setSessionScore] = useState(() => {
     return Number(localStorage.getItem(scoreKey) || 0);
   });
+    // ----- NUEVO: referencia estable al roomId actual -----
+  const roomIdRef = useRef(roomId);
+  useEffect(() => {
+    roomIdRef.current = roomId;
+  }, [roomId]);
+
+  // ----- NUEVO: cleanup al desmontar el componente -----
+  useEffect(() => {
+    return () => {
+      if (roomIdRef.current) {
+        socket.emit("leave_room", roomIdRef.current);
+      }
+    };
+  }, []); // solo se ejecuta al desmontar
 
   const isWalletAmountValid =
     Number.isFinite(walletAmount) &&
@@ -222,14 +236,14 @@ function Game() {
     bootstrapUserData();
   }, [authUser]);
 
-  useEffect(() => {
+    useEffect(() => {
     if (!authUser?.id) return;
 
     const onConnect = () => {
       setMyId(authUser.id);
 
       const persistedRole =
-        sessionStorage.getItem(roleStorageKey) || myRole || "player";
+        sessionStorage.getItem(roleStorageKey) || "player";
 
       socket.emit("join_game", {
         roomId,
@@ -265,16 +279,7 @@ function Game() {
       socket.off("join_result", onJoinResult);
       socket.off("game_update", onGameUpdate);
     };
-  }, [
-    roomId,
-    authUser,
-    storedRoom.seats,
-    storedRoom.maxPlayers,
-    roleStorageKey,
-    myRole,
-    isSoloTable,
-  ]);
-
+  }, [roomId, authUser?.id]);
   const fallbackState = {
     gameState: "waiting",
     dealerHand: [],
