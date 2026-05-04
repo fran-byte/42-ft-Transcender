@@ -57,13 +57,14 @@ async function callMLService(playerHand, dealerVisible, playerScore) {
   });
 }
 
-async function callMLServiceEnhanced(playerScore, dealerVisible, usableAce, trueCount) {
+async function callMLServiceEnhanced(playerScore, dealerVisible, usableAce, trueCount, canDouble = false) {
   return new Promise((resolve) => {
     const data = JSON.stringify({
       player_score: playerScore,
       dealer_visible: dealerVisible,
       usable_ace: usableAce,
       true_count: trueCount,
+      can_double: canDouble,
     });
 
     const options = {
@@ -99,6 +100,25 @@ async function callMLServiceEnhanced(playerScore, dealerVisible, usableAce, true
     req.write(data);
     req.end();
   });
+}
+
+// Runtime safety fallback when ml-service is unreachable. Not training data —
+// just a sane default so bots don't act randomly during outages.
+function basicStrategyFallback(playerScore, dealerVisible, usableAce, canDouble) {
+  if (canDouble) {
+    if (playerScore === 11) return "double";
+    if (playerScore === 10 && dealerVisible >= 2 && dealerVisible <= 9) return "double";
+    if (playerScore === 9 && dealerVisible >= 3 && dealerVisible <= 6) return "double";
+  }
+  if (usableAce) {
+    if (playerScore <= 17) return "hit";
+    if (playerScore === 18) return dealerVisible >= 9 ? "hit" : "stand";
+    return "stand";
+  }
+  if (playerScore <= 11) return "hit";
+  if (playerScore === 12) return [4, 5, 6].includes(dealerVisible) ? "stand" : "hit";
+  if (playerScore <= 16) return dealerVisible <= 6 ? "stand" : "hit";
+  return "stand";
 }
 
 // DB
@@ -372,6 +392,7 @@ io.on("connection", (socket) => {
             const usableAce = game.hasUsableAce(botPlayer.hand);
             const trueCount = Math.round(game.getTrueCount());
             const dealerValue = parseInt(dealerVisibleCard.value, 10) || 10;
+            const canDouble = game.canDouble(botId);
 
             let action = "stand";
             try {
@@ -379,15 +400,22 @@ io.on("connection", (socket) => {
                 playerScore,
                 dealerValue,
                 usableAce,
-                trueCount
+                trueCount,
+                canDouble
               );
               action = mlResponse.action || "stand";
             } catch (error) {
               console.error("ML Service error:", error);
-              action = Math.random() < 0.5 ? "hit" : "stand";
+              action = basicStrategyFallback(playerScore, dealerValue, usableAce, canDouble);
             }
 
-            if (action === "hit") {
+            if (action === "double" && !canDouble) {
+              action = "stand";
+            }
+
+            if (action === "double") {
+              game.doubleDown(botId);
+            } else if (action === "hit") {
               game.hit(botId);
             } else {
               game.stand(botId);
@@ -555,6 +583,37 @@ io.on("connection", (socket) => {
       emitUpdate(roomId, game);
     } catch (error) {
       console.error("❌ Error en action_stand:", error);
+    }
+  });
+
+  socket.on("action_double", async (roomId) => {
+    try {
+      const game = games[roomId];
+      if (!game || !currentUserId) return;
+
+      if (game.turn !== currentUserId) {
+        console.log(`⛔ DOUBLE ignorado: no es turno de ${currentUserId}`);
+        return;
+      }
+
+      if (!game.canDouble(currentUserId)) {
+        console.log(`⛔ DOUBLE ignorado: condiciones no cumplidas para ${currentUserId}`);
+        return;
+      }
+
+      console.log(`💥 DOUBLE de usuario: ${currentUserId}`);
+
+      const wasFinished = game.gameState === "finished";
+
+      game.doubleDown(currentUserId);
+
+      if (!wasFinished && game.gameState === "finished") {
+        await persistFinishedGame(game);
+      }
+
+      emitUpdate(roomId, game);
+    } catch (error) {
+      console.error("❌ Error en action_double:", error);
     }
   });
 

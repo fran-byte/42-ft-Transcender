@@ -528,7 +528,8 @@ function Game() {
   };
 
   const handleDouble = () => {
-    console.log("Double action is not implemented in the backend yet.");
+    if (isSpectator) return;
+    socket.emit("action_double", roomId);
   };
 
   const addChipToBet = (chipValue) => {
@@ -942,15 +943,16 @@ function Game() {
                       !(
                         currentGameState === "playing" &&
                         isMyTurn &&
-                        (myPlayer?.hand?.length ?? 0) === 2
+                        (myPlayer?.hand?.length ?? 0) === 2 &&
+                        (myPlayer?.chips ?? 0) >= (myPlayer?.bet ?? Infinity)
                       )
                     }
                     type="button"
-                    title="Backend support not implemented yet"
+                    title="Double your bet and receive one more card"
                   >
                     <span className="casino-action__title">Double</span>
                     <span className="casino-action__sub">
-                      Not available yet
+                      2x bet, one card
                     </span>
                   </button>
 

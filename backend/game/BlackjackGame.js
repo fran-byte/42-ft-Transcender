@@ -635,6 +635,33 @@ class BlackjackGame {
     this.nextTurn();
   }
 
+  canDouble(userId) {
+    if (this.gameState !== "playing" || this.turn !== userId) return false;
+    const player = this.players[userId];
+    if (!player || player.isDisconnected) return false;
+    if (!Array.isArray(player.hand) || player.hand.length !== 2) return false;
+    if (typeof player.bet !== "number" || player.bet <= 0) return false;
+    if (player.chips < player.bet) return false;
+    return true;
+  }
+
+  doubleDown(userId) {
+    if (!this.canDouble(userId)) return false;
+
+    const player = this.players[userId];
+    this.clearTurnTimer();
+
+    player.chips -= player.bet;
+    player.bet *= 2;
+
+    player.hand.push(this.deck.deal(1)[0]);
+    player.score = this.calculateScore(player.hand);
+    player.status = player.score > 21 ? "busted" : "stood";
+
+    this.nextTurn();
+    return true;
+  }
+
   startTurnTimer() {
     this.clearTurnTimer();
     const currentTurnUserId = this.turn;
