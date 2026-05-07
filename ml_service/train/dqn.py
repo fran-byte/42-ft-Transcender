@@ -54,112 +54,80 @@ class DuelingDQN(nn.Module):
         v = self.value_head2(v)
         a = F.relu(self.adv_head1(h))
         a = self.adv_head2(a)
-        q = v + (a - a.mean(dim=-1, keepdim=True))
-        return q
-
-
-class SumTree:
-    def __init__(self, capacity):
-        self.capacity = capacity
-        self.tree = np.zeros(2 * capacity - 1, dtype=np.float64)
-        self.size = 0
-        self.write = 0
-
-    def _propagate(self, idx, change):
-        while idx != 0:
-            idx = (idx - 1) // 2
-            self.tree[idx] += change
-
-    def update(self, idx, priority):
-        change = priority - self.tree[idx]
-        self.tree[idx] = priority
-        self._propagate(idx, change)
-
-    def add(self, priority):
-        idx = self.write + self.capacity - 1
-        self.update(idx, priority)
-        data_idx = self.write
-        self.write = (self.write + 1) % self.capacity
-        self.size = min(self.size + 1, self.capacity)
-        return data_idx, idx
-
-    def get(self, s):
-        idx = 0
-        while idx < self.capacity - 1:
-            left = 2 * idx + 1
-            right = left + 1
-            if s <= self.tree[left]:
-                idx = left
-            else:
-                s -= self.tree[left]
-                idx = right
-        data_idx = idx - (self.capacity - 1)
-        return idx, self.tree[idx], data_idx
-
-    def total(self):
-        return float(self.tree[0])
+        return v + (a - a.mean(dim=-1, keepdim=True))
 
 
 class PrioritizedReplayBuffer:
-    def __init__(self, capacity, alpha=0.6):
+    """Proportional PER backed by a flat priorities array sampled with cumsum.
+
+    Algorithmically identical to a SumTree-backed PER (priority ∝ |TD|^alpha,
+    IS weights with β annealing) but vectorized in NumPy — no per-sample
+    Python loop on the sampling path.
+    """
+
+    def __init__(self, capacity, alpha=0.6, epsilon=1e-6):
         self.capacity = capacity
         self.alpha = alpha
-        self.tree = SumTree(capacity)
-        self.buffer = [None] * capacity
+        self.epsilon = epsilon
+        self.priorities = np.zeros(capacity, dtype=np.float64)
+        self.states      = np.zeros((capacity, NUM_FEATURES), dtype=np.float32)
+        self.actions     = np.zeros(capacity, dtype=np.int64)
+        self.rewards     = np.zeros(capacity, dtype=np.float32)
+        self.next_states = np.zeros((capacity, NUM_FEATURES), dtype=np.float32)
+        self.dones       = np.zeros(capacity, dtype=np.float32)
+        self.next_masks  = np.zeros((capacity, NUM_ACTIONS), dtype=bool)
+        self.size = 0
+        self.write = 0
         self.max_priority = 1.0
-        self.epsilon = 1e-6
 
     def push(self, state, action, reward, next_state, done, mask_next):
-        priority = (self.max_priority + self.epsilon) ** self.alpha
-        data_idx, _ = self.tree.add(priority)
-        self.buffer[data_idx] = (state, action, reward, next_state, done, mask_next)
+        i = self.write
+        self.states[i]      = state
+        self.actions[i]     = action
+        self.rewards[i]     = reward
+        self.next_states[i] = next_state
+        self.dones[i]       = done
+        self.next_masks[i]  = mask_next
+        self.priorities[i]  = (self.max_priority + self.epsilon) ** self.alpha
+        self.write = (self.write + 1) % self.capacity
+        self.size = min(self.size + 1, self.capacity)
 
     def sample(self, batch_size, beta=0.4):
-        if self.tree.size < batch_size:
+        if self.size < batch_size:
             return None
 
-        batch = []
-        idxs = np.empty(batch_size, dtype=np.int64)
-        priorities = np.empty(batch_size, dtype=np.float64)
-        segment = self.tree.total() / batch_size
+        prios = self.priorities[:self.size]
+        cum = np.cumsum(prios)
+        total = cum[-1]
+        # Stratified sampling: one uniform draw per equal-probability segment.
+        segment = total / batch_size
+        u = np.random.uniform(0.0, segment, batch_size) + np.arange(batch_size) * segment
+        idxs = np.searchsorted(cum, u).clip(max=self.size - 1)
 
-        for i in range(batch_size):
-            s = np.random.uniform(segment * i, segment * (i + 1))
-            tree_idx, p, data_idx = self.tree.get(s)
-            data = self.buffer[data_idx]
-            if data is None:
-                # Fallback: sample uniformly from filled slots
-                data_idx = np.random.randint(0, self.tree.size)
-                data = self.buffer[data_idx]
-                tree_idx = data_idx + (self.capacity - 1)
-                p = self.tree.tree[tree_idx]
-            batch.append(data)
-            idxs[i] = tree_idx
-            priorities[i] = p
+        sampling_probs = prios[idxs] / total
+        weights = (self.size * sampling_probs) ** (-beta)
+        weights = (weights / weights.max()).astype(np.float32)
 
-        total = self.tree.total()
-        sampling_probs = priorities / total if total > 0 else np.ones_like(priorities) / batch_size
-        weights = (self.tree.size * sampling_probs) ** (-beta)
-        weights = weights / weights.max()
-
-        s_list, a_list, r_list, ns_list, d_list, nm_list = zip(*batch)
-        states      = np.stack(s_list)
-        actions     = np.array(a_list,  dtype=np.int64)
-        rewards     = np.array(r_list,  dtype=np.float32)
-        next_states = np.stack(ns_list)
-        dones       = np.array(d_list,  dtype=np.float32)
-        next_masks  = np.stack(nm_list)
-
-        return states, actions, rewards, next_states, dones, next_masks, idxs, weights.astype(np.float32)
+        return (
+            self.states[idxs],
+            self.actions[idxs],
+            self.rewards[idxs],
+            self.next_states[idxs],
+            self.dones[idxs],
+            self.next_masks[idxs],
+            idxs,
+            weights,
+        )
 
     def update_priorities(self, idxs, td_errors):
-        errors = np.abs(td_errors)
-        for idx, err in zip(idxs, errors):
-            self.tree.update(int(idx), (err + self.epsilon) ** self.alpha)
-        self.max_priority = max(self.max_priority, float(errors.max()))
+        errors = np.abs(td_errors).astype(np.float64)
+        self.priorities[idxs] = (errors + self.epsilon) ** self.alpha
+        m = float(errors.max())
+        if m > self.max_priority:
+            self.max_priority = m
 
     def __len__(self):
-        return self.tree.size
+        return self.size
 
 
 class DQNAgent:
@@ -169,10 +137,10 @@ class DQNAgent:
         gamma=0.99,
         buffer_capacity=100_000,
         batch_size=256,
-        target_sync_interval=1000,
+        target_sync_interval=2000,
         eps_start=1.0,
         eps_end=0.05,
-        eps_decay_steps=500_000,
+        eps_decay_steps=800_000,
         per_alpha=0.6,
         per_beta_start=0.4,
         per_beta_end=1.0,
@@ -199,6 +167,7 @@ class DQNAgent:
         self.buffer = PrioritizedReplayBuffer(buffer_capacity, alpha=per_alpha)
         self.train_step = 0
         self.env_step = 0
+        self.last_q_max = 0.0  # |Q|.max from the most recent learn() call (drift diagnostic)
 
     def epsilon(self):
         progress = min(1.0, self.env_step / self.eps_decay_steps)
@@ -208,16 +177,33 @@ class DQNAgent:
         progress = min(1.0, self.train_step / self.per_beta_steps)
         return self.per_beta_start + (self.per_beta_end - self.per_beta_start) * progress
 
-    def select_action(self, state, mask, explore=True):
-        """state: raw np.array (5,). mask: bool (3,). Returns int action."""
-        valid_actions = np.where(mask)[0]
-        if explore and np.random.random() < self.epsilon():
-            return int(np.random.choice(valid_actions))
-        x = torch.from_numpy(normalize_state(state)).unsqueeze(0).to(self.device)
+    def select_action_batch(self, states, masks, explore=True):
+        """states: (B, 5) raw. masks: (B, 3) bool. Returns int64 array (B,)."""
+        x = torch.from_numpy(normalize_state(states).astype(np.float32))
         with torch.no_grad():
-            q = self.policy_net(x).cpu().numpy()[0]
-        q_masked = np.where(mask, q, -np.inf)
-        return int(np.argmax(q_masked))
+            q = self.policy_net(x).numpy()
+        q_masked = np.where(masks, q, -np.inf)
+        greedy = q_masked.argmax(axis=1)
+
+        if not explore:
+            return greedy.astype(np.int64)
+
+        eps = self.epsilon()
+        explore_mask = np.random.random(len(states)) < eps
+        if not explore_mask.any():
+            return greedy.astype(np.int64)
+
+        # For each exploring sample, pick uniformly among valid actions.
+        random_actions = np.empty(len(states), dtype=np.int64)
+        for i in np.where(explore_mask)[0]:
+            valid = np.flatnonzero(masks[i])
+            random_actions[i] = np.random.choice(valid)
+        return np.where(explore_mask, random_actions, greedy).astype(np.int64)
+
+    def select_action(self, state, mask, explore=True):
+        """Single-state convenience wrapper used by evaluation and smoke tests."""
+        a = self.select_action_batch(state[None, :], mask[None, :], explore=explore)
+        return int(a[0])
 
     def push(self, state, action, reward, next_state, done, mask_next):
         self.buffer.push(state, action, reward, next_state, done, mask_next)
@@ -232,35 +218,32 @@ class DQNAgent:
             return None
         states, actions, rewards, next_states, dones, next_masks, idxs, weights = sample
 
-        states_n = normalize_state(states)
-        next_states_n = normalize_state(next_states)
-
-        s = torch.from_numpy(states_n).to(self.device)
-        a = torch.from_numpy(actions).to(self.device)
-        r = torch.from_numpy(rewards).to(self.device)
-        s2 = torch.from_numpy(next_states_n).to(self.device)
-        d = torch.from_numpy(dones).to(self.device)
-        nm = torch.from_numpy(next_masks).to(self.device)
-        w = torch.from_numpy(weights).to(self.device)
+        s  = torch.from_numpy(normalize_state(states))
+        s2 = torch.from_numpy(normalize_state(next_states))
+        a  = torch.from_numpy(actions)
+        r  = torch.from_numpy(rewards)
+        d  = torch.from_numpy(dones)
+        nm = torch.from_numpy(next_masks)
+        w  = torch.from_numpy(weights)
 
         q_pred = self.policy_net(s).gather(1, a.unsqueeze(1)).squeeze(1)
 
         with torch.no_grad():
-            q_next_policy = self.policy_net(s2)
-            q_next_policy = q_next_policy.masked_fill(~nm, float("-inf"))
+            q_next_policy = self.policy_net(s2).masked_fill(~nm, float("-inf"))
             next_actions = q_next_policy.argmax(dim=1, keepdim=True)
             q_next_target = self.target_net(s2).gather(1, next_actions).squeeze(1)
             q_target = r + (1.0 - d) * self.gamma * q_next_target
 
         td_error = q_pred - q_target
         loss = (w * td_error.pow(2)).mean()
+        self.last_q_max = float(q_pred.detach().abs().max().item())
 
         self.optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), 10.0)
         self.optimizer.step()
 
-        self.buffer.update_priorities(idxs, td_error.detach().cpu().numpy())
+        self.buffer.update_priorities(idxs, td_error.detach().numpy())
         self.train_step += 1
 
         if self.train_step % self.target_sync_interval == 0:

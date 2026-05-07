@@ -28,3 +28,11 @@ data/postgres/
 
 .env
 secrets/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# ML training artifacts (checkpoints, not final model)
+ml_service/train/blackjack_dqn_ckpt.npz

@@ -205,3 +205,50 @@ class BlackjackEnv:
     def action_mask(self):
         """Returns bool array [hit_ok, stand_ok, double_ok] for the current state."""
         return np.array([True, True, self.first_action], dtype=bool)
+
+
+# ---------------------------------------------------------------------------
+# Vectorized environment: N parallel BlackjackEnv with auto-reset on done.
+# ---------------------------------------------------------------------------
+
+class VectorizedBlackjackEnv:
+    def __init__(self, n_envs, num_decks=6, penetration=0.75,
+                 dealer_hits_soft_17=False, seed_base=0):
+        self.n_envs = n_envs
+        self.envs = [
+            BlackjackEnv(num_decks=num_decks, penetration=penetration,
+                         dealer_hits_soft_17=dealer_hits_soft_17,
+                         seed=seed_base + i)
+            for i in range(n_envs)
+        ]
+
+    def reset_all(self):
+        return np.stack([e.reset() for e in self.envs])
+
+    def action_mask_all(self):
+        return np.stack([e.action_mask() for e in self.envs])
+
+    def step(self, actions):
+        """
+        actions: np.ndarray (n_envs,) int64
+        Returns (next_states, rewards, dones, mask_nexts).
+        For envs that finish on this step, next_states is the post-reset state
+        of a fresh episode and mask_nexts is its action mask. The DQN target
+        gates Q(next) by (1 - done), so the value of next_state for terminal
+        transitions doesn't affect learning.
+        """
+        next_states = np.empty((self.n_envs, 5), dtype=np.float32)
+        rewards = np.empty(self.n_envs, dtype=np.float32)
+        dones = np.empty(self.n_envs, dtype=np.float32)
+        mask_nexts = np.empty((self.n_envs, 3), dtype=bool)
+
+        for i, env in enumerate(self.envs):
+            ns, r, done, _ = env.step(int(actions[i]))
+            rewards[i] = r
+            dones[i] = float(done)
+            if done:
+                ns = env.reset()
+            next_states[i] = ns
+            mask_nexts[i] = env.action_mask()
+
+        return next_states, rewards, dones, mask_nexts
