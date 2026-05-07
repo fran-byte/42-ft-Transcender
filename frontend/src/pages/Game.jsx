@@ -944,7 +944,7 @@ function Game() {
                         currentGameState === "playing" &&
                         isMyTurn &&
                         (myPlayer?.hand?.length ?? 0) === 2 &&
-                        (myPlayer?.chips ?? 0) >= (myPlayer?.bet ?? Infinity)
+                        (myPlayer?.chips ?? 0) >= (myPlayer?.bet ?? 0)
                       )
                     }
                     type="button"
