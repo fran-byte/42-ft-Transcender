@@ -29,6 +29,9 @@ data/postgres/
 .env
 secrets/
 
+# Claude Code agent files
+.claude/
+
 # Python
 __pycache__/
 *.pyc

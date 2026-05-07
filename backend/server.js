@@ -413,16 +413,17 @@ io.on("connection", (socket) => {
               action = "stand";
             }
 
+            // hit/stand/doubleDown handle their own turn transitions:
+            //   - stand / doubleDown / hit-to-bust-or-21 → nextTurn() internally
+            //   - hit (score < 21) → startTurnTimer() which re-triggers onAITurn
+            //     async for the same bot. Don't call nextTurn() here, it would
+            //     advance past the bot mid-decision (and double-advance for stand).
             if (action === "double") {
               game.doubleDown(botId);
             } else if (action === "hit") {
               game.hit(botId);
             } else {
               game.stand(botId);
-            }
-
-            if (game.gameState !== "finished") {
-              game.nextTurn();
             }
 
             if (game.emitUpdate) {

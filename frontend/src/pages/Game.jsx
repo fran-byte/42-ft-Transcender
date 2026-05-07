@@ -785,7 +785,7 @@ function Game() {
                 const handValue = calculateHandValue(hand);
 
                 const shouldHideLastCard =
-                  !isMe && currentGameState === "playing" && hand.length > 0;
+                  !isMe && !player.isAI && currentGameState === "playing" && hand.length > 0;
 
                 const visibleCards = shouldHideLastCard
                   ? hand.slice(0, -1)
@@ -873,7 +873,7 @@ function Game() {
                         )}
                       </div>
 
-                      {isMe && hand.length > 0 && (
+                      {(isMe || player.isAI) && hand.length > 0 && (
                         <div className="hand-total-box hand-total-box--below">
                           <span className="hand-total-box__label">Total</span>
                           <strong>{handValue}</strong>
