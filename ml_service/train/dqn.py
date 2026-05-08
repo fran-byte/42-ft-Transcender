@@ -23,8 +23,8 @@ NORM_RANGES = {
 NUM_ACTIONS = 3  # 0=HIT, 1=STAND, 2=DOUBLE
 NUM_FEATURES = 5
 
-SHARED_HIDDEN = 128
-HEAD_HIDDEN = 64
+SHARED_HIDDEN = 256
+HEAD_HIDDEN = 128
 
 _KEYS = ["player_score", "dealer_visible", "usable_ace", "true_count", "can_double"]
 _NORM_LO = np.array([NORM_RANGES[k][0] for k in _KEYS], dtype=np.float32)
@@ -119,6 +119,21 @@ class PrioritizedReplayBuffer:
             weights,
         )
 
+    def push_batch(self, states, actions, rewards, next_states, dones, mask_nexts):
+        """Push N transitions at once (vectorized, no Python loop)."""
+        N    = len(states)
+        idxs = (np.arange(N) + self.write) % self.capacity
+        self.states[idxs]      = states
+        self.actions[idxs]     = actions
+        self.rewards[idxs]     = rewards
+        self.next_states[idxs] = next_states
+        self.dones[idxs]       = dones
+        self.next_masks[idxs]  = mask_nexts
+        priority = (self.max_priority + self.epsilon) ** self.alpha
+        self.priorities[idxs]  = priority
+        self.write = (self.write + N) % self.capacity
+        self.size  = min(self.size + N, self.capacity)
+
     def update_priorities(self, idxs, td_errors):
         errors = np.abs(td_errors).astype(np.float64)
         self.priorities[idxs] = (errors + self.epsilon) ** self.alpha
@@ -134,6 +149,8 @@ class DQNAgent:
     def __init__(
         self,
         lr=1e-4,
+        lr_end=1e-5,
+        lr_decay_steps=80_000,
         gamma=0.99,
         buffer_capacity=100_000,
         batch_size=256,
@@ -156,6 +173,9 @@ class DQNAgent:
         self.per_beta_start = per_beta_start
         self.per_beta_end = per_beta_end
         self.per_beta_steps = per_beta_steps
+        self.lr_start = lr
+        self.lr_end = lr_end
+        self.lr_decay_steps = lr_decay_steps
         self.device = device
 
         self.policy_net = DuelingDQN().to(device)
@@ -169,6 +189,10 @@ class DQNAgent:
         self.env_step = 0
         self.last_q_max = 0.0  # |Q|.max from the most recent learn() call (drift diagnostic)
 
+        # Normalization tensors cached on device for GPU-side inference
+        self._lo = torch.tensor(_NORM_LO, dtype=torch.float32, device=device)
+        self._hi = torch.tensor(_NORM_HI, dtype=torch.float32, device=device)
+
     def epsilon(self):
         progress = min(1.0, self.env_step / self.eps_decay_steps)
         return self.eps_start + (self.eps_end - self.eps_start) * progress
@@ -179,9 +203,9 @@ class DQNAgent:
 
     def select_action_batch(self, states, masks, explore=True):
         """states: (B, 5) raw. masks: (B, 3) bool. Returns int64 array (B,)."""
-        x = torch.from_numpy(normalize_state(states).astype(np.float32))
+        x = torch.from_numpy(normalize_state(states).astype(np.float32)).to(self.device)
         with torch.no_grad():
-            q = self.policy_net(x).numpy()
+            q = self.policy_net(x).cpu().numpy()
         q_masked = np.where(masks, q, -np.inf)
         greedy = q_masked.argmax(axis=1)
 
@@ -200,10 +224,44 @@ class DQNAgent:
             random_actions[i] = np.random.choice(valid)
         return np.where(explore_mask, random_actions, greedy).astype(np.int64)
 
+    def select_action_batch_t(self, states_t, masks_t, explore=True):
+        """
+        GPU-native action selection — no CPU/GPU round-trips.
+        states_t : (N, 5) float32 CUDA tensor
+        masks_t  : (N, 3) bool   CUDA tensor
+        Returns  : (N,)  int64  CUDA tensor
+        """
+        x = (states_t - self._lo) / (self._hi - self._lo)
+        with torch.no_grad():
+            q = self.policy_net(x)
+        q_masked = q.masked_fill(~masks_t, float("-inf"))
+        greedy   = q_masked.argmax(dim=1)
+
+        if not explore:
+            return greedy
+
+        eps  = self.epsilon()
+        expl = torch.rand(states_t.shape[0], device=self.device) < eps
+        if not expl.any():
+            return greedy
+
+        # Uniform random valid action: vectorized, no Python loop
+        valid_counts = masks_t.float().sum(1)                      # (N,)
+        rand_u       = torch.rand(states_t.shape[0], device=self.device) * valid_counts
+        cumsum       = masks_t.float().cumsum(1)                   # (N, 3)
+        rand_actions = (cumsum <= rand_u.unsqueeze(1)).sum(1).clamp(max=masks_t.shape[1] - 1)
+
+        return torch.where(expl, rand_actions, greedy)
+
     def select_action(self, state, mask, explore=True):
         """Single-state convenience wrapper used by evaluation and smoke tests."""
         a = self.select_action_batch(state[None, :], mask[None, :], explore=explore)
         return int(a[0])
+
+    def push_batch(self, states, actions, rewards, next_states, dones, mask_nexts):
+        """Push N transitions at once and advance env_step counter."""
+        self.buffer.push_batch(states, actions, rewards, next_states, dones, mask_nexts)
+        self.env_step += len(states)
 
     def push(self, state, action, reward, next_state, done, mask_next):
         self.buffer.push(state, action, reward, next_state, done, mask_next)
@@ -218,13 +276,13 @@ class DQNAgent:
             return None
         states, actions, rewards, next_states, dones, next_masks, idxs, weights = sample
 
-        s  = torch.from_numpy(normalize_state(states))
-        s2 = torch.from_numpy(normalize_state(next_states))
-        a  = torch.from_numpy(actions)
-        r  = torch.from_numpy(rewards)
-        d  = torch.from_numpy(dones)
-        nm = torch.from_numpy(next_masks)
-        w  = torch.from_numpy(weights)
+        s  = (torch.from_numpy(states).to(self.device)      - self._lo) / (self._hi - self._lo)
+        s2 = (torch.from_numpy(next_states).to(self.device) - self._lo) / (self._hi - self._lo)
+        a  = torch.from_numpy(actions).to(self.device)
+        r  = torch.from_numpy(rewards).to(self.device)
+        d  = torch.from_numpy(dones).to(self.device)
+        nm = torch.from_numpy(next_masks).to(self.device)
+        w  = torch.from_numpy(weights).to(self.device)
 
         q_pred = self.policy_net(s).gather(1, a.unsqueeze(1)).squeeze(1)
 
@@ -243,8 +301,14 @@ class DQNAgent:
         torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), 10.0)
         self.optimizer.step()
 
-        self.buffer.update_priorities(idxs, td_error.detach().numpy())
+        self.buffer.update_priorities(idxs, td_error.detach().cpu().numpy())
         self.train_step += 1
+
+        if self.lr_decay_steps > 0:
+            progress = min(1.0, self.train_step / self.lr_decay_steps)
+            new_lr = self.lr_start + (self.lr_end - self.lr_start) * progress
+            for pg in self.optimizer.param_groups:
+                pg["lr"] = new_lr
 
         if self.train_step % self.target_sync_interval == 0:
             self.target_net.load_state_dict(self.policy_net.state_dict())

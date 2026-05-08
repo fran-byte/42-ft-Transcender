@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 """
-DQN training for Blackjack via reinforcement learning.
+DQN training for Blackjack — v3 CUDA edition.
 
-Improvements over the v1 training run, based on convergence analysis:
-  - TOTAL_ENV_STEPS reduced (the policy converged at ~13% of v1's budget).
-  - All schedules expressed as fractions of TOTAL_ENV_STEPS.
-  - Vectorized evaluation (10k episodes) for low-variance signal (~3× tighter SE).
-  - Best-model checkpointing — final exported model is the *best* eval, not the *last*.
-  - Early stopping when eval has plateaued.
-  - Baseline comparison ("hit until 17") run at start and end as a sanity floor.
-  - Q-value magnitude logged each interval as a divergence diagnostic.
+v3 improvements over v2:
+  - Full GPU pipeline: CUDABlackjackEnv + GPU-native action selection (no CPU/GPU round-trips).
+  - Larger network: 256/128 hidden units (vs 128/64).
+  - N_ENVS 64 → 512, BATCH_SIZE 512 → 2048, TRAIN_PER_ITER 16 → 32.
+  - Vectorized push_batch (O(1) buffer insertion vs O(N) loop).
+  - LR decay 1e-4 → 1e-5, TARGET_SYNC 3000, PER_BETA over full training.
 """
 
 import os
@@ -18,43 +16,47 @@ from collections import deque
 import numpy as np
 import torch
 
-from env import BlackjackEnv, VectorizedBlackjackEnv
+from env import BlackjackEnv
+from env_cuda import CUDABlackjackEnv
 from dqn import DQNAgent, export_to_numpy, NUM_ACTIONS
 
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
 # ---------- Hyperparameters ----------
-TOTAL_ENV_STEPS = 400_000        # convergence at ~128k in v1; 3× margin keeps it safe
-N_ENVS = 64
-TRAIN_PER_ITER = 16              # 4:1 env:train ratio
-WARMUP_STEPS = 1_000
+TOTAL_ENV_STEPS = 2_000_000
+N_ENVS          = 512
+TRAIN_PER_ITER  = 32
+WARMUP_STEPS    = 5_000
 
-LR = 1e-4
-GAMMA = 0.99
-BUFFER_CAPACITY = 100_000
-BATCH_SIZE = 256
-TARGET_SYNC = 2_000
+LR             = 1e-4
+LR_END         = 1e-5
+LR_DECAY_STEPS = 400_000          # decay over first ~400k train steps
+GAMMA          = 0.99
+BUFFER_CAPACITY = 200_000
+BATCH_SIZE      = 2048
+TARGET_SYNC     = 3_000
 
-EPS_START = 1.0
-EPS_END = 0.05
-EPS_DECAY_STEPS = int(0.5 * TOTAL_ENV_STEPS)   # finish exploring at 50% of training
+EPS_START      = 1.0
+EPS_END        = 0.05
+EPS_DECAY_STEPS = int(0.4 * TOTAL_ENV_STEPS)   # epsilon done at 40% of training
 
-PER_ALPHA = 0.6
+PER_ALPHA      = 0.6
 PER_BETA_START = 0.4
-PER_BETA_END = 1.0
+PER_BETA_END   = 1.0
 PER_BETA_STEPS = TOTAL_ENV_STEPS
 
-LOG_INTERVAL_ITERS = 100
+LOG_INTERVAL_ITERS  = 200
 EVAL_INTERVAL_ITERS = 500
-EVAL_EPISODES = 10_000           # 1k → 10k drops eval std error from ~0.04 to ~0.013
-EVAL_N_ENVS = 128                # vectorized eval
+EVAL_EPISODES       = 20_000
+EVAL_N_ENVS         = 512
 
-# Early stopping: a strict-improvement test on a noisy signal.
-EARLY_STOP_PATIENCE = 6          # consecutive evals without improvement
-EARLY_STOP_MIN_DELTA = 0.005     # smaller than this is below the eval noise floor
+EARLY_STOP_PATIENCE  = 8
+EARLY_STOP_MIN_DELTA = 0.003
 
 SEED = 42
 MODEL_PATH      = os.path.join(os.path.dirname(__file__), "blackjack_dqn.npz")
 CHECKPOINT_PATH = MODEL_PATH.replace(".npz", "_ckpt.npz")
-ACTION_NAMES = ["hit", "stand", "double"]
+ACTION_NAMES    = ["hit", "stand", "double"]
 
 NUM_ITERATIONS = TOTAL_ENV_STEPS // N_ENVS
 
@@ -62,22 +64,22 @@ NUM_ITERATIONS = TOTAL_ENV_STEPS // N_ENVS
 # ---------- Vectorized greedy evaluation ----------
 
 def evaluate(agent, num_episodes=EVAL_EPISODES, n_envs=EVAL_N_ENVS, seed=12345):
-    """Greedy eval across `num_episodes` rolled out over `n_envs` parallel games."""
-    vec = VectorizedBlackjackEnv(n_envs=n_envs, seed_base=seed)
+    """Greedy eval — fully on GPU."""
+    vec    = CUDABlackjackEnv(n_envs=n_envs, device=DEVICE)
     states = vec.reset_all()
 
     rewards = []
     action_counts = np.zeros(NUM_ACTIONS, dtype=np.int64)
 
     while len(rewards) < num_episodes:
-        masks = vec.action_mask_all()
-        actions = agent.select_action_batch(states, masks, explore=False)
-        for a in actions:
+        masks   = vec.action_mask_all()
+        actions = agent.select_action_batch_t(states, masks, explore=False)
+        for a in actions.cpu().numpy():
             action_counts[int(a)] += 1
         next_states, step_rewards, dones, _ = vec.step(actions)
-        for i in range(n_envs):
-            if dones[i]:
-                rewards.append(float(step_rewards[i]))
+        done_mask = dones.bool()
+        for r in step_rewards[done_mask].cpu().numpy():
+            rewards.append(float(r))
         states = next_states
 
     rs = np.asarray(rewards[:num_episodes], dtype=np.float64)
@@ -154,6 +156,7 @@ def main():
     np.random.seed(SEED)
     torch.manual_seed(SEED)
 
+    print(f"Device: {DEVICE.upper()} | N_ENVS={N_ENVS} | batch={BATCH_SIZE} | net=256/128")
     print(f"Vectorized env (N={N_ENVS}) | {NUM_ITERATIONS:,} iters × {N_ENVS} = {TOTAL_ENV_STEPS:,} env steps")
     print(f"Schedules: ε [{EPS_START}→{EPS_END}] over {EPS_DECAY_STEPS:,} env steps "
           f"| β [{PER_BETA_START}→{PER_BETA_END}] over {PER_BETA_STEPS:,} train steps")
@@ -164,9 +167,11 @@ def main():
     b = baseline_hit17(num_episodes=EVAL_EPISODES, seed=99999)
     print(f"  avg_r {b['avg_reward']:+.4f} | W {b['win_rate']:.3f} L {b['loss_rate']:.3f} P {b['push_rate']:.3f}")
 
-    vec_env = VectorizedBlackjackEnv(n_envs=N_ENVS, seed_base=SEED)
+    vec_env = CUDABlackjackEnv(n_envs=N_ENVS, device=DEVICE)
     agent = DQNAgent(
         lr=LR,
+        lr_end=LR_END,
+        lr_decay_steps=LR_DECAY_STEPS,
         gamma=GAMMA,
         buffer_capacity=BUFFER_CAPACITY,
         batch_size=BATCH_SIZE,
@@ -178,9 +183,10 @@ def main():
         per_beta_start=PER_BETA_START,
         per_beta_end=PER_BETA_END,
         per_beta_steps=PER_BETA_STEPS,
+        device=DEVICE,
     )
 
-    states = vec_env.reset_all()
+    states = vec_env.reset_all()    # (N, 5) CUDA tensor
     recent_losses = deque(maxlen=1_000)
     start_time = time.time()
 
@@ -190,13 +196,19 @@ def main():
     stopped_early = False
 
     for it in range(1, NUM_ITERATIONS + 1):
-        masks = vec_env.action_mask_all()
-        actions = agent.select_action_batch(states, masks, explore=True)
+        masks   = vec_env.action_mask_all()                                    # (N, 3) CUDA bool
+        actions = agent.select_action_batch_t(states, masks, explore=True)     # (N,)  CUDA int64
         next_states, rewards, dones, mask_nexts = vec_env.step(actions)
 
-        for k in range(N_ENVS):
-            agent.push(states[k], int(actions[k]), float(rewards[k]),
-                       next_states[k], float(dones[k]), mask_nexts[k])
+        # Batch push to numpy buffer (one GPU→CPU transfer per iteration)
+        agent.push_batch(
+            states.cpu().numpy(),
+            actions.cpu().numpy(),
+            rewards.cpu().numpy(),
+            next_states.cpu().numpy(),
+            dones.cpu().numpy(),
+            mask_nexts.cpu().numpy(),
+        )
         states = next_states
 
         if agent.env_step > WARMUP_STEPS:

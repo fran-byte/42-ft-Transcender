@@ -110,11 +110,10 @@ Auth state: JWT in httpOnly cookie (server) + `username`/`email`/`isLoggedIn` in
 
 ## ML Service
 
-Model: NumPy DQN with 4 inputs (`player_score`, `dealer_visible`, `usable_ace`, `true_count`) → 2 outputs (Q-hit, Q-stand). Weights at `ml_service/train/blackjack_dqn.npz`. Retrain with `ml_service/train/train.py`.
+Model: Dueling Double DQN with PER — 5 inputs (`player_score`, `dealer_visible`, `usable_ace`, `true_count`, `can_double`) → 3 outputs (Q-hit, Q-stand, Q-double). Network: 256/128 hidden units. Weights at `ml_service/train/blackjack_dqn.npz`. Retrain with `ml_service/train/train.py` (requires GPU; uses `env_cuda.py` for vectorized CUDA env). Docker: `docker run --rm --gpus all --device /dev/dxg -v /usr/lib/wsl:/usr/lib/wsl:ro -e LD_LIBRARY_PATH=/usr/lib/wsl/lib -v $(pwd)/ml_service/train:/work/train blackjack-train:cuda`.
 
 ## Known Issues / Incomplete Features
 
-- **Double Down** — button rendered in Game.jsx but backend action not implemented
 - `frontend/src/services/socket.js` — empty placeholder (actual socket is `src/socket.js`)
 - `JWT_SECRET` has insecure hardcoded fallback in `authController.js` and `authMiddleware.js`
 - `blackjack.conf` (active nginx config) missing the `/ml` proxy route — use `app.conf` for ML service access

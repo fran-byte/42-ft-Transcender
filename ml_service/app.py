@@ -19,12 +19,12 @@ ACTION_NAMES = ["hit", "stand", "double"]
 NUM_ACTIONS = 3
 
 # Weight schema saved by dqn.export_to_numpy():
-#   shared_W1 (5, 128)   shared_b1 (128,)
-#   shared_W2 (128, 128) shared_b2 (128,)
-#   value_W1  (128, 64)  value_b1  (64,)
-#   value_W2  (64, 1)    value_b2  (1,)
-#   adv_W1    (128, 64)  adv_b1    (64,)
-#   adv_W2    (64, 3)    adv_b2    (3,)
+#   shared_W1 (5, 256)   shared_b1 (256,)
+#   shared_W2 (256, 256) shared_b2 (256,)
+#   value_W1  (256, 128) value_b1  (128,)
+#   value_W2  (128, 1)   value_b2  (1,)
+#   adv_W1    (256, 128) adv_b1    (128,)
+#   adv_W2    (128, 3)   adv_b2    (3,)
 WEIGHT_KEYS = [
     'shared_W1', 'shared_b1', 'shared_W2', 'shared_b2',
     'value_W1', 'value_b1', 'value_W2', 'value_b2',
