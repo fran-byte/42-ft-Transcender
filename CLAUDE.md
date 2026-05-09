@@ -17,7 +17,7 @@ make ps       # Container status
 make prune    # Reclaim Docker disk space
 ```
 
-Access: `https://localhost:8443` or `http://localhost:8080`  
+Access: `https://localhost` or `http://localhost`  
 Add `127.0.0.1 blackjack.local` to `/etc/hosts` for domain-based access.
 
 **Frontend linting (inside container or with local Node):**
@@ -46,7 +46,7 @@ SSL certs must exist at `secrets/certs/blackjack.local.crt` and `secrets/certs/b
 Five Docker services communicate via an internal Docker network:
 
 ```
-Nginx (:8080/:8443) → Frontend (:5173) → Backend (:3000) → PostgreSQL (:5432)
+Nginx (:80/:443) → Frontend (:5173) → Backend (:3000) → PostgreSQL (:5432)
                                         ↘ ML Service (:5000)
 ```
 
