@@ -116,6 +116,5 @@ Model: Dueling Double DQN with PER — 5 inputs (`player_score`, `dealer_visible
 
 - `frontend/src/services/socket.js` — empty placeholder (actual socket is `src/socket.js`)
 - `JWT_SECRET` has insecure hardcoded fallback in `authController.js` and `authMiddleware.js`
-- `blackjack.conf` (active nginx config) missing the `/ml` proxy route — use `app.conf` for ML service access
 - `dj.js` is a duplicate DB pool; the canonical pool is in `authController.js`
 - No rate limiting on REST or WebSocket events
