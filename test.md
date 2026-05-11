@@ -69,7 +69,13 @@
 | 3   | **Dos jugadores apuestan casi a la vez (race condition)** ✅     | Dos clientes envían `place_bet` con milisegundos de diferencia.                        | Ambos apuestan correctamente sin que se duplique o se pierda ninguna apuesta.                         |
 | 4   | **El host abandona la partida en medio de una ronda** (aún ??)   | El jugador que inició la ronda se desconecta.                                          | La ronda debe continuar (el turno pasa al siguiente). Al terminar, otro jugador se convierte en host. |
 | 5   | **Timeout por inactividad (AFK)** ✅                             | Un jugador no hace nada durante 15 segundos en su turno.                               | El sistema debe ejecutar `stand` automáticamente y pasar el turno.                                    |
-| 6   | **Múltiples salas simultáneas ** 💥                              | Crea varias salas (Golden, Emerald, etc.) y juega en cada una con diferentes usuarios. | El estado de cada sala debe ser independiente y no mezclarse. BUG !!!!!!                              |
+| 6   | **Múltiples salas simultáneas ** NO ESTA PERMITIDO ✅            | Crea varias salas (Golden, Emerald, etc.) y juega en cada una con diferentes usuarios. | El estado de cada sala debe ser independiente y no mezclarse. BUG !!!!!!                              |
 | 7   | **Reconexión con el mismo socket ID tras F5** ✅                 | Recarga la página durante una partida.                                                 | El jugador debe recuperar su mano, apuesta y turno (si aún está en juego).                            |
 
 ---
+
+✅ Se eliminó el bug de flicker al salir y entrar en otra sala
+
+🐛 _Nuevo bug detectado:_ si dos usuarios abandonan una sala cuando la partida está en espera de ronda (waiting_for_round), ya no pueden volver a entrar y se quedan como espectadores.
+
+Solución: Implementar un check en el servidor: si el contador de jugadores llega a 0 en estado waiting_for_round, resetear completamente esa sala para que pueda volver a usarse.
