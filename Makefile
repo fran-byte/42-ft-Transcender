@@ -90,14 +90,33 @@ ensure-certs:
 		echo "$(BLUE)SSL certificates already exist.$(RESET)"; \
 	fi
 
-# Create .env with random values if missing
+# Create .env with random values (interactive for Grafana credentials - password visible)
 ensure-env:
 	@if [ ! -f $(ENV_FILE) ]; then \
 		echo "$(YELLOW)Creating .env file with random credentials...$(RESET)"; \
 		DB_PASS=$$(openssl rand -hex 12); \
 		JWT_SECRET=$$(openssl rand -hex 32); \
-		printf 'POSTGRES_USER=blackjack_user\nPOSTGRES_PASSWORD=%s\nPOSTGRES_DB=blackjack_db\nDB_HOST=db\nJWT_SECRET=%s\nDATA_PATH=./data\nNODE_ENV=development\nREACT_APP_API_URL=https://blackjack.local/api\n' "$$DB_PASS" "$$JWT_SECRET" > $(ENV_FILE); \
+		echo ""; \
+		echo "$(CYAN)=== Grafana Configuration ===$(RESET)"; \
+		echo -n "$(CYAN)Enter Grafana username (default: admin): $(RESET)"; \
+		read GRAFANA_USER; \
+		echo -n "$(CYAN)Enter Grafana password (default: admin): $(RESET)"; \
+		read GRAFANA_PASS; \
+		echo ""; \
+		if [ -z "$$GRAFANA_USER" ]; then \
+			GRAFANA_USER="admin"; \
+		fi; \
+		if [ -z "$$GRAFANA_PASS" ]; then \
+			GRAFANA_PASS="admin"; \
+			echo "$(YELLOW)No password entered, using default: admin$(RESET)"; \
+		fi; \
+		printf 'POSTGRES_USER=blackjack_user\nPOSTGRES_PASSWORD=%s\nPOSTGRES_DB=blackjack_db\nDB_HOST=db\nJWT_SECRET=%s\nDATA_PATH=./data\nNODE_ENV=development\nREACT_APP_API_URL=https://blackjack.local/api\nGRAFANA_USER=%s\nGRAFANA_PASSWORD=%s\n' "$$DB_PASS" "$$JWT_SECRET" "$$GRAFANA_USER" "$$GRAFANA_PASS" > $(ENV_FILE); \
 		echo "$(GREEN)✓ .env file created.$(RESET)"; \
+		echo "$(YELLOW)=== GRAFANA CREDENTIALS ===$(RESET)"; \
+		echo "  Usuario: $$GRAFANA_USER"; \
+		echo "  Password: $$GRAFANA_PASS"; \
+		echo "  URL: http://localhost:3001"; \
+		echo "$(YELLOW)===========================$(RESET)"; \
 	else \
 		echo "$(BLUE).env file already exists.$(RESET)"; \
 	fi
@@ -178,7 +197,7 @@ info:
 	@echo "  make setup           Run the configuration phase only (no containers)"
 	@echo "  make hosts           Add blackjack.local to /etc/hosts (needs sudo)"
 	@echo "  make ensure-certs    Generate self-signed SSL certificate if missing"
-	@echo "  make ensure-env      Create .env file with random passwords if missing"
+	@echo "  make ensure-env      Create .env file with random passwords (interactive for Grafana)"
 	@echo "  make ensure-nginx    Fix nginx typo and verify configuration"
 	@echo "  make ensure-data     Create local database directory with correct permissions"
 	@echo ""
@@ -190,6 +209,7 @@ info:
 	@echo "  1. Run $(BLUE)sudo make hosts$(RESET) once to add the local domain."
 	@echo "  2. Open $(BLUE)https://blackjack.local$(RESET) (accept self-signed certificate)."
 	@echo "  3. Use $(BLUE)make logs$(RESET) to troubleshoot any issues."
+	@echo "  4. Grafana: $(BLUE)http://localhost:3001$(RESET) (the credentials you entered)"
 	@echo ""
 
 .PHONY: all up logs stop down fclean re ps prune setup \
