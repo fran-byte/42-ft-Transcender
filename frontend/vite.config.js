@@ -1,11 +1,24 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import fs from 'fs'
+
+const httpsConfig = (() => {
+  try {
+    return {
+      key: fs.readFileSync('/certs/key.pem'),
+      cert: fs.readFileSync('/certs/cert.pem'),
+    }
+  } catch {
+    return undefined
+  }
+})()
 
 export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
-    allowedHosts: ['blackjack.local', 'www.blackjack.local'],
+    allowedHosts: 'all',
+    https: httpsConfig,
     proxy: {
       '/api': {
         target: 'http://backend:3000',

@@ -15,4 +15,4 @@ COPY . .
 EXPOSE 5173
 
 # Importante: --host para que se vea desde fuera del contenedor
-CMD ["npm", "run", "dev", "--", "--host"]
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

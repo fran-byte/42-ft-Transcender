@@ -172,7 +172,7 @@ function Game() {
       setSessionScore(Number(localStorage.getItem(newScoreKey) || 0));
 
       try {
-        const balanceRes = await fetch("/api/auth/balance", {
+        const balanceRes = await fetch("/api/users/balance", {
           method: "GET",
           credentials: "include",
         });
@@ -188,7 +188,7 @@ function Game() {
       }
 
       try {
-        const statsRes = await fetch("/api/auth/stats", {
+        const statsRes = await fetch("/api/users/stats", {
           method: "GET",
           credentials: "include",
         });
@@ -438,7 +438,7 @@ function Game() {
       return updatedScore;
     });
 
-    fetch("/api/auth/balance", {
+    fetch("/api/users/balance", {
       method: "GET",
       credentials: "include",
     })
@@ -470,7 +470,7 @@ function Game() {
 
     const saveStats = async () => {
       try {
-        const res = await fetch("/api/auth/stats", {
+        const res = await fetch("/api/users/stats", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -1127,7 +1127,7 @@ function Game() {
 
                   setWalletMsg("");
 
-                  const res = await fetch("/api/auth/balance", {
+                  const res = await fetch("/api/users/balance", {
                     method: "POST",
                     credentials: "include",
                     headers: { "Content-Type": "application/json" },
@@ -1176,7 +1176,7 @@ function Game() {
 
                   setWalletMsg("");
 
-                  const res = await fetch("/api/auth/balance", {
+                  const res = await fetch("/api/users/balance", {
                     method: "POST",
                     credentials: "include",
                     headers: { "Content-Type": "application/json" },

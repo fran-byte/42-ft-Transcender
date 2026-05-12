@@ -1,16 +1,16 @@
-const Deck = require("./Deck");
+import Deck from './Deck.js';
 
-class BlackjackGame {
+export default class BlackjackGame {
   constructor(id, emitUpdate, config = {}) {
     const normalizedConfig =
-      typeof config === "number"
+      typeof config === 'number'
         ? { maxPlayers: config }
         : {
             maxPlayers: config.maxPlayers ?? 6,
             minBet: config.minBet ?? 5,
             maxBet: config.maxBet ?? 500,
             roomName: config.roomName ?? id,
-            mode: config.mode ?? "Multiplayer",
+            mode: config.mode ?? 'Multiplayer',
           };
 
     this.id = id;
@@ -28,7 +28,7 @@ class BlackjackGame {
     this.spectators = [];
 
     this.dealerHand = [];
-    this.gameState = "waiting";
+    this.gameState = 'waiting';
     this.turn = null;
     this.turnTimer = null;
 
@@ -36,7 +36,7 @@ class BlackjackGame {
   }
 
   notifyStateChange() {
-    if (typeof this.emitUpdate === "function") {
+    if (typeof this.emitUpdate === 'function') {
       this.emitUpdate(this.getPublicState());
     }
   }
@@ -92,7 +92,7 @@ class BlackjackGame {
       const latestPlayer = this.players[userId];
       if (!latestPlayer || this.hasActiveConnection(latestPlayer)) return;
 
-      if (this.gameState === "playing") {
+      if (this.gameState === 'playing') {
         latestPlayer.isDisconnected = true;
         latestPlayer.disconnectTimer = null;
         return;
@@ -120,7 +120,7 @@ class BlackjackGame {
   }
 
   pruneDisconnectedWaitingUsers() {
-    if (this.gameState !== "waiting") return;
+    if (this.gameState !== 'waiting') return;
 
     this.playerOrder = this.playerOrder.filter((id) => {
       const player = this.players[id];
@@ -174,18 +174,10 @@ class BlackjackGame {
     });
   }
 
-  addPlayer(
-    userId,
-    socketId,
-    username,
-    avatar = null,
-    preferredRole = "player",
-    chips = null,
-  ) {
+  addPlayer(userId, socketId, username, avatar = null, preferredRole = 'player', chips = null) {
     const safeChips = Number.isFinite(chips) && chips >= 0 ? chips : 0;
 
     if (this.players[userId]) {
-      console.log(`♻️ Reconexión: Actualizando socket de ${username}`);
       const player = this.players[userId];
       this.clearDisconnectTimerForPlayer(userId);
       this.addSocketToEntity(player, socketId);
@@ -195,7 +187,7 @@ class BlackjackGame {
       player.avatar = avatar;
       player.isDisconnected = false;
 
-      return { role: "player", success: true, reconnected: true };
+      return { role: 'player', success: true, reconnected: true };
     }
 
     const existingSpectator = this.spectators.find((s) => s.userId === userId);
@@ -207,75 +199,44 @@ class BlackjackGame {
       existingSpectator.avatar = avatar;
       existingSpectator.isDisconnected = false;
 
-      return { role: "spectator", success: true, reconnected: true };
+      return { role: 'spectator', success: true, reconnected: true };
     }
 
-    if (preferredRole === "spectator") {
+    if (preferredRole === 'spectator') {
       const spectator = {
-        userId,
-        username,
-        avatar,
-        chips: safeChips,
-        isDisconnected: false,
-        disconnectTimer: null,
-        socketIds: new Set(),
+        userId, username, avatar, chips: safeChips,
+        isDisconnected: false, disconnectTimer: null, socketIds: new Set(),
       };
-
       this.addSocketToEntity(spectator, socketId);
       this.spectators.push(spectator);
-
-      return {
-        role: "spectator",
-        success: true,
-        reason: "preferred_spectator",
-      };
+      return { role: 'spectator', success: true, reason: 'preferred_spectator' };
     }
 
     const tableFull = this.getSeatedPlayersCount() >= this.maxPlayers;
-    const gameInProgress = this.gameState !== "waiting";
+    const gameInProgress = this.gameState !== 'waiting';
 
     if (tableFull || gameInProgress) {
       const spectator = {
-        userId,
-        username,
-        avatar,
-        chips: safeChips,
-        isDisconnected: false,
-        disconnectTimer: null,
-        socketIds: new Set(),
+        userId, username, avatar, chips: safeChips,
+        isDisconnected: false, disconnectTimer: null, socketIds: new Set(),
       };
-
       this.addSocketToEntity(spectator, socketId);
       this.spectators.push(spectator);
-
-      return {
-        role: "spectator",
-        success: true,
-        reason: tableFull ? "table_full" : "game_in_progress",
-      };
+      return { role: 'spectator', success: true, reason: tableFull ? 'table_full' : 'game_in_progress' };
     }
 
     const player = {
-      id: userId,
-      username,
-      avatar,
-      hand: [],
-      score: 0,
-      status: "waiting",
-      result: null,
-      bet: 0,
-      chips: safeChips,
-      isSpectator: false,
-      isDisconnected: false,
-      disconnectTimer: null,
-      socketIds: new Set(),
+      id: userId, username, avatar,
+      hand: [], score: 0, status: 'waiting', result: null,
+      bet: 0, chips: safeChips,
+      isSpectator: false, isDisconnected: false,
+      disconnectTimer: null, socketIds: new Set(),
     };
-
     this.addSocketToEntity(player, socketId);
     this.players[userId] = player;
     this.playerOrder.push(userId);
 
-    return { role: "player", success: true };
+    return { role: 'player', success: true };
   }
 
   removePlayer(userId, socketId) {
@@ -302,25 +263,21 @@ class BlackjackGame {
   }
 
   placeBet(userId, amount) {
-    if (this.gameState !== "waiting") return false;
+    if (this.gameState !== 'waiting') return false;
 
     const player = this.players[userId];
     if (!player || player.isDisconnected) return false;
     if (!Number.isFinite(amount) || amount <= 0) return false;
-
     if (player.isBetting) return false;
-    player.isBetting = true;
 
+    player.isBetting = true;
     try {
       if (amount > player.chips) return false;
-
       const nextBet = player.bet + amount;
-
       if (nextBet > this.maxBet) return false;
 
       player.bet = nextBet;
       player.chips -= amount;
-
       return true;
     } finally {
       player.isBetting = false;
@@ -328,7 +285,7 @@ class BlackjackGame {
   }
 
   clearBet(userId) {
-    if (this.gameState !== "waiting") return false;
+    if (this.gameState !== 'waiting') return false;
 
     const player = this.players[userId];
     if (!player || player.isDisconnected) return false;
@@ -341,10 +298,8 @@ class BlackjackGame {
   updatePlayerWallet(userId, newBalance) {
     const player = this.players[userId];
     if (!player || player.isDisconnected) return false;
-
     if (!Number.isFinite(newBalance) || newBalance < 0) return false;
-
-    if (this.gameState !== "waiting") return false;
+    if (this.gameState !== 'waiting') return false;
     if ((player.bet ?? 0) > 0) return false;
 
     player.chips = newBalance;
@@ -352,26 +307,20 @@ class BlackjackGame {
   }
 
   canStartRound() {
-    if (this.gameState !== "waiting") return false;
+    if (this.gameState !== 'waiting') return false;
 
-    const activePlayers = this.getActivePlayerIds().map(
-      (id) => this.players[id],
-    );
+    const activePlayers = this.getActivePlayerIds().map((id) => this.players[id]);
     if (activePlayers.length === 0) return false;
 
     return activePlayers.every(
-      (player) =>
-        player && player.bet >= this.minBet && player.bet <= this.maxBet,
+      (player) => player && player.bet >= this.minBet && player.bet <= this.maxBet
     );
   }
 
   promoteSpectatorsToPlayers() {
-    if (this.gameState !== "waiting") return;
+    if (this.gameState !== 'waiting') return;
 
-    while (
-      this.spectators.length > 0 &&
-      this.getSeatedPlayersCount() < this.maxPlayers
-    ) {
+    while (this.spectators.length > 0 && this.getSeatedPlayersCount() < this.maxPlayers) {
       const spec = this.spectators[0];
 
       if (!spec || spec.isDisconnected || !this.hasActiveConnection(spec)) {
@@ -386,16 +335,10 @@ class BlackjackGame {
         id: spec.userId,
         username: spec.username,
         avatar: spec.avatar || null,
-        hand: [],
-        score: 0,
-        status: "waiting",
-        result: null,
-        bet: 0,
-        chips: Number.isFinite(spec.chips) && spec.chips >= 0 ? spec.chips : 0,
-        isDisconnected: false,
-        isSpectator: false,
-        disconnectTimer: null,
-        socketIds: spec.socketIds || new Set(),
+        hand: [], score: 0, status: 'waiting', result: null,
+        bet: 0, chips: Number.isFinite(spec.chips) && spec.chips >= 0 ? spec.chips : 0,
+        isDisconnected: false, isSpectator: false,
+        disconnectTimer: null, socketIds: spec.socketIds || new Set(),
       };
 
       this.playerOrder.push(spec.userId);
@@ -405,7 +348,7 @@ class BlackjackGame {
   startRound(requestingUserId) {
     if (!this.players[requestingUserId]) return;
     if (this.playerOrder.length === 0) return;
-    if (this.gameState === "playing") return;
+    if (this.gameState === 'playing') return;
     if (!this.canStartRound()) return;
 
     const activePlayerIds = this.getActivePlayerIds();
@@ -415,7 +358,7 @@ class BlackjackGame {
 
     this.clearTurnTimer();
     this.deck.reset();
-    this.gameState = "playing";
+    this.gameState = 'playing';
     this.dealerHand = this.deck.deal(2);
 
     this.playerOrder.forEach((id) => {
@@ -424,19 +367,18 @@ class BlackjackGame {
 
       player.hand = this.deck.deal(2);
       player.score = this.calculateScore(player.hand);
-      player.status = "playing";
+      player.status = 'playing';
       player.result = null;
 
       if (player.score === 21) {
-        player.status = "blackjack";
+        player.status = 'blackjack';
       }
     });
 
     this.turn = this.playerOrder[0];
 
     if (
-      (this.players[this.turn] &&
-        this.players[this.turn].status === "blackjack") ||
+      (this.players[this.turn] && this.players[this.turn].status === 'blackjack') ||
       this.players[this.turn]?.score === 21
     ) {
       this.nextTurn();
@@ -446,7 +388,7 @@ class BlackjackGame {
   }
 
   hit(userId) {
-    if (this.gameState !== "playing" || this.turn !== userId) return;
+    if (this.gameState !== 'playing' || this.turn !== userId) return;
 
     const player = this.players[userId];
     if (!player || player.isDisconnected) return;
@@ -457,8 +399,7 @@ class BlackjackGame {
     player.score = this.calculateScore(player.hand);
 
     if (player.score >= 21) {
-      if (player.score > 21) player.status = "busted";
-      else player.status = "stood";
+      player.status = player.score > 21 ? 'busted' : 'stood';
       this.nextTurn();
     } else {
       this.startTurnTimer();
@@ -466,13 +407,13 @@ class BlackjackGame {
   }
 
   stand(userId) {
-    if (this.gameState !== "playing" || this.turn !== userId) return;
+    if (this.gameState !== 'playing' || this.turn !== userId) return;
 
     const player = this.players[userId];
     if (!player || player.isDisconnected) return;
 
     this.clearTurnTimer();
-    player.status = "stood";
+    player.status = 'stood';
     this.nextTurn();
   }
 
@@ -481,11 +422,8 @@ class BlackjackGame {
     const currentTurnUserId = this.turn;
 
     this.turnTimer = setTimeout(() => {
-      console.log(
-        `⏰ TIEMPO AGOTADO para ${currentTurnUserId}. STAND automático.`,
-      );
+      console.log(`⏰ TIEMPO AGOTADO para ${currentTurnUserId}. STAND automático.`);
       this.stand(currentTurnUserId);
-
       if (this.emitUpdate) this.emitUpdate(this.getPublicState());
     }, 15000);
   }
@@ -511,7 +449,7 @@ class BlackjackGame {
         return;
       }
 
-      if (nextPlayer.status === "blackjack" || nextPlayer.score === 21) {
+      if (nextPlayer.status === 'blackjack' || nextPlayer.score === 21) {
         this.nextTurn();
       } else {
         this.startTurnTimer();
@@ -523,7 +461,7 @@ class BlackjackGame {
   }
 
   playDealerTurn() {
-    this.turn = "dealer";
+    this.turn = 'dealer';
     let dealerScore = this.calculateScore(this.dealerHand);
 
     while (dealerScore < 17) {
@@ -531,7 +469,7 @@ class BlackjackGame {
       dealerScore = this.calculateScore(this.dealerHand);
     }
 
-    this.gameState = "finished";
+    this.gameState = 'finished';
     this.resolveWinners();
   }
 
@@ -542,21 +480,21 @@ class BlackjackGame {
       const player = this.players[id];
       if (!player) return;
 
-      if (player.status === "blackjack" && dealerScore !== 21) {
-        player.result = "win";
+      if (player.status === 'blackjack' && dealerScore !== 21) {
+        player.result = 'win';
         player.chips += Math.floor(player.bet * 2.5);
-      } else if (player.status === "busted") {
-        player.result = "lose";
+      } else if (player.status === 'busted') {
+        player.result = 'lose';
       } else if (dealerScore > 21) {
-        player.result = "win";
+        player.result = 'win';
         player.chips += player.bet * 2;
       } else if (player.score > dealerScore) {
-        player.result = "win";
+        player.result = 'win';
         player.chips += player.bet * 2;
       } else if (player.score < dealerScore) {
-        player.result = "lose";
+        player.result = 'lose';
       } else {
-        player.result = "push";
+        player.result = 'push';
         player.chips += player.bet;
       }
 
@@ -569,9 +507,9 @@ class BlackjackGame {
     let aces = 0;
 
     for (const card of hand) {
-      if (["J", "Q", "K"].includes(card.value)) {
+      if (['J', 'Q', 'K'].includes(card.value)) {
         score += 10;
-      } else if (card.value === "A") {
+      } else if (card.value === 'A') {
         aces += 1;
         score += 11;
       } else {
@@ -589,7 +527,7 @@ class BlackjackGame {
 
   resetRound() {
     this.clearTurnTimer();
-    this.gameState = "waiting";
+    this.gameState = 'waiting';
     this.dealerHand = [];
     this.turn = null;
     this.deck.reset();
@@ -600,7 +538,7 @@ class BlackjackGame {
 
       player.hand = [];
       player.score = 0;
-      player.status = "waiting";
+      player.status = 'waiting';
       player.result = null;
       player.bet = 0;
     });
@@ -611,7 +549,7 @@ class BlackjackGame {
 
   getPublicState() {
     const visibleHand =
-      this.gameState === "playing" ? [this.dealerHand[0]] : this.dealerHand;
+      this.gameState === 'playing' ? [this.dealerHand[0]] : this.dealerHand;
 
     const publicPlayers = {};
 
@@ -658,5 +596,3 @@ class BlackjackGame {
     };
   }
 }
-
-module.exports = BlackjackGame;

@@ -39,7 +39,7 @@ function Profile() {
         localStorage.setItem("username", data.user.username);
         localStorage.setItem("email", data.user.email);
 
-        const statsRes = await fetch("/api/auth/stats", {
+        const statsRes = await fetch("/api/users/stats", {
           method: "GET",
           credentials: "include",
         });
@@ -55,7 +55,7 @@ function Profile() {
           });
         }
 
-        const leaderboardRes = await fetch("/api/auth/leaderboard", {
+        const leaderboardRes = await fetch("/api/leaderboard", {
           method: "GET",
           credentials: "include",
         });
@@ -69,7 +69,7 @@ function Profile() {
           );
         }
 
-        const historyRes = await fetch("/api/auth/history", {
+        const historyRes = await fetch("/api/users/history", {
           method: "GET",
           credentials: "include",
         });

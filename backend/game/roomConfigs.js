@@ -1,0 +1,58 @@
+const ROOM_CONFIGS = {
+  'solo-table': {
+    id: 'solo-table',
+    roomName: 'Solo Table',
+    maxPlayers: 1,
+    minBet: 5,
+    maxBet: 200,
+    mode: 'Solo',
+    description: 'A private practice table just for you',
+  },
+  'gold-room': {
+    id: 'gold-room',
+    roomName: 'Golden Table',
+    maxPlayers: 2,
+    minBet: 10,
+    maxBet: 1000,
+    mode: 'Versus',
+    description: 'A two-player table for competitive duels',
+  },
+  'emerald-room': {
+    id: 'emerald-room',
+    roomName: 'Emerald Room',
+    maxPlayers: 4,
+    minBet: 5,
+    maxBet: 500,
+    mode: 'Multiplayer',
+    description: 'A relaxed table with soft stakes',
+  },
+  'royal-room': {
+    id: 'royal-room',
+    roomName: 'Royal Lounge',
+    maxPlayers: 4,
+    minBet: 25,
+    maxBet: 2000,
+    mode: 'Multiplayer',
+    description: 'A room for sharper players with bolder bets',
+  },
+  'diamond-room': {
+    id: 'diamond-room',
+    roomName: 'Diamond Room',
+    maxPlayers: 5,
+    minBet: 35,
+    maxBet: 3500,
+    mode: 'Multiplayer',
+    description: 'A five-seat premium table for larger hands',
+  },
+  'velvet-room': {
+    id: 'velvet-room',
+    roomName: 'Velvet Room',
+    maxPlayers: 6,
+    minBet: 10,
+    maxBet: 1000,
+    mode: 'Multiplayer',
+    description: 'Wider table for +4 players',
+  },
+};
+
+export default ROOM_CONFIGS;
