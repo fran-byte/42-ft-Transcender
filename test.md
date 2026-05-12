@@ -76,6 +76,5 @@
 
 ✅ Se eliminó el bug de flicker al salir y entrar en otra sala
 
-🐛 _Nuevo bug detectado:_ si dos usuarios abandonan una sala cuando la partida está en espera de ronda (waiting_for_round), ya no pueden volver a entrar y se quedan como espectadores.
+✅ Se eliminó el bug : si dos usuarios abandonan una sala cuando la partida está en espera de ronda (waiting_for_round), ya no pueden volver a entrar y se quedan como espectadores.
 
-Solución: Implementar un check en el servidor: si el contador de jugadores llega a 0 en estado waiting_for_round, resetear completamente esa sala para que pueda volver a usarse.
