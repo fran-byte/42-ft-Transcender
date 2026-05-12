@@ -14,7 +14,8 @@
 | 4   | Login con credenciales incorrectas      | ✅ OK  |
 | 5   | Acceder a `/lobby` sin cookie JWT       | ✅ OK  |
 | 6   | Cookie `httpOnly` no accesible desde JS | ✅ OK  |
-
+| 7   | Denegado acceso a Granfana, Prometheus, CadVisor | ✅ OK  |
+|     | solo accesible desde http://127.0.0.1:3001 |     |
 ---
 
 ### 🔍 Detalle — Prueba 5: Acceso a `/lobby` sin cookie JWT
