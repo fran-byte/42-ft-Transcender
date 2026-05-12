@@ -79,3 +79,4 @@
 
 ✅ Se eliminó el bug : si dos usuarios abandonan una sala cuando la partida está en espera de ronda (waiting_for_round), ya no pueden volver a entrar y se quedan como espectadores.
 
+✅ Se reconfigura docker-compose.yml :  para evitar acceder a los servicios de monitorización desde el exterior.
