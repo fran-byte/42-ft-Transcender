@@ -24,6 +24,10 @@ all: setup up
 # Start containers (assumes setup already done)
 up:
 	@echo "$(GREEN)Building and starting containers...$(RESET)"
+	$(COMPOSE) down --remove-orphans
+	@docker rm -f blackjack-backend blackjack-frontend blackjack-nginx \
+		blackjack-db blackjack-prometheus blackjack-grafana \
+		blackjack-cadvisor 2>/dev/null || true
 	$(COMPOSE) up -d --build
 	@echo "$(GREEN)✓ Ready! Access at:$(RESET)"
 	@echo "      https://blackjack.local"
@@ -42,7 +46,7 @@ stop:
 # 'make down': remove containers and networks (keep volumes and data)
 down:
 	@echo "$(RED)Removing containers and networks...$(RESET)"
-	$(COMPOSE) down
+	$(COMPOSE) down --remove-orphans
 
 # 'make fclean': full cleanup (containers, images, volumes, local DB)
 fclean:
