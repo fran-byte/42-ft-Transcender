@@ -180,7 +180,7 @@ class BlackjackGame {
     username,
     avatar = null,
     preferredRole = "player",
-    chips = null
+    chips = null,
   ) {
     const safeChips = Number.isFinite(chips) && chips >= 0 ? chips : 0;
 
@@ -354,14 +354,14 @@ class BlackjackGame {
   canStartRound() {
     if (this.gameState !== "waiting") return false;
 
-    const activePlayers = this.getActivePlayerIds().map((id) => this.players[id]);
+    const activePlayers = this.getActivePlayerIds().map(
+      (id) => this.players[id],
+    );
     if (activePlayers.length === 0) return false;
 
     return activePlayers.every(
       (player) =>
-        player &&
-        player.bet >= this.minBet &&
-        player.bet <= this.maxBet
+        player && player.bet >= this.minBet && player.bet <= this.maxBet,
     );
   }
 
@@ -481,7 +481,9 @@ class BlackjackGame {
     const currentTurnUserId = this.turn;
 
     this.turnTimer = setTimeout(() => {
-      console.log(`⏰ TIEMPO AGOTADO para ${currentTurnUserId}. STAND automático.`);
+      console.log(
+        `⏰ TIEMPO AGOTADO para ${currentTurnUserId}. STAND automático.`,
+      );
       this.stand(currentTurnUserId);
 
       if (this.emitUpdate) this.emitUpdate(this.getPublicState());
