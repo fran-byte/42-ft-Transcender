@@ -15,6 +15,8 @@ export default {
     expiresIn: '7d',
   },
   cors: {
-    origin: process.env.ALLOWED_ORIGIN || 'https://blackjack.local',
+    origin: process.env.ALLOWED_ORIGIN
+      ? process.env.ALLOWED_ORIGIN.split(',').map((o) => o.trim())
+      : 'https://blackjack.local',
   },
 };

@@ -7,7 +7,8 @@ CYAN   := \033[0;36m
 RESET  := \033[0m
 
 # --- VARIABLES ---
-COMPOSE := docker compose
+COMPOSE     := docker compose
+COMPOSE_DEV := docker compose -f docker-compose.dev.yml
 NAME    := transcendence
 CERT_DIR := ./secrets/certs
 CERT_KEY := $(CERT_DIR)/blackjack.local.key
@@ -32,6 +33,25 @@ up:
 	@echo "$(GREEN)✓ Ready! Access at:$(RESET)"
 	@echo "      https://blackjack.local"
 	@echo "$(YELLOW)If you haven't added the hosts entry, run: sudo make hosts$(RESET)"
+
+# --- DEV TARGETS (sin Nginx ni monitoring) ---
+
+dev: setup
+	@echo "$(GREEN)Starting dev environment (backend:3000 + frontend:5173)...$(RESET)"
+	$(COMPOSE_DEV) up -d --build
+	@echo "$(GREEN)✓ Dev ready!$(RESET)"
+	@echo "  Frontend: https://blackjack.local:5173  (o https://localhost:5173)"
+	@echo "  Backend:  http://localhost:3000"
+
+dev-logs:
+	$(COMPOSE_DEV) logs -f
+
+dev-down:
+	$(COMPOSE_DEV) down --remove-orphans
+
+dev-re:
+	$(COMPOSE_DEV) down --remove-orphans
+	$(COMPOSE_DEV) up -d --build
 
 # 'make logs': view logs
 logs:
@@ -218,4 +238,5 @@ info:
 
 .PHONY: all up logs stop down fclean re ps prune setup \
         ensure-certs ensure-env ensure-hosts ensure-nginx ensure-data \
-        hosts clean-config distclean info
+        hosts clean-config distclean info \
+        dev dev-logs dev-down dev-re

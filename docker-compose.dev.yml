@@ -13,10 +13,13 @@ services:
       - DB_NAME=${POSTGRES_DB}
       - JWT_SECRET=${JWT_SECRET}
       - NODE_ENV=development
+      - ML_SERVICE_URL=http://ml-service:5000
+      - ALLOWED_ORIGIN=https://blackjack.local:5173,https://localhost:5173
     ports:
       - "3000:3000"
     depends_on:
       - db
+      - ml-service
     command: npm run dev
 
   frontend:
@@ -35,6 +38,13 @@ services:
     depends_on:
       - backend
     command: npm run dev -- --host
+
+  ml-service:
+    container_name: blackjack-ml-service-dev
+    build: ./ml_service
+    working_dir: /app
+    environment:
+      - PYTHONUNBUFFERED=1
 
   db:
     image: postgres:15-alpine

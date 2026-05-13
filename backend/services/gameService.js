@@ -7,6 +7,7 @@ export async function persistFinishedGame(game) {
     for (const userId of game.playerOrder) {
       const player = game.players[userId];
       if (!player) continue;
+      if (player.isAI) continue;
 
       await pool.query(
         `INSERT INTO game_history (user_id, room_id, room_name, result, bet, player_score, dealer_score, chips_after)

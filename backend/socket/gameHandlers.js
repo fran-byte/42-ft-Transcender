@@ -1,6 +1,7 @@
 import BlackjackGame from '../game/BlackjackGame.js';
 import ROOM_CONFIGS from '../game/roomConfigs.js';
 import { persistFinishedGame } from '../services/gameService.js';
+import { callMLServiceEnhanced, basicStrategyFallback } from '../services/mlService.js';
 import { emitLobbyState } from './lobbyHandlers.js';
 import pool from '../db/pool.js';
 
@@ -49,7 +50,48 @@ export function registerGameHandlers(io, socket, games) {
         games[roomId] = new BlackjackGame(
           roomId,
           (gameState) => { io.to(roomId).emit('game_update', gameState); },
-          roomConfig
+          roomConfig,
+          async (botId, botPlayer, dealerVisibleCard) => {
+            const game = games[roomId];
+            if (!game) return;
+
+            const playerScore = game.calculateScore(botPlayer.hand);
+            const usableAce = game.hasUsableAce(botPlayer.hand);
+            const trueCount = Math.round(game.getTrueCount());
+            const dealerValue = parseInt(dealerVisibleCard.value, 10) || 10;
+            const canDouble = game.canDouble(botId);
+
+            let action = 'stand';
+            try {
+              const mlResponse = await callMLServiceEnhanced(playerScore, dealerValue, usableAce, trueCount, canDouble);
+              action = mlResponse.action || 'stand';
+            } catch {
+              action = basicStrategyFallback(playerScore, dealerValue, usableAce, canDouble);
+            }
+
+            if (action === 'double' && !canDouble) action = 'stand';
+
+            const wasFinishedBeforeAI = game.gameState === 'finished';
+
+            if (action === 'double') game.doubleDown(botId);
+            else if (action === 'hit') game.hit(botId);
+            else game.stand(botId);
+
+            if (!wasFinishedBeforeAI && game.gameState === 'finished') {
+              await persistFinishedGame(game);
+            }
+
+            if (game.emitUpdate) game.emitUpdate(game.getPublicState());
+          },
+          async (userId) => {
+            try {
+              const result = await pool.query('SELECT balance FROM users WHERE id = $1', [userId]);
+              if (result.rows.length > 0) return Number(result.rows[0].balance);
+            } catch (error) {
+              console.error('Error syncBalance:', error);
+            }
+            return null;
+          }
         );
         console.log(`✨ Sala creada: ${roomId} (maxPlayers=${roomConfig.maxPlayers})`);
       }
@@ -65,9 +107,16 @@ export function registerGameHandlers(io, socket, games) {
         ? Number(balanceResult.rows[0].balance)
         : 0;
 
+      const existingPlayer = game.players[user.id];
+      const playerChips = existingPlayer?.chips ?? dbBalance;
+
+      if (existingPlayer) {
+        await pool.query('UPDATE users SET balance = $1 WHERE id = $2', [playerChips, user.id]);
+      }
+
       const joinResult = game.addPlayer(
         user.id, socket.id, user.username,
-        user.avatar || null, preferredRole || 'player', dbBalance
+        user.avatar || null, preferredRole || 'player', playerChips
       );
 
       socket.emit('join_result', {
@@ -135,11 +184,12 @@ export function registerGameHandlers(io, socket, games) {
       const wasFinished = game.gameState === 'finished';
 
       game.hit(currentUserId);
-      emitUpdate(roomId, game);
 
       if (!wasFinished && game.gameState === 'finished') {
         await persistFinishedGame(game);
       }
+
+      emitUpdate(roomId, game);
     } catch (error) {
       console.error('❌ Error en action_hit:', error);
     }
@@ -159,11 +209,12 @@ export function registerGameHandlers(io, socket, games) {
       const wasFinished = game.gameState === 'finished';
 
       game.stand(currentUserId);
-      emitUpdate(roomId, game);
 
       if (!wasFinished && game.gameState === 'finished') {
         await persistFinishedGame(game);
       }
+
+      emitUpdate(roomId, game);
     } catch (error) {
       console.error('❌ Error en action_stand:', error);
     }
@@ -182,6 +233,7 @@ export function registerGameHandlers(io, socket, games) {
 
       console.log(`🔄 RESET ROUND por host: ${currentUserId} en sala ${roomId}`);
       game.resetRound();
+      game.aiPlaceBets();
       emitUpdate(roomId, game);
       emitLobbyState(io, games);
     } catch (error) {
@@ -228,6 +280,67 @@ export function registerGameHandlers(io, socket, games) {
       emitUpdate(roomId, game);
     } catch (error) {
       console.error('❌ Error en clear_bet:', error);
+    }
+  });
+
+  socket.on('action_double', async (roomId) => {
+    try {
+      const game = games[roomId];
+      if (!game || !currentUserId) return;
+
+      if (game.turn !== currentUserId) {
+        console.log(`⛔ DOUBLE ignorado: no es turno de ${currentUserId}`);
+        return;
+      }
+
+      if (!game.canDouble(currentUserId)) {
+        console.log(`⛔ DOUBLE ignorado: condiciones no cumplidas para ${currentUserId}`);
+        return;
+      }
+
+      console.log(`💥 DOUBLE de usuario: ${currentUserId}`);
+      const wasFinished = game.gameState === 'finished';
+
+      game.doubleDown(currentUserId);
+
+      if (!wasFinished && game.gameState === 'finished') {
+        await persistFinishedGame(game);
+      }
+
+      emitUpdate(roomId, game);
+    } catch (error) {
+      console.error('❌ Error en action_double:', error);
+    }
+  });
+
+  socket.on('add_ai_player', ({ roomId, botId, botName }) => {
+    try {
+      const game = games[roomId];
+      if (!game) return;
+
+      const aiBotId = botId || `ai_bot_${Date.now()}`;
+      const result = game.addAIPlayer(aiBotId, botName || 'AI Bot');
+
+      socket.emit('add_ai_result', result);
+      emitUpdate(roomId, game);
+      emitLobbyState(io, games);
+    } catch (error) {
+      console.error('❌ Error en add_ai_player:', error);
+    }
+  });
+
+  socket.on('remove_ai_player', ({ roomId, botId }) => {
+    try {
+      const game = games[roomId];
+      if (!game) return;
+
+      const result = game.removeAIPlayer(botId);
+
+      socket.emit('remove_ai_result', result);
+      emitUpdate(roomId, game);
+      emitLobbyState(io, games);
+    } catch (error) {
+      console.error('❌ Error en remove_ai_player:', error);
     }
   });
 

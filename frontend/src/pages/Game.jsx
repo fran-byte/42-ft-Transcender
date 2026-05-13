@@ -262,6 +262,8 @@ function Game() {
 
     const onGameUpdate = (state) => {
       setGameState(state);
+      const me = state?.players?.[authUser?.id];
+      if (me?.chips !== undefined) syncBalance(me.chips);
     };
 
     socket.on("connect", onConnect);
@@ -526,7 +528,7 @@ function Game() {
     socket.emit("add_ai_player", {
       roomId,
       botId: `ai_bot_${Date.now()}`,
-      botName: "Dealer Bot",
+      botName: "AI Bot",
     });
   };
 

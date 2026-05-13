@@ -1,7 +1,7 @@
 import Deck from './Deck.js';
 
 export default class BlackjackGame {
-  constructor(id, emitUpdate, config = {}) {
+  constructor(id, emitUpdate, config = {}, onAITurn = null, syncBalance = null) {
     const normalizedConfig =
       typeof config === 'number'
         ? { maxPlayers: config }
@@ -441,16 +441,39 @@ export default class BlackjackGame {
     return true;
   }
 
-  canStartRound() {
+  // Pure check used by getPublicState() — no side effects.
+  // AI players are treated as always ready (they auto-bet when canStartRound() is called).
+  canStartRoundCheck() {
     if (this.gameState !== 'waiting') return false;
 
     const activePlayers = this.getActivePlayerIds().map((id) => this.players[id]);
     if (activePlayers.length === 0) return false;
 
-    return activePlayers.every(
+    return activePlayers.every((player) => {
+      if (player?.isAI) return true;
+      return player && player.bet >= this.minBet && player.bet <= this.maxBet;
+    });
+  }
+
+  // Places AI bets then validates all bets. Called only from start_round handler and startRound().
+  canStartRound() {
+    if (this.gameState !== 'waiting') return false;
+
+    this.playerOrder.forEach((id) => {
+      const player = this.players[id];
+      if (player?.isAI && player.bet === 0) {
+        const betAmount = this.calculateKellyBet(id);
+        if (betAmount > 0) this.placeBet(id, betAmount);
+      }
+    });
+
+    const activePlayers = this.getActivePlayerIds().map((id) => this.players[id]);
+    if (activePlayers.length === 0) return false;
+
+    const allBetsValid = activePlayers.every(
       (player) => player && player.bet >= this.minBet && player.bet <= this.maxBet
     );
-    
+
     console.log(`🎯 canStartRound resultado: ${allBetsValid}`);
     return allBetsValid;
   }
@@ -512,8 +535,6 @@ export default class BlackjackGame {
         player.status = 'blackjack';
       }
     });
-
-    this.aiPlaceBets();
 
     this.turn = this.playerOrder[0];
 
@@ -821,7 +842,7 @@ if (player.chips < 0) player.chips = 0;
       maxPlayers: this.maxPlayers,
       minBet: this.minBet,
       maxBet: this.maxBet,
-      canStart: this.canStartRound(),
+      canStart: this.canStartRoundCheck(),
     };
   }
 }
