@@ -519,8 +519,25 @@ function Game() {
     socket.emit("reset_round", roomId);
   };
 
+  const canAddAI = amIHost && seatedCount < maxPlayers && currentGameState === "waiting";
+
+  const handleAddAI = () => {
+    if (!canAddAI) return;
+    socket.emit("add_ai_player", {
+      roomId,
+      botId: `ai_bot_${Date.now()}`,
+      botName: "Dealer Bot",
+    });
+  };
+
+  const handleRemoveAI = (botId) => {
+    if (!amIHost) return;
+    socket.emit("remove_ai_player", { roomId, botId });
+  };
+
   const handleDouble = () => {
-    console.log("Double action is not implemented in the backend yet.");
+    if (isSpectator) return;
+    socket.emit("action_double", roomId);
   };
 
   const addChipToBet = (chipValue) => {
@@ -727,6 +744,16 @@ function Game() {
                       Deal Cards
                     </button>
 
+                    {canAddAI && (
+                      <button
+                        className="casino-btn casino-btn--secondary"
+                        onClick={handleAddAI}
+                        type="button"
+                      >
+                        🤖 Add AI
+                      </button>
+                    )}
+
                     {!canStart && (
                       <div className="table-center-message__hint">
                         All seated players need to place a bet first
@@ -766,7 +793,7 @@ function Game() {
                 const handValue = calculateHandValue(hand);
 
                 const shouldHideLastCard =
-                  !isMe && currentGameState === "playing" && hand.length > 0;
+                  !isMe && !player.isAI && currentGameState === "playing" && hand.length > 0;
 
                 const visibleCards = shouldHideLastCard
                   ? hand.slice(0, -1)
@@ -786,7 +813,7 @@ function Game() {
                     }}
                   >
                     <div className="player-seat__badge">
-                      {isMe ? "YOU" : `PLAYER ${index + 1}`}
+                      {player.isAI ? "BOT" : isMe ? "YOU" : `PLAYER ${index + 1}`}
                     </div>
 
                     <div className="player-seat__meta">
@@ -795,6 +822,21 @@ function Game() {
                         <span className="host-badge">
                           <span className="host-badge__icon">♛</span>
                           HOST
+                        </span>
+                      )}
+                      {player.isAI && (
+                        <span className="ai-badge">
+                          <span className="ai-badge__icon">🤖</span>
+                          AI
+                          {amIHost && (
+                            <button
+                              className="remove-ai-btn"
+                              onClick={() => handleRemoveAI(playerId)}
+                              title="Remove AI Player"
+                            >
+                              ×
+                            </button>
+                          )}
                         </span>
                       )}
                     </div>
@@ -839,7 +881,7 @@ function Game() {
                         )}
                       </div>
 
-                      {isMe && hand.length > 0 && (
+                      {(isMe || player.isAI) && hand.length > 0 && (
                         <div className="hand-total-box hand-total-box--below">
                           <span className="hand-total-box__label">Total</span>
                           <strong>{handValue}</strong>
@@ -909,15 +951,16 @@ function Game() {
                       !(
                         currentGameState === "playing" &&
                         isMyTurn &&
-                        (myPlayer?.hand?.length ?? 0) === 2
+                        (myPlayer?.hand?.length ?? 0) === 2 &&
+                        (myPlayer?.chips ?? 0) >= (myPlayer?.bet ?? 0)
                       )
                     }
                     type="button"
-                    title="Backend support not implemented yet"
+                    title="Double your bet and receive one more card"
                   >
                     <span className="casino-action__title">Double</span>
                     <span className="casino-action__sub">
-                      Not available yet
+                      2x bet, one card
                     </span>
                   </button>
 

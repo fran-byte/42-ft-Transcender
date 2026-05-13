@@ -12,9 +12,11 @@ services:
       - DB_PASSWORD=${POSTGRES_PASSWORD}
       - DB_NAME=${POSTGRES_DB}
       - JWT_SECRET=${JWT_SECRET}
+      - ML_SERVICE_URL=http://ml-service:5000
     depends_on:
       - db
-    command: sh -c "npm install && npm run dev"
+      - ml-service
+    command: npm run dev
 
   frontend:
     container_name: blackjack-frontend
@@ -42,6 +44,16 @@ services:
     depends_on:
       - frontend
       - backend
+      - ml-service
+
+  ml-service:
+    container_name: blackjack-ml-service
+    build: ./ml_service
+    working_dir: /app
+    environment:
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "5000:5000"
 
   db:
     image: postgres:15-alpine
