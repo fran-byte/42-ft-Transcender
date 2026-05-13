@@ -5,8 +5,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /work
 
-# torch + numpy already in the base image; pin numpy to the version dqn.py expects.
-RUN pip install --no-cache-dir "numpy==1.26.4"
+RUN pip install --no-cache-dir "numpy==1.26.4" "torch==2.4.1"
 
 COPY train/ ./train/
 

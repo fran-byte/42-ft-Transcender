@@ -1,9 +1,0 @@
-# Training-only dependencies. Install locally before running train/train.py:
-#   pip install -r requirements-train.txt
-#
-# These are NOT included in the production Docker image (requirements.txt).
-# Training produces train/blackjack_dqn.npz which the production image loads with NumPy only.
-
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.4.1+cpu
-numpy==1.26.4

@@ -1,8 +1,0 @@
-# GPU training dependencies (CUDA 12.1 wheels).
-# Used by Dockerfile.train when building the training image.
-#
-# Production inference (ml_service/app.py) only needs NumPy — see requirements.txt.
-
---extra-index-url https://download.pytorch.org/whl/cu121
-torch==2.4.1
-numpy==1.26.4

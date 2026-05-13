@@ -1,4 +1,0 @@
-sum(rate(container_cpu_usage_seconds_total{name=~"blackjack-.*"}[1m])) by (name)
-container_memory_usage_bytes{name=~"blackjack-.*"}
-
-up{job="cadvisor"} == 0
