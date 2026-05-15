@@ -99,6 +99,10 @@ The setup process also:
 
 ---
 
+![Makefile](./doc/img/make.svg)
+
+---
+
 ### Access
 
 After setup:
