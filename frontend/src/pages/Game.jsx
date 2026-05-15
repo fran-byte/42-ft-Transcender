@@ -848,7 +848,7 @@ function Game() {
                     </div>
 
                     <div className="player-seat__hand-stack">
-                      <div className="player-seat__cards">
+                      <div className="player-seat__cards" style={{ "--card-count": visibleCards.length }}>
                         {visibleCards.map((card, cardIndex) => {
                           const animate = shouldAnimatePlayerCard(
                             playerId,

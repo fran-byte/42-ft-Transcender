@@ -655,7 +655,7 @@ textarea {
 }
 
 .player-seat__cards > *:not(:first-child) {
-  margin-left: -22px;
+  margin-left: max(-76px, calc((-38 - (var(--card-count, 2) - 2) * 18) * 1px));
 }
 
 .player-seat__cards--placeholder {
@@ -1499,7 +1499,7 @@ textarea {
   }
 
   .player-seat__cards > *:not(:first-child) {
-    margin-left: -18px;
+    margin-left: max(-68px, calc((-32 - (var(--card-count, 2) - 2) * 16) * 1px));
   }
 
   .game-controls-bar--inside {
@@ -1602,7 +1602,7 @@ textarea {
   }
 
   .player-seat__cards > *:not(:first-child) {
-    margin-left: -12px;
+    margin-left: max(-58px, calc((-26 - (var(--card-count, 2) - 2) * 14) * 1px));
   }
 
   .players-arc {
