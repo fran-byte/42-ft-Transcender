@@ -2,10 +2,7 @@ services:
   backend:
     container_name: blackjack-backend
     build: ./backend
-    working_dir: /app
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
+    # Elimina la sección "volumes:" completa
     environment:
       - DB_HOST=${DB_HOST}
       - DB_USER=${POSTGRES_USER}
@@ -13,23 +10,21 @@ services:
       - DB_NAME=${POSTGRES_DB}
       - JWT_SECRET=${JWT_SECRET}
       - ML_SERVICE_URL=http://ml-service:5000
+      - NODE_ENV=production
     depends_on:
       - db
       - ml-service
-    command: npm run dev
+    command: npm start
 
   frontend:
     container_name: blackjack-frontend
     build: ./frontend
-    working_dir: /app
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    # Elimina la sección "volumes:" completa
     environment:
-      - REACT_APP_API_URL=${REACT_APP_API_URL}
-      - CHOKIDAR_USEPOLLING=true
+      - NODE_ENV=production
     depends_on:
       - backend
+    command: sh -c "npm run build && npx serve -s dist -l 5173"
 
   nginx:
     container_name: blackjack-nginx
