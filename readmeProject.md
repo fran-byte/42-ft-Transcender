@@ -1,4 +1,4 @@
-# Docker & Infrastructure Setup
+# Docker & Infrastructure Setup (frromero)
 
 ### Overview
 
@@ -70,6 +70,10 @@ The stack includes:
 - Sensitive values (DB credentials, JWT secret, Grafana credentials) are stored in a `.env` file.
 - An automated setup generates secure random values when the `.env` file is missing.
 - Environment variables are injected into containers at runtime.
+
+---
+
+![Docker](./doc/img/docker.svg)
 
 ---
 
