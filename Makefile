@@ -9,13 +9,11 @@ RESET  := \033[0m
 # --- VARIABLES ---
 COMPOSE     := docker compose
 COMPOSE_DEV := docker compose -f docker-compose.dev.yml
-NAME    := transcendence
 CERT_DIR := ./secrets/certs
 CERT_KEY := $(CERT_DIR)/blackjack.local.key
 CERT_CRT := $(CERT_DIR)/blackjack.local.crt
 ENV_FILE := .env
 DATA_DIR := ./data/postgres
-NGINX_CONF := ./requirements/nginx/conf.d/blackjack.conf
 
 # --- PRIMARY TARGETS ---
 
@@ -26,15 +24,12 @@ all: setup up
 up:
 	@echo "$(GREEN)Building and starting containers...$(RESET)"
 	$(COMPOSE) down --remove-orphans
-	@docker rm -f blackjack-backend blackjack-frontend blackjack-nginx \
-		blackjack-db blackjack-prometheus blackjack-grafana \
-		blackjack-cadvisor 2>/dev/null || true
 	$(COMPOSE) up -d --build
 	@echo "$(GREEN)✓ Ready! Access at:$(RESET)"
 	@echo "      https://blackjack.local"
 	@echo "$(YELLOW)If you haven't added the hosts entry, run: sudo make hosts$(RESET)"
 
-# --- DEV TARGETS (sin Nginx ni monitoring) ---
+# --- DEV TARGETS (whitout Nginx, monitoring) ---
 
 dev: setup
 	@echo "$(GREEN)Starting dev environment (backend:3000 + frontend:5173)...$(RESET)"
@@ -74,8 +69,7 @@ fclean:
 	$(COMPOSE) down -v --rmi all --remove-orphans
 	@echo "$(RED)Removing local database files...$(RESET)"
 	@sudo rm -rf $(DATA_DIR)
-	@sudo mkdir -p $(DATA_DIR)
-	@sudo chown -R $$(id -u):$$(id -g) ./data
+	@mkdir -p $(DATA_DIR)
 	@echo "$(GREEN)✓ System completely reset.$(RESET)"
 
 # 'make re': fclean + up (recreate from scratch)
@@ -92,8 +86,8 @@ prune:
 
 # --- SETUP TARGETS ---
 
-# 'make setup': prepare everything (certificates, .env, hosts hint, nginx config)
-setup: ensure-certs ensure-env ensure-hosts ensure-nginx
+# 'make setup': prepare everything (certificates, .env, hosts hint, data dir)
+setup: ensure-certs ensure-env ensure-hosts ensure-data
 	@echo "$(GREEN)✓ Setup complete.$(RESET)"
 
 # Generate self-signed certificate if missing
@@ -114,7 +108,7 @@ ensure-certs:
 		echo "$(BLUE)SSL certificates already exist.$(RESET)"; \
 	fi
 
-# Create .env with random values (interactive for Grafana credentials - password visible)
+# Create .env with random values (interactive for Grafana credentials)
 ensure-env:
 	@if [ ! -f $(ENV_FILE) ]; then \
 		echo "$(YELLOW)Creating .env file with random credentials...$(RESET)"; \
@@ -163,29 +157,9 @@ hosts:
 		echo "$(BLUE)Entry already exists.$(RESET)"; \
 	fi
 
-# Ensure nginx configuration is correctly placed
-ensure-nginx:
-	@if [ -d "./requirements/ngnix" ]; then \
-		echo "$(YELLOW)Fixing typo: ngnix -> nginx$(RESET)"; \
-		mv ./requirements/ngnix ./requirements/nginx; \
-	fi
-	@mkdir -p ./requirements/nginx/conf.d
-	@if [ -f "./requirements/nginx/conf/blackjack.conf" ]; then \
-		echo "$(YELLOW)Moving nginx config to conf.d...$(RESET)"; \
-		mv ./requirements/nginx/conf/blackjack.conf ./requirements/nginx/conf.d/; \
-		rmdir ./requirements/nginx/conf 2>/dev/null || true; \
-	fi
-	@if [ ! -f $(NGINX_CONF) ]; then \
-		echo "$(RED)❌ Configuration file not found: $(NGINX_CONF)$(RESET)"; \
-		exit 1; \
-	else \
-		echo "$(BLUE)Nginx configuration OK.$(RESET)"; \
-	fi
-
-# Create data directory with proper permissions (does not remove existing data)
+# Create data directory with proper permissions
 ensure-data:
-	@sudo mkdir -p $(DATA_DIR)
-	@sudo chown -R $$(id -u):$$(id -g) ./data
+	@mkdir -p $(DATA_DIR)
 
 # --- ADDITIONAL TARGETS ---
 
@@ -222,7 +196,6 @@ info:
 	@echo "  make hosts           Add blackjack.local to /etc/hosts (needs sudo)"
 	@echo "  make ensure-certs    Generate self-signed SSL certificate if missing"
 	@echo "  make ensure-env      Create .env file with random passwords (interactive for Grafana)"
-	@echo "  make ensure-nginx    Fix nginx typo and verify configuration"
 	@echo "  make ensure-data     Create local database directory with correct permissions"
 	@echo ""
 	@echo "$(GREEN)Cleanup:$(RESET)"
@@ -237,6 +210,6 @@ info:
 	@echo ""
 
 .PHONY: all up logs stop down fclean re ps prune setup \
-        ensure-certs ensure-env ensure-hosts ensure-nginx ensure-data \
+        ensure-certs ensure-env ensure-hosts ensure-data \
         hosts clean-config distclean info \
         dev dev-logs dev-down dev-re
