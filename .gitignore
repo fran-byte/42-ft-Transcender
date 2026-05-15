@@ -39,3 +39,5 @@ __pycache__/
 
 # ML training artifacts (checkpoints, not final model)
 ml_service/train/blackjack_dqn_ckpt.npz
+
+CLAUDE.md

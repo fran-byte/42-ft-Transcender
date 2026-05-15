@@ -7,7 +7,7 @@ export default class BlackjackGame {
     config = {},
     onAITurn = null,
     syncBalance = null,
-  ) {
+    onRoundFinished = null) {
     const normalizedConfig =
       typeof config === "number"
         ? { maxPlayers: config }
@@ -23,6 +23,7 @@ export default class BlackjackGame {
     this.emitUpdate = emitUpdate;
     this.onAITurn = onAITurn;
     this.syncBalance = syncBalance;
+    this.onRoundFinished = onRoundFinished;
 
     this.maxPlayers = normalizedConfig.maxPlayers;
     this.minBet = normalizedConfig.minBet;
@@ -574,7 +575,7 @@ export default class BlackjackGame {
     }
   }
 
-  startRound(requestingUserId) {
+  async startRound(requestingUserId) {
     if (!this.players[requestingUserId]) return;
     if (this.playerOrder.length === 0) return;
     if (this.gameState === "playing") return;
@@ -611,13 +612,13 @@ export default class BlackjackGame {
         this.players[this.turn].status === "blackjack") ||
       this.players[this.turn]?.score === 21
     ) {
-      this.nextTurn();
+      await this.nextTurn();
     } else {
-      this.startTurnTimer();
+      await this.startTurnTimer();
     }
   }
 
-  hit(userId) {
+  async hit(userId) {
     if (this.gameState !== "playing" || this.turn !== userId) return;
 
     const player = this.players[userId];
@@ -630,13 +631,13 @@ export default class BlackjackGame {
 
     if (player.score >= 21) {
       player.status = player.score > 21 ? "busted" : "stood";
-      this.nextTurn();
+      await this.nextTurn();
     } else {
-      this.startTurnTimer();
+      await this.startTurnTimer();
     }
   }
 
-  stand(userId) {
+  async stand(userId) {
     if (this.gameState !== "playing" || this.turn !== userId) return;
 
     const player = this.players[userId];
@@ -644,7 +645,7 @@ export default class BlackjackGame {
 
     this.clearTurnTimer();
     player.status = "stood";
-    this.nextTurn();
+    await this.nextTurn();
   }
 
   canDouble(userId) {
@@ -657,7 +658,7 @@ export default class BlackjackGame {
     return true;
   }
 
-  doubleDown(userId) {
+  async doubleDown(userId) {
     if (!this.canDouble(userId)) return false;
 
     const player = this.players[userId];
@@ -670,25 +671,25 @@ export default class BlackjackGame {
     player.score = this.calculateScore(player.hand);
     player.status = player.score > 21 ? "busted" : "stood";
 
-    this.nextTurn();
+    await this.nextTurn();
     return true;
   }
 
-  startTurnTimer() {
+  async startTurnTimer() {
     this.clearTurnTimer();
     const currentTurnUserId = this.turn;
     const currentPlayer = this.players[currentTurnUserId];
 
     if (currentPlayer?.isAI && this.onAITurn) {
-      this.onAITurn(currentTurnUserId, currentPlayer, this.dealerHand[0]);
+      await this.onAITurn(currentTurnUserId, currentPlayer, this.dealerHand[0]);
       return;
     }
 
-    this.turnTimer = setTimeout(() => {
+    this.turnTimer = setTimeout(async () => {
       console.log(
         `⏰ TIEMPO AGOTADO para ${currentTurnUserId}. STAND automático.`,
       );
-      this.stand(currentTurnUserId);
+      await this.stand(currentTurnUserId);
       if (this.emitUpdate) this.emitUpdate(this.getPublicState());
     }, 15000);
   }
@@ -700,7 +701,7 @@ export default class BlackjackGame {
     }
   }
 
-  nextTurn() {
+  async nextTurn() {
     const currentIndex = this.playerOrder.indexOf(this.turn);
 
     if (currentIndex < this.playerOrder.length - 1) {
@@ -710,22 +711,22 @@ export default class BlackjackGame {
       const nextPlayer = this.players[nextUserId];
 
       if (!nextPlayer || nextPlayer.isDisconnected) {
-        this.nextTurn();
+        await this.nextTurn();
         return;
       }
 
       if (nextPlayer.status === "blackjack" || nextPlayer.score === 21) {
-        this.nextTurn();
+        await this.nextTurn();
       } else {
-        this.startTurnTimer();
+        await this.startTurnTimer();
       }
     } else {
       this.clearTurnTimer();
-      this.playDealerTurn();
+      await this.playDealerTurn();
     }
   }
 
-  playDealerTurn() {
+  async playDealerTurn() {
     this.turn = "dealer";
     let dealerScore = this.calculateScore(this.dealerHand);
 
@@ -736,6 +737,7 @@ export default class BlackjackGame {
 
     this.gameState = "finished";
     this.resolveWinners();
+    if (this.onRoundFinished) await this.onRoundFinished(this);
   }
 
   resolveWinners() {

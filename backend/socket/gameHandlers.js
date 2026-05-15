@@ -71,15 +71,9 @@ export function registerGameHandlers(io, socket, games) {
 
             if (action === 'double' && !canDouble) action = 'stand';
 
-            const wasFinishedBeforeAI = game.gameState === 'finished';
-
-            if (action === 'double') game.doubleDown(botId);
-            else if (action === 'hit') game.hit(botId);
-            else game.stand(botId);
-
-            if (!wasFinishedBeforeAI && game.gameState === 'finished') {
-              await persistFinishedGame(game);
-            }
+            if (action === 'double') await game.doubleDown(botId);
+            else if (action === 'hit') await game.hit(botId);
+            else await game.stand(botId);
 
             if (game.emitUpdate) game.emitUpdate(game.getPublicState());
           },
@@ -91,6 +85,9 @@ export function registerGameHandlers(io, socket, games) {
               console.error('Error syncBalance:', error);
             }
             return null;
+          },
+          async (game) => {
+            await persistFinishedGame(game);
           }
         );
         console.log(`✨ Sala creada: ${roomId} (maxPlayers=${roomConfig.maxPlayers})`);
@@ -140,7 +137,7 @@ export function registerGameHandlers(io, socket, games) {
     }
   });
 
-  socket.on('start_round', (roomId) => {
+  socket.on('start_round', async (roomId) => {
     try {
       const game = games[roomId];
       if (!game || !currentUserId) return;
@@ -162,7 +159,7 @@ export function registerGameHandlers(io, socket, games) {
       }
 
       console.log(`🃏 START ROUND por host: ${currentUserId} en sala ${roomId}`);
-      game.startRound(currentUserId);
+      await game.startRound(currentUserId);
       emitUpdate(roomId, game);
       emitLobbyState(io, games);
     } catch (error) {
@@ -181,14 +178,7 @@ export function registerGameHandlers(io, socket, games) {
       }
 
       console.log(`👊 HIT de usuario: ${currentUserId}`);
-      const wasFinished = game.gameState === 'finished';
-
-      game.hit(currentUserId);
-
-      if (!wasFinished && game.gameState === 'finished') {
-        await persistFinishedGame(game);
-      }
-
+      await game.hit(currentUserId);
       emitUpdate(roomId, game);
     } catch (error) {
       console.error('❌ Error en action_hit:', error);
@@ -206,14 +196,7 @@ export function registerGameHandlers(io, socket, games) {
       }
 
       console.log(`✋ STAND de usuario: ${currentUserId}`);
-      const wasFinished = game.gameState === 'finished';
-
-      game.stand(currentUserId);
-
-      if (!wasFinished && game.gameState === 'finished') {
-        await persistFinishedGame(game);
-      }
-
+      await game.stand(currentUserId);
       emitUpdate(roomId, game);
     } catch (error) {
       console.error('❌ Error en action_stand:', error);
@@ -299,14 +282,7 @@ export function registerGameHandlers(io, socket, games) {
       }
 
       console.log(`💥 DOUBLE de usuario: ${currentUserId}`);
-      const wasFinished = game.gameState === 'finished';
-
-      game.doubleDown(currentUserId);
-
-      if (!wasFinished && game.gameState === 'finished') {
-        await persistFinishedGame(game);
-      }
-
+      await game.doubleDown(currentUserId);
       emitUpdate(roomId, game);
     } catch (error) {
       console.error('❌ Error en action_double:', error);
