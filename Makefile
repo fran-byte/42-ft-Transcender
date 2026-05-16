@@ -47,8 +47,8 @@ fclean:
 	@echo "$(RED)🔥 NUKING EVERYTHING (Containers, Networks, Images, Volumes)...$(RESET)"
 	$(COMPOSE) down -v --rmi all --remove-orphans
 	@echo "$(RED)🗑️  Removing local database files...$(RESET)"
-	@rm -rf ./data/postgres
-	@mkdir -p ./data/postgres
+# 	@rm -rf ./data/postgres
+# 	@mkdir -p ./data/postgres
 	@echo "$(GREEN)✅ Sistema limpio y reseteado.$(RESET)"
 
 

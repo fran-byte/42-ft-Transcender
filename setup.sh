@@ -56,28 +56,28 @@ clean_database_data() {
 }
 
 # 1. Corregir estructura de directorios
-step "1/7 Corrigiendo estructura de directorios..."
+# step "1/7 Corrigiendo estructura de directorios..."
 
-# Renombrar ngnix -> nginx si existe
-if [ -d "./requirements/ngnix" ]; then
-    warn "Detectado typo: 'ngnix' -> renombrando a 'nginx'"
-    mv ./requirements/ngnix ./requirements/nginx
-fi
+# # Renombrar ngnix -> nginx si existe
+# if [ -d "./requirements/ngnix" ]; then
+#     warn "Detectado typo: 'ngnix' -> renombrando a 'nginx'"
+#     mv ./requirements/ngnix ./requirements/nginx
+# fi
 
-# Crear conf.d y mover archivo si es necesario
-mkdir -p ./requirements/nginx/conf.d
+# # Crear conf.d y mover archivo si es necesario
+# mkdir -p ./requirements/nginx/conf.d
 
-if [ -f "./requirements/nginx/conf/blackjack.conf" ]; then
-    mv ./requirements/nginx/conf/blackjack.conf ./requirements/nginx/conf.d/
-    rmdir ./requirements/nginx/conf 2>/dev/null || true
-fi
+# if [ -f "./requirements/nginx/conf/blackjack.conf" ]; then
+#     mv ./requirements/nginx/conf/blackjack.conf ./requirements/nginx/conf.d/
+#     rmdir ./requirements/nginx/conf 2>/dev/null || true
+# fi
 
-if [ ! -f "./requirements/nginx/conf.d/blackjack.conf" ]; then
-    error "No se encuentra blackjack.conf en ./requirements/nginx/conf.d/"
-    exit 1
-fi
+# if [ ! -f "./requirements/nginx/conf.d/blackjack.conf" ]; then
+#     error "No se encuentra blackjack.conf en ./requirements/nginx/conf.d/"
+#     exit 1
+# fi
 
-echo -e "${GREEN}✓ Estructura de directorios corregida${RESET}"
+# echo -e "${GREEN}✓ Estructura de directorios corregida${RESET}"
 
 # 2. Crear directorio para certificados
 step "2/7 Creando directorio para certificados SSL..."
@@ -151,7 +151,7 @@ DATA_PATH=./data
 
 # Application
 NODE_ENV=production
-REACT_APP_API_URL=https://blackjack.local/api
+REACT_APP_API_URL=https://blackjack.local:8443/api
 EOF
 
     echo -e "${GREEN}✓ Archivo .env creado con contraseñas seguras${RESET}"
@@ -167,23 +167,6 @@ echo -e "${GREEN}✓ Base de datos preparada${RESET}"
 
 # 6. Añadir entrada a /etc/hosts (solo para desarrollo local)
 step "6/7 Configurando /etc/hosts para desarrollo local..."
-
-# if grep -q "blackjack.local" /etc/hosts 2>/dev/null; then
-#     echo -e "${BLUE}ℹ️  blackjack.local ya está en /etc/hosts${RESET}"
-# else
-#     warn "Para acceder vía https://blackjack.local necesitas añadir una entrada a /etc/hosts"
-#     echo -e "Se requieren permisos de administrador."
-#     echo -e "${YELLOW}¿Añadir '127.0.0.1 blackjack.local' a /etc/hosts? (S/n)${RESET}"
-#     read -r response
-    
-#     if [[ ! "$response" =~ ^([nN][oO]|[nN])$ ]]; then
-#         echo "127.0.0.1 blackjack.local www.blackjack.local" | sudo tee -a /etc/hosts > /dev/null
-#         echo -e "${GREEN}✓ Entrada añadida a /etc/hosts${RESET}"
-#     else
-#         warn "Tendrás que añadirlo manualmente:"
-#         echo -e "  ${YELLOW}sudo echo '127.0.0.1 blackjack.local www.blackjack.local' >> /etc/hosts${RESET}"
-#     fi
-# fi
 
 # 7. Verificar docker y docker-compose
 step "7/7 Verificando Docker..."
