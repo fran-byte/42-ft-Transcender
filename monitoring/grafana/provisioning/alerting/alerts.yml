@@ -97,3 +97,49 @@ groups:
           summary: "High memory on {{ $labels.name }}"
         labels:
           severity: warning
+
+      - uid: container_down
+        title: Container Down
+        condition: C
+        for: 30s
+
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 120
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: time() - container_last_seen{instance="cadvisor:8080",name=~"blackjack-.*",name!=""}
+              refId: A
+
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [60]
+                  operator:
+                    type: and
+                  reducer:
+                    type: last
+                  type: query
+              refId: C
+
+        annotations:
+          summary: "Container {{ $labels.name }} has been down for over 60s"
+        labels:
+          severity: critical

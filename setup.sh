@@ -133,6 +133,7 @@ fi
 if [ "$create_env" = true ]; then
     # Generar contraseñas aleatorias
     DB_PASS=$(openssl rand -hex 12)
+    GRAFANA_PASSWORD=$(openssl rand -hex 12)
     JWT_PASS=$(openssl rand -hex 32)
 
     cat > .env << EOF
@@ -141,6 +142,8 @@ POSTGRES_USER=blackjack_user
 POSTGRES_PASSWORD=${DB_PASS}
 POSTGRES_DB=blackjack_db
 DB_HOST=db
+GRAFANA_USER=admin
+GRAFANA_PASSWORD=${GRAFANA_PASSWORD}
 
 # JWT
 JWT_SECRET=${JWT_PASS}
