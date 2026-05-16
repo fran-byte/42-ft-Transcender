@@ -45,15 +45,13 @@ clean_database_data() {
         read -r response
         if [[ ! "$response" =~ ^([nN][oO]|[nN])$ ]]; then
             echo -e "${GREEN}🧹 Limpiando datos antiguos de la base de datos...${RESET}"
-            sudo rm -rf ./data/postgres
-            sudo mkdir -p ./data/postgres
-            sudo chown -R $(id -u):$(id -g) ./data
+            rm -rf ./data/postgres 2>/dev/null || true
+			mkdir -p ./data/postgres
             echo -e "${GREEN}✓ Datos de base de datos limpiados${RESET}"
         fi
     else
         # Crear la carpeta si no existe
-        sudo mkdir -p ./data/postgres
-        sudo chown -R $(id -u):$(id -g) ./data
+        mkdir -p ./data/postgres
     fi
 }
 
@@ -152,7 +150,7 @@ JWT_SECRET=${JWT_PASS}
 DATA_PATH=./data
 
 # Application
-NODE_ENV=development
+NODE_ENV=production
 REACT_APP_API_URL=https://blackjack.local/api
 EOF
 
@@ -170,22 +168,22 @@ echo -e "${GREEN}✓ Base de datos preparada${RESET}"
 # 6. Añadir entrada a /etc/hosts (solo para desarrollo local)
 step "6/7 Configurando /etc/hosts para desarrollo local..."
 
-if grep -q "blackjack.local" /etc/hosts 2>/dev/null; then
-    echo -e "${BLUE}ℹ️  blackjack.local ya está en /etc/hosts${RESET}"
-else
-    warn "Para acceder vía https://blackjack.local necesitas añadir una entrada a /etc/hosts"
-    echo -e "Se requieren permisos de administrador."
-    echo -e "${YELLOW}¿Añadir '127.0.0.1 blackjack.local' a /etc/hosts? (S/n)${RESET}"
-    read -r response
+# if grep -q "blackjack.local" /etc/hosts 2>/dev/null; then
+#     echo -e "${BLUE}ℹ️  blackjack.local ya está en /etc/hosts${RESET}"
+# else
+#     warn "Para acceder vía https://blackjack.local necesitas añadir una entrada a /etc/hosts"
+#     echo -e "Se requieren permisos de administrador."
+#     echo -e "${YELLOW}¿Añadir '127.0.0.1 blackjack.local' a /etc/hosts? (S/n)${RESET}"
+#     read -r response
     
-    if [[ ! "$response" =~ ^([nN][oO]|[nN])$ ]]; then
-        echo "127.0.0.1 blackjack.local www.blackjack.local" | sudo tee -a /etc/hosts > /dev/null
-        echo -e "${GREEN}✓ Entrada añadida a /etc/hosts${RESET}"
-    else
-        warn "Tendrás que añadirlo manualmente:"
-        echo -e "  ${YELLOW}sudo echo '127.0.0.1 blackjack.local www.blackjack.local' >> /etc/hosts${RESET}"
-    fi
-fi
+#     if [[ ! "$response" =~ ^([nN][oO]|[nN])$ ]]; then
+#         echo "127.0.0.1 blackjack.local www.blackjack.local" | sudo tee -a /etc/hosts > /dev/null
+#         echo -e "${GREEN}✓ Entrada añadida a /etc/hosts${RESET}"
+#     else
+#         warn "Tendrás que añadirlo manualmente:"
+#         echo -e "  ${YELLOW}sudo echo '127.0.0.1 blackjack.local www.blackjack.local' >> /etc/hosts${RESET}"
+#     fi
+# fi
 
 # 7. Verificar docker y docker-compose
 step "7/7 Verificando Docker..."
