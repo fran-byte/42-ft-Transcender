@@ -49,6 +49,7 @@ fclean:
 	@echo "$(RED)🗑️  Removing local database files...$(RESET)"
 # 	@rm -rf ./data/postgres
 # 	@mkdir -p ./data/postgres
+	@docker system prune -a -f --volumes
 	@echo "$(GREEN)✅ Sistema limpio y reseteado.$(RESET)"
 
 

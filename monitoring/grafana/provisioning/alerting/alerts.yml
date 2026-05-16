@@ -18,7 +18,7 @@ groups:
               to: 0
             datasourceUid: prometheus
             model:
-              expr: sum(rate(container_cpu_usage_seconds_total{instance="cadvisor:8080",name=~"blackjack-.*",name!=""}[5m])) by (name) * 100
+              expr: sum(rate(container_cpu_usage_seconds_total{instance="blackjack-cadvisor:8080",name=~"blackjack-.*",name!=""}[5m])) by (name) * 100
               refId: A
 
           - refId: B
@@ -64,7 +64,7 @@ groups:
               to: 0
             datasourceUid: prometheus
             model:
-              expr: sum(container_memory_usage_bytes{instance="cadvisor:8080",name=~"blackjack-.*",name!=""}) by (name)
+              expr: sum(container_memory_usage_bytes{instance="blackjack-cadvisor:8080",name=~"blackjack-.*",name!=""}) by (name)
               refId: A
 
           - refId: B
@@ -110,7 +110,7 @@ groups:
               to: 0
             datasourceUid: prometheus
             model:
-              expr: time() - container_last_seen{instance="cadvisor:8080",name=~"blackjack-.*",name!=""}
+              expr: time() - container_last_seen{instance="blackjack-cadvisor:8080",name=~"blackjack-.*",name!=""}
               refId: A
 
           - refId: B

@@ -8,8 +8,12 @@ scrape_configs:
 
   - job_name: "backend"
     static_configs:
-      - targets: ["backend:3000"]
+      - targets: ["blackjack-backend:3000"]
 
   - job_name: "cadvisor"
     static_configs:
-      - targets: ["cadvisor:8080"]
+      - targets: ["blackjack-cadvisor:8080"]
+  
+  - job_name: "node"
+    static_configs:
+      - targets: ["blackjack-node-exporter:9100"]

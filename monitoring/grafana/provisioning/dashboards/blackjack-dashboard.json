@@ -991,8 +991,8 @@
 				"spec": {
 					"name": "host",
 					"current": {
-						"text": "cadvisor:8080",
-						"value": "cadvisor:8080"
+						"text": "blackjack-cadvisor:8080",
+						"value": "blackjack-cadvisor:8080"
 					},
 					"label": "Host",
 					"hide": "dontHide",
