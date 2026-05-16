@@ -686,10 +686,18 @@ export default class BlackjackGame {
     }
 
     this.turnTimer = setTimeout(async () => {
-      console.log(
-        `⏰ TIEMPO AGOTADO para ${currentTurnUserId}. STAND automático.`,
-      );
-      await this.stand(currentTurnUserId);
+      // If player is disconnected, skip to next player
+      if (currentPlayer?.isDisconnected) {
+        console.log(
+          `⏰ Turno del jugador desconectado ${currentTurnUserId} agotado. Pasando al siguiente.`
+        );
+        await this.nextTurn();
+      } else {
+        console.log(
+          `⏰ TIEMPO AGOTADO para ${currentTurnUserId}. STAND automático.`,
+        );
+        await this.stand(currentTurnUserId);
+      }
       if (this.emitUpdate) this.emitUpdate(this.getPublicState());
     }, 15000);
   }
