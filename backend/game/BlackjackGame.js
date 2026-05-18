@@ -101,14 +101,8 @@ export default class BlackjackGame {
       const latestPlayer = this.players[userId];
       if (!latestPlayer || this.hasActiveConnection(latestPlayer)) return;
 
-      if (this.gameState === "playing") {
-        latestPlayer.isDisconnected = true;
-        latestPlayer.disconnectTimer = null;
-        return;
-      }
-
-      delete this.players[userId];
-      this.playerOrder = this.playerOrder.filter((id) => id !== userId);
+      latestPlayer.isDisconnected = true;
+      latestPlayer.disconnectTimer = null;
       this.notifyStateChange();
     }, this.DISCONNECT_GRACE_MS);
   }

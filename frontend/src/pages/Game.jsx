@@ -74,6 +74,7 @@ function Game() {
   const [walletAmount, setWalletAmount] = useState(100);
   const [walletMsg, setWalletMsg] = useState("");
 
+  const [authReady, setAuthReady] = useState(false);
   const [balance, setBalance] = useState(0);
   const [stats, setStats] = useState({
     gamesPlayed: 0,
@@ -149,6 +150,7 @@ function Game() {
           localStorage.setItem("username", data.user.username);
           localStorage.setItem("email", data.user.email);
           localStorage.setItem("isLoggedIn", "true");
+          setAuthReady(true);
         } else {
           navigate("/login");
         }
@@ -163,7 +165,7 @@ function Game() {
 
   useEffect(() => {
     const bootstrapUserData = async () => {
-      if (!authUser?.id && !authUser?.username) return;
+      if (!authReady || (!authUser?.id && !authUser?.username)) return;
 
       const storageUserKey = authUser?.id || authUser?.username || "guest";
       const newScoreKey = `blackjackSessionScore_${storageUserKey}`;
@@ -234,7 +236,7 @@ function Game() {
     };
 
     bootstrapUserData();
-  }, [authUser]);
+  }, [authReady]);
 
     useEffect(() => {
     if (!authUser?.id) return;
