@@ -750,7 +750,7 @@ function Game() {
 
                     {canAddAI && (
                       <button
-                        className="casino-btn casino-btn--secondary"
+                        className="casino-btn casino-btn--ghost"
                         onClick={handleAddAI}
                         type="button"
                       >
