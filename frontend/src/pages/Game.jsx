@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { socket } from "../socket";
+import { getSocket, disconnectSocket } from "../socket";
 import Card from "../components/Card";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import "../styles/Game.css";
 
 const API_URL = "";
+const socket = getSocket();
 
 function Game() {
   const storedRoomRaw = localStorage.getItem("selectedRoom");
@@ -90,20 +91,45 @@ function Game() {
   const [sessionScore, setSessionScore] = useState(() => {
     return Number(localStorage.getItem(scoreKey) || 0);
   });
-    // ----- NUEVO: referencia estable al roomId actual -----
+    // ----- referencia estable al roomId actual -----
   const roomIdRef = useRef(roomId);
   useEffect(() => {
     roomIdRef.current = roomId;
   }, [roomId]);
 
-  // ----- NUEVO: cleanup al desmontar el componente -----
+  // ----- cleanup al desmontar el componente -----
   useEffect(() => {
     return () => {
       if (roomIdRef.current) {
         socket.emit("leave_room", roomIdRef.current);
       }
     };
-  }, []); // solo se ejecuta al desmontar
+  }, []);
+
+  // ----- NUEVO: Verificar autenticación periódicamente -----
+  useEffect(() => {
+    const checkAuth = () => {
+      const isLoggedIn = localStorage.getItem("isLoggedIn");
+      const user = localStorage.getItem("user");
+      
+      if (!isLoggedIn || !user) {
+        console.log("🔍 No session detected, closing socket and redirecting...");
+        disconnectSocket();
+        navigate("/login");
+      }
+    };
+    
+    // Escuchar cambios en localStorage (cuando otra pestaña hace logout)
+    window.addEventListener("storage", checkAuth);
+    
+    // Verificar cada 5 segundos (por si acaso)
+    const interval = setInterval(checkAuth, 5000);
+    
+    return () => {
+      window.removeEventListener("storage", checkAuth);
+      clearInterval(interval);
+    };
+  }, [navigate]);
 
   const isWalletAmountValid =
     Number.isFinite(walletAmount) &&
@@ -175,6 +201,13 @@ function Game() {
 
       setSessionScore(Number(localStorage.getItem(newScoreKey) || 0));
 
+      // Verificar autenticación antes de hacer peticiones
+      const isLoggedIn = localStorage.getItem("isLoggedIn");
+      if (!isLoggedIn) {
+        console.log("No logged in, skipping balance/stats fetch");
+        return;
+      }
+
       try {
         const balanceRes = await fetch("/api/users/balance", {
           method: "GET",
@@ -186,6 +219,11 @@ function Game() {
           if (balanceData.success) {
             syncBalance(balanceData.balance);
           }
+        } else if (balanceRes.status === 401) {
+          // No autorizado, hacer logout
+          disconnectSocket();
+          navigate("/login");
+          return;
         }
       } catch (error) {
         if (import.meta.env.DEV) {
@@ -213,6 +251,11 @@ function Game() {
 
           setStats(normalizedStats);
           localStorage.setItem(localStatsKey, JSON.stringify(normalizedStats));
+        } else if (statsRes.status === 401) {
+          // No autorizado, hacer logout
+          disconnectSocket();
+          navigate("/login");
+          return;
         } else {
           const rawLocalStats = localStorage.getItem(localStatsKey);
           if (rawLocalStats) {
@@ -305,6 +348,7 @@ function Game() {
       socket.off("game_update", onGameUpdate);
     };
   }, [roomId, authUser?.id]);
+  
   const fallbackState = {
     gameState: "waiting",
     dealerHand: [],

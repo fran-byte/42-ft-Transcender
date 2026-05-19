@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+import { disconnectSocket } from "../socket";
 
 function Navbar() {
   const navigate = useNavigate();
@@ -8,7 +9,7 @@ function Navbar() {
   const protectedRoute = (path) => (isLoggedIn ? path : "/login");
 
   const handleLogout = async () => {
-  try {
+    try {
       await fetch("/api/auth/logout", {
         method: "POST",
         credentials: "include",
@@ -18,25 +19,21 @@ function Navbar() {
         console.log("Error cerrando sesión:", error);}
     }
 
+    // Cerrar WebSocket manualmente
+    disconnectSocket();
+
+    // Limpiar localStorage
     localStorage.removeItem("isLoggedIn");
     localStorage.removeItem("user");
     localStorage.removeItem("username");
     localStorage.removeItem("email");
 
+    // Limpiar sessionStorage (donde se guarda el rol de espectador/jugador)
+    sessionStorage.clear();
+
     navigate("/login");
   };
 
-  /* OLD LOGOUT BEFORE AUTH -MSORIANO
-  * const handleLogout = () => {
-  *   const username = localStorage.getItem("username") || "guest";
-  *   localStorage.removeItem(`blackjackSessionScore_${username}`);
-  *   localStorage.removeItem("username");
-  *   localStorage.removeItem("email");
-  *   localStorage.removeItem("selectedRoom");
-  *   localStorage.removeItem("isLoggedIn");
-  *   navigate("/");
-  };
-  */
   return (
     <header className="navbar">
       <div className="navbar__inner">

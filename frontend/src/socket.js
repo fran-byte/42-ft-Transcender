@@ -2,26 +2,43 @@ import { io } from "socket.io-client";
 
 const SOCKET_URL = "";
 
-export const socket = io(SOCKET_URL, {
-  withCredentials: true,
-  transports: ["websocket", "polling"],
-  autoConnect: true,
-  reconnection: true,
-  reconnectionDelay: 1000,
-  reconnectionAttempts: 10,
-});
+let socketInstance = null;
 
-socket.on("connect", () => {
-  console.log("✅ Connected to server:", socket.id);
-});
+export const getSocket = () => {
+  if (!socketInstance) {
+    socketInstance = io(SOCKET_URL, {
+      withCredentials: true,
+      transports: ["websocket", "polling"],
+      autoConnect: true,
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 10,
+    });
 
-socket.on("disconnect", (reason) => {
-  console.log("❌ Disconnected from server:", reason);
-});
+    socketInstance.on("connect", () => {
+      console.log("✅ Connected to server:", socketInstance.id);
+    });
 
-socket.on("connect_error", (error) => {
-  if (import.meta.env.DEV) {
-  console.log("⚠️ Connection error:", error.message);}
-});
+    socketInstance.on("disconnect", (reason) => {
+      console.log("❌ Disconnected from server:", reason);
+    });
+
+    socketInstance.on("connect_error", (error) => {
+      console.error("⚠️ Connection error:", error.message);
+    });
+  }
+  return socketInstance;
+};
+
+export const disconnectSocket = () => {
+  if (socketInstance) {
+    socketInstance.disconnect();
+    socketInstance = null;
+    console.log("🔌 Socket manually disconnected on logout");
+  }
+};
+
+// Para mantener compatibilidad con código existente que usa `socket` directamente
+export const socket = getSocket();
 
 export default socket;
