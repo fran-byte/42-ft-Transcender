@@ -221,7 +221,7 @@ textarea {
 
 .table-felt-text {
   position: absolute;
-  top: 31%;
+  top: 33%;
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
@@ -516,7 +516,7 @@ textarea {
 /* CENTER MESSAGE */
 .table-center-message {
   position: absolute;
-  top: 31%;
+  top: 26%;
   left: 50%;
   transform: translate(-50%, -50%);
   padding: 1.3rem 1.5rem;
@@ -549,7 +549,7 @@ textarea {
 .players-arc {
   position: absolute;
   left: 50%;
-  bottom: 210px;
+  bottom: 160px;
   transform: translateX(-50%);
   width: min(1240px, 96%);
   display: flex;
@@ -578,24 +578,7 @@ textarea {
   align-items: center;
   gap: 0.35rem;
   min-width: 0;
-}
-
-.player-seat--me {
-  background: rgba(10, 24, 16, 0.46);
-  border-color: rgba(127, 255, 180, 0.35);
-  width: 202px;
-}
-
-.player-seat--active {
-  border: 2px solid #f4d54a;
-  box-shadow:
-    0 0 0 3px rgba(244, 213, 74, 0.16),
-    0 0 24px rgba(244, 213, 74, 0.28),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
-}
-
-.player-seat--empty {
-  opacity: 0.55;
+  transform: translateY(var(--seat-curve-offset, 0));
 }
 
 .player-seat--preview {
@@ -1077,6 +1060,40 @@ textarea {
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.18);
 }
 
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ai-badge__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.remove-ai-btn {
+  padding: 0.28rem 0.6rem;
+  font-size: 0.95rem;
+  min-width: auto;
+  width: auto;
+  height: auto;
+  line-height: 1;
+  border-radius: 999px;
+}
+
+.remove-ai-btn:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.02);
+}
+
 /* WALLET */
 .wallet-trigger {
   display: inline-flex;
@@ -1301,12 +1318,12 @@ textarea {
   }
 
   .table-felt-text {
-    top: 22%;
+    top: 350px;
     width: 90%;
   }
 
   .table-center-message {
-    top: 35%;
+    top: 33%;
   }
 
   .players-arc {
@@ -1318,6 +1335,11 @@ textarea {
     justify-content: center;
     gap: 1rem;
     flex-wrap: wrap;
+  } 
+  .player-seat {
+    transform: none;
+    --seat-curve-offset: 0px;
+    width: min(100%, 270px);
   }
 
   .player-seat--preview-1,
@@ -1326,11 +1348,6 @@ textarea {
   .player-seat--preview-4 {
     transform: none;
   }
-
-  .player-seat {
-    width: min(100%, 270px);
-  }
-
   .player-seat--me {
     width: min(100%, 285px);
   }
@@ -1439,7 +1456,7 @@ textarea {
   }
 
   .table-felt-text {
-    top: 18%;
+    top: 10%;
     width: 90%;
   }
 
@@ -1665,7 +1682,7 @@ textarea {
   }
 
   .table-felt-text {
-    top: 16%;
+    top:565px;
   }
 
   .table-felt-text__title {

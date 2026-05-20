@@ -23,6 +23,9 @@ export async function login(req, res, next) {
     res.cookie('token', token, cookieOptions);
     res.json({ success: true, message: 'Login exitoso', user });
   } catch (err) {
+    if (err.status === 401) {
+      return res.status(200).json({ success: false, message: err.message });
+    }
     if (err.status) return res.status(err.status).json({ success: false, message: err.message });
     next(err);
   }

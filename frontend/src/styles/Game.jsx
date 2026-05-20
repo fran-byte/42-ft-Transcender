@@ -341,7 +341,7 @@ function Game() {
     const mid = (total - 1) / 2;
     const distance = Math.abs(index - mid);
     const maxDistance = Math.max(mid, 1);
-    const intensity = 180;
+    const intensity = 100;
     const normalized = distance / maxDistance;
     return -Math.round(normalized * intensity);
   };

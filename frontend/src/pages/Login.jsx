@@ -54,7 +54,6 @@ function Login() {
 
       navigate("/lobby");
     } catch (error) {
-      console.error("Log in error:", error);
       setErrorMsg("Unable to connect to the server");
     } finally {
       setLoading(false);
@@ -79,6 +78,7 @@ function Login() {
               <input
                 type="text"
                 placeholder="username"
+                autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
@@ -89,6 +89,7 @@ function Login() {
               <input
                 type="password"
                 placeholder="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />

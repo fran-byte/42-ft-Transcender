@@ -108,6 +108,7 @@ function Register() {
               <input
                 type="text"
                 placeholder="username"
+                autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
@@ -118,6 +119,7 @@ function Register() {
               <input
                 type="email"
                 placeholder="you@email.com"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -128,6 +130,7 @@ function Register() {
               <input
                 type="password"
                 placeholder="password"
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
