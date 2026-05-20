@@ -51,8 +51,8 @@ function Game() {
       return null;
     }
   });
-    const [roomId] = useState(() => storedRoom.id || "solo-table");
-    const roleStorageKey = useMemo(() => {
+  const [roomId] = useState(() => storedRoom.id || "solo-table");
+  const roleStorageKey = useMemo(() => {
     const tempUser = JSON.parse(localStorage.getItem("user") || "{}");
     const userId = tempUser?.id || "guest";
     return `blackjack_role_${roomId}_${userId}`;
@@ -91,7 +91,7 @@ function Game() {
   const [sessionScore, setSessionScore] = useState(() => {
     return Number(localStorage.getItem(scoreKey) || 0);
   });
-    // ----- referencia estable al roomId actual -----
+  // ----- referencia estable al roomId actual -----
   const roomIdRef = useRef(roomId);
   useEffect(() => {
     roomIdRef.current = roomId;
@@ -106,28 +106,25 @@ function Game() {
     };
   }, []);
 
-  // ----- NUEVO: Verificar autenticación periódicamente -----
+  // ----- NUEVO: Verificar autenticación -----
   useEffect(() => {
     const checkAuth = () => {
       const isLoggedIn = localStorage.getItem("isLoggedIn");
       const user = localStorage.getItem("user");
-      
+
       if (!isLoggedIn || !user) {
-        console.log("🔍 No session detected, closing socket and redirecting...");
+        console.log(
+          "🔍 No session detected, closing socket and redirecting...",
+        );
         disconnectSocket();
         navigate("/login");
       }
     };
-    
-    // Escuchar cambios en localStorage (cuando otra pestaña hace logout)
+
     window.addEventListener("storage", checkAuth);
-    
-    // Verificar cada 5 segundos (por si acaso)
-    const interval = setInterval(checkAuth, 5000);
-    
+
     return () => {
       window.removeEventListener("storage", checkAuth);
-      clearInterval(interval);
     };
   }, [navigate]);
 
@@ -201,7 +198,6 @@ function Game() {
 
       setSessionScore(Number(localStorage.getItem(newScoreKey) || 0));
 
-      // Verificar autenticación antes de hacer peticiones
       const isLoggedIn = localStorage.getItem("isLoggedIn");
       if (!isLoggedIn) {
         console.log("No logged in, skipping balance/stats fetch");
@@ -220,7 +216,6 @@ function Game() {
             syncBalance(balanceData.balance);
           }
         } else if (balanceRes.status === 401) {
-          // No autorizado, hacer logout
           disconnectSocket();
           navigate("/login");
           return;
@@ -252,7 +247,6 @@ function Game() {
           setStats(normalizedStats);
           localStorage.setItem(localStatsKey, JSON.stringify(normalizedStats));
         } else if (statsRes.status === 401) {
-          // No autorizado, hacer logout
           disconnectSocket();
           navigate("/login");
           return;
@@ -286,14 +280,13 @@ function Game() {
     bootstrapUserData();
   }, [authReady]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (!authUser?.id) return;
 
     const onConnect = () => {
       setMyId(authUser.id);
 
-      const persistedRole =
-        sessionStorage.getItem(roleStorageKey) || "player";
+      const persistedRole = sessionStorage.getItem(roleStorageKey) || "player";
 
       socket.emit("join_game", {
         roomId,
@@ -348,7 +341,7 @@ function Game() {
       socket.off("game_update", onGameUpdate);
     };
   }, [roomId, authUser?.id]);
-  
+
   const fallbackState = {
     gameState: "waiting",
     dealerHand: [],
@@ -423,20 +416,48 @@ function Game() {
   const isMyTurn = currentTurn === myId;
   const seatedCount = playerOrder.length;
 
-  const calculateHandValue = (hand = []) => {
+  // ✅ OPTIMIZACIÓN: Memoizar valores de manos de jugadores (solo recalcula si cambian players o playerOrder)
+  const playerHandValues = useMemo(() => {
+    const values = {};
+    playerOrder.forEach((playerId) => {
+      const hand = players[playerId]?.hand ?? [];
+      let total = 0;
+      let aces = 0;
+
+      for (const card of hand) {
+        const value = String(card?.value ?? "").toUpperCase();
+        if (["K", "Q", "J"].includes(value)) total += 10;
+        else if (value === "A") {
+          total += 11;
+          aces += 1;
+        } else {
+          total += Number(value) || 0;
+        }
+      }
+
+      while (total > 21 && aces > 0) {
+        total -= 10;
+        aces -= 1;
+      }
+
+      values[playerId] = total;
+    });
+    return values;
+  }, [players, playerOrder]);
+
+  const myHandValue = (() => {
+    const hand = myPlayer?.hand ?? [];
     let total = 0;
     let aces = 0;
 
     for (const card of hand) {
       const value = String(card?.value ?? "").toUpperCase();
-
       if (["K", "Q", "J"].includes(value)) total += 10;
       else if (value === "A") {
         total += 11;
         aces += 1;
       } else {
-        const parsed = Number(value);
-        if (!Number.isNaN(parsed)) total += parsed;
+        total += Number(value) || 0;
       }
     }
 
@@ -446,9 +467,7 @@ function Game() {
     }
 
     return total;
-  };
-
-  const myHandValue = calculateHandValue(myPlayer?.hand ?? []);
+  })();
 
   const shouldAnimateDealerCard = (index) => {
     if (currentGameState !== "playing") return false;
@@ -605,7 +624,8 @@ function Game() {
     socket.emit("reset_round", roomId);
   };
 
-  const canAddAI = amIHost && seatedCount < maxPlayers && currentGameState === "waiting";
+  const canAddAI =
+    amIHost && seatedCount < maxPlayers && currentGameState === "waiting";
 
   const handleAddAI = () => {
     if (!canAddAI) return;
@@ -764,16 +784,16 @@ function Game() {
 
             {isSpectator && (
               <div className="multiplayer-banner">
-                You are spectating this table. You can watch live, but you cannot
-                play.
+                You are spectating this table. You can watch live, but you
+                cannot play.
               </div>
             )}
 
             <div className="table-felt-text">
               <p className="table-felt-text__title">Blackjack</p>
               <p>
-                {storedRoom.stakes} · {storedRoom.seats || maxPlayers} seat table
-                · {storedRoom.mode}
+                {storedRoom.stakes} · {storedRoom.seats || maxPlayers} seat
+                table · {storedRoom.mode}
               </p>
             </div>
 
@@ -876,10 +896,14 @@ function Game() {
                 const isMe = playerId === myId;
                 const isTurn = currentTurn === playerId;
                 const hand = player.hand ?? [];
-                const handValue = calculateHandValue(hand);
+                // ✅ USAR VALOR MEMOIZADO (NO recalcular cada vez)
+                const handValue = playerHandValues[playerId];
 
                 const shouldHideLastCard =
-                  !isMe && !player.isAI && currentGameState === "playing" && hand.length > 0;
+                  !isMe &&
+                  !player.isAI &&
+                  currentGameState === "playing" &&
+                  hand.length > 0;
 
                 const visibleCards = shouldHideLastCard
                   ? hand.slice(0, -1)
@@ -900,7 +924,11 @@ function Game() {
                     }}
                   >
                     <div className="player-seat__badge">
-                      {player.isAI ? "BOT" : isMe ? "YOU" : `PLAYER ${index + 1}`}
+                      {player.isAI
+                        ? "BOT"
+                        : isMe
+                          ? "YOU"
+                          : `PLAYER ${index + 1}`}
                     </div>
 
                     <div className="player-seat__meta">
@@ -934,12 +962,15 @@ function Game() {
                     </div>
 
                     <div className="player-seat__hand-stack">
-                      <div className="player-seat__cards" style={{ "--card-count": visibleCards.length }}>
+                      <div
+                        className="player-seat__cards"
+                        style={{ "--card-count": visibleCards.length }}
+                      >
                         {visibleCards.map((card, cardIndex) => {
                           const animate = shouldAnimatePlayerCard(
                             playerId,
                             cardIndex,
-                            hand.length
+                            hand.length,
                           );
 
                           return (
@@ -951,7 +982,7 @@ function Game() {
                                   ? {
                                       animationDelay: getPlayerAnimationDelay(
                                         playerId,
-                                        cardIndex
+                                        cardIndex,
                                       ),
                                     }
                                   : undefined
@@ -982,11 +1013,13 @@ function Game() {
                         <span className="thinking-text">Disconnected</span>
                       )}
 
-                      {!player.isDisconnected && !player.result && player.status && (
-                        <span className="thinking-text">
-                          {String(player.status).toUpperCase()}
-                        </span>
-                      )}
+                      {!player.isDisconnected &&
+                        !player.result &&
+                        player.status && (
+                          <span className="thinking-text">
+                            {String(player.status).toUpperCase()}
+                          </span>
+                        )}
 
                       {player.result && (
                         <span
@@ -995,8 +1028,8 @@ function Game() {
                             player.result === "win"
                               ? "result-pill--win"
                               : player.result === "push"
-                              ? "result-pill--push"
-                              : "result-pill--lose",
+                                ? "result-pill--push"
+                                : "result-pill--lose",
                           ].join(" ")}
                         >
                           {String(player.result).toUpperCase()}
@@ -1047,9 +1080,7 @@ function Game() {
                     title="Double your bet and receive one more card"
                   >
                     <span className="casino-action__title">Double</span>
-                    <span className="casino-action__sub">
-                      2x bet, one card
-                    </span>
+                    <span className="casino-action__sub">2x bet, one card</span>
                   </button>
 
                   <button
@@ -1084,7 +1115,9 @@ function Game() {
                 <div className="spectator-panel">
                   <div className="spectator-panel__header">
                     <div>
-                      <span className="spectator-panel__eyebrow">Live rail</span>
+                      <span className="spectator-panel__eyebrow">
+                        Live rail
+                      </span>
                       <h3>Spectators</h3>
                     </div>
                     <span className="spectator-panel__count">
@@ -1152,7 +1185,9 @@ function Game() {
                           selectedBet === chip ? "is-selected" : ""
                         }`}
                         onClick={() => handleChipSelect(chip)}
-                        onDragStart={(event) => handleChipDragStart(event, chip)}
+                        onDragStart={(event) =>
+                          handleChipDragStart(event, chip)
+                        }
                         disabled={currentGameState !== "waiting"}
                       >
                         {chip}
@@ -1251,7 +1286,7 @@ function Game() {
                 onClick={async () => {
                   if (!isWalletAmountValid) {
                     setWalletMsg(
-                      "Error: enter a valid amount between 10 and 10000"
+                      "Error: enter a valid amount between 10 and 10000",
                     );
                     return;
                   }
@@ -1272,16 +1307,15 @@ function Game() {
 
                   if (data.success) {
                     syncBalance(data.balance);
-                    
-                    socket.emit("sync_wallet_balance", {
-                    roomId,
-                    userId: authUser.id,
-                    balance: Number(data.balance),
-                  });
 
-                  setWalletMsg(`Deposited +$${walletAmount}`);
-                }
-                else {
+                    socket.emit("sync_wallet_balance", {
+                      roomId,
+                      userId: authUser.id,
+                      balance: Number(data.balance),
+                    });
+
+                    setWalletMsg(`Deposited +$${walletAmount}`);
+                  } else {
                     setWalletMsg("Error: " + data.message);
                   }
                 }}
@@ -1295,7 +1329,7 @@ function Game() {
                 onClick={async () => {
                   if (!isWalletAmountValid) {
                     setWalletMsg(
-                      "Error: enter a valid amount between 10 and 10000"
+                      "Error: enter a valid amount between 10 and 10000",
                     );
                     return;
                   }
@@ -1328,8 +1362,7 @@ function Game() {
                     });
 
                     setWalletMsg(`Withdrawn -$${walletAmount}`);
-                  }
-                  else {
+                  } else {
                     setWalletMsg("Error: " + data.message);
                   }
                 }}
