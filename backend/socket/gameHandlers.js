@@ -9,20 +9,27 @@ export function registerGameHandlers(io, socket, games) {
   let currentUserId = null;
   let currentRoomId = null;
 
+  const resolveRoomKey = (roomId, userId) => {
+    return roomId === 'solo-table' && userId
+      ? `${roomId}-${userId}`
+      : roomId;
+  };
+
   const emitUpdate = (roomId, game) => {
     io.to(roomId).emit('game_update', game.getPublicState());
   };
 
   socket.on('sync_wallet_balance', ({ roomId, userId, balance }) => {
     try {
-      const game = games[roomId];
+      const internalRoomId = resolveRoomKey(roomId, userId);
+      const game = games[internalRoomId];
       if (!game) return;
       if (!currentUserId || String(currentUserId) !== String(userId)) return;
 
       const ok = game.updatePlayerWallet(userId, Number(balance));
       if (!ok) return;
 
-      emitUpdate(roomId, game);
+      emitUpdate(internalRoomId, game);
       emitLobbyState(io, games);
     } catch (error) {
       console.error('❌ Error en sync_wallet_balance:', error);
@@ -44,15 +51,16 @@ export function registerGameHandlers(io, socket, games) {
       }
 
       currentUserId = user.id;
-      currentRoomId = roomId;
+      currentRoomId = resolveRoomKey(roomId, user.id);
+      const internalRoomId = currentRoomId;
 
-      if (!games[roomId]) {
-        games[roomId] = new BlackjackGame(
-          roomId,
-          (gameState) => { io.to(roomId).emit('game_update', gameState); },
+      if (!games[internalRoomId]) {
+        games[internalRoomId] = new BlackjackGame(
+          internalRoomId,
+          (gameState) => { io.to(internalRoomId).emit('game_update', gameState); },
           roomConfig,
           async (botId, botPlayer, dealerVisibleCard) => {
-            const game = games[roomId];
+            const game = games[internalRoomId];
             if (!game) return;
 
             const playerScore = game.calculateScore(botPlayer.hand);
@@ -93,8 +101,8 @@ export function registerGameHandlers(io, socket, games) {
         console.log(`✨ Sala creada: ${roomId} (maxPlayers=${roomConfig.maxPlayers})`);
       }
 
-      const game = games[roomId];
-      socket.join(roomId);
+      const game = games[internalRoomId];
+      socket.join(internalRoomId);
 
       const balanceResult = await pool.query(
         'SELECT balance FROM users WHERE id = $1',
@@ -130,7 +138,7 @@ export function registerGameHandlers(io, socket, games) {
 
       console.log(`✅ ${user.username} (${user.id}) unido a ${roomId} como ${joinResult.role}`);
 
-      emitUpdate(roomId, game);
+      emitUpdate(internalRoomId, game);
       emitLobbyState(io, games);
     } catch (error) {
       console.error('❌ Error en join_game:', error);
@@ -139,7 +147,8 @@ export function registerGameHandlers(io, socket, games) {
 
   socket.on('start_round', async (roomId) => {
     try {
-      const game = games[roomId];
+      const internalRoomId = resolveRoomKey(roomId, currentUserId);
+      const game = games[internalRoomId];
       if (!game || !currentUserId) return;
 
       const hostId = game.playerOrder[0];
@@ -160,7 +169,7 @@ export function registerGameHandlers(io, socket, games) {
 
       console.log(`🃏 START ROUND por host: ${currentUserId} en sala ${roomId}`);
       await game.startRound(currentUserId);
-      emitUpdate(roomId, game);
+      emitUpdate(internalRoomId, game);
       emitLobbyState(io, games);
     } catch (error) {
       console.error('❌ Error en start_round:', error);
@@ -169,7 +178,8 @@ export function registerGameHandlers(io, socket, games) {
 
   socket.on('action_hit', async (roomId) => {
     try {
-      const game = games[roomId];
+      const internalRoomId = resolveRoomKey(roomId, currentUserId);
+      const game = games[internalRoomId];
       if (!game || !currentUserId) return;
 
       if (game.turn !== currentUserId) {
@@ -179,7 +189,7 @@ export function registerGameHandlers(io, socket, games) {
 
       console.log(`👊 HIT de usuario: ${currentUserId}`);
       await game.hit(currentUserId);
-      emitUpdate(roomId, game);
+      emitUpdate(internalRoomId, game);
     } catch (error) {
       console.error('❌ Error en action_hit:', error);
     }
@@ -187,7 +197,8 @@ export function registerGameHandlers(io, socket, games) {
 
   socket.on('action_stand', async (roomId) => {
     try {
-      const game = games[roomId];
+      const internalRoomId = resolveRoomKey(roomId, currentUserId);
+      const game = games[internalRoomId];
       if (!game || !currentUserId) return;
 
       if (game.turn !== currentUserId) {
@@ -197,7 +208,7 @@ export function registerGameHandlers(io, socket, games) {
 
       console.log(`✋ STAND de usuario: ${currentUserId}`);
       await game.stand(currentUserId);
-      emitUpdate(roomId, game);
+      emitUpdate(internalRoomId, game);
     } catch (error) {
       console.error('❌ Error en action_stand:', error);
     }
@@ -205,7 +216,8 @@ export function registerGameHandlers(io, socket, games) {
 
   socket.on('reset_round', (roomId) => {
     try {
-      const game = games[roomId];
+      const internalRoomId = resolveRoomKey(roomId, currentUserId);
+      const game = games[internalRoomId];
       if (!game || !currentUserId) return;
 
       const hostId = game.playerOrder[0];
@@ -217,7 +229,7 @@ export function registerGameHandlers(io, socket, games) {
       console.log(`🔄 RESET ROUND por host: ${currentUserId} en sala ${roomId}`);
       game.resetRound();
       game.aiPlaceBets();
-      emitUpdate(roomId, game);
+      emitUpdate(internalRoomId, game);
       emitLobbyState(io, games);
     } catch (error) {
       console.error('❌ Error en reset_round:', error);
@@ -226,7 +238,8 @@ export function registerGameHandlers(io, socket, games) {
 
   socket.on('place_bet', ({ roomId, amount }) => {
     try {
-      const game = games[roomId];
+      const internalRoomId = resolveRoomKey(roomId, currentUserId);
+      const game = games[internalRoomId];
       if (!game || !currentUserId) return;
 
       const numericAmount = Number(amount);
@@ -246,7 +259,7 @@ export function registerGameHandlers(io, socket, games) {
         return;
       }
 
-      emitUpdate(roomId, game);
+      emitUpdate(internalRoomId, game);
     } catch (error) {
       console.error('❌ Error en place_bet:', error);
     }
@@ -254,13 +267,14 @@ export function registerGameHandlers(io, socket, games) {
 
   socket.on('clear_bet', (roomId) => {
     try {
-      const game = games[roomId];
+      const internalRoomId = resolveRoomKey(roomId, currentUserId);
+      const game = games[internalRoomId];
       if (!game || !currentUserId) return;
 
       const ok = game.clearBet(currentUserId);
       if (!ok) return;
 
-      emitUpdate(roomId, game);
+      emitUpdate(internalRoomId, game);
     } catch (error) {
       console.error('❌ Error en clear_bet:', error);
     }
@@ -268,7 +282,8 @@ export function registerGameHandlers(io, socket, games) {
 
   socket.on('action_double', async (roomId) => {
     try {
-      const game = games[roomId];
+      const internalRoomId = resolveRoomKey(roomId, currentUserId);
+      const game = games[internalRoomId];
       if (!game || !currentUserId) return;
 
       if (game.turn !== currentUserId) {
@@ -283,7 +298,7 @@ export function registerGameHandlers(io, socket, games) {
 
       console.log(`💥 DOUBLE de usuario: ${currentUserId}`);
       await game.doubleDown(currentUserId);
-      emitUpdate(roomId, game);
+      emitUpdate(internalRoomId, game);
     } catch (error) {
       console.error('❌ Error en action_double:', error);
     }
@@ -291,14 +306,15 @@ export function registerGameHandlers(io, socket, games) {
 
   socket.on('add_ai_player', ({ roomId, botId, botName }) => {
     try {
-      const game = games[roomId];
+      const internalRoomId = resolveRoomKey(roomId, currentUserId);
+      const game = games[internalRoomId];
       if (!game) return;
 
       const aiBotId = botId || `ai_bot_${Date.now()}`;
       const result = game.addAIPlayer(aiBotId, botName || 'AI Bot');
 
       socket.emit('add_ai_result', result);
-      emitUpdate(roomId, game);
+      emitUpdate(internalRoomId, game);
       emitLobbyState(io, games);
     } catch (error) {
       console.error('❌ Error en add_ai_player:', error);
@@ -307,13 +323,14 @@ export function registerGameHandlers(io, socket, games) {
 
   socket.on('remove_ai_player', ({ roomId, botId }) => {
     try {
-      const game = games[roomId];
+      const internalRoomId = resolveRoomKey(roomId, currentUserId);
+      const game = games[internalRoomId];
       if (!game) return;
 
       const result = game.removeAIPlayer(botId);
 
       socket.emit('remove_ai_result', result);
-      emitUpdate(roomId, game);
+      emitUpdate(internalRoomId, game);
       emitLobbyState(io, games);
     } catch (error) {
       console.error('❌ Error en remove_ai_player:', error);
@@ -323,13 +340,43 @@ export function registerGameHandlers(io, socket, games) {
   socket.on('leave_room', (roomId) => {
     try {
       if (!roomId || !currentUserId) return;
-      const game = games[roomId];
+
+      const internalRoomId = resolveRoomKey(roomId, currentUserId);
+      const game = games[internalRoomId];
+
       if (game) {
         game.removePlayer(currentUserId, socket.id);
-        emitUpdate(roomId, game);
+        game.ensureHumanHost();
+
+        if (game.gameState === "playing" && game.turn === currentUserId) {
+          game.nextTurn();
+        }
+
+        const activePlayers = Object.values(game.players).filter(
+          (p) => p && p.socketIds instanceof Set && p.socketIds.size > 0
+        );
+
+        const activeSpectators = game.spectators.filter(
+          (s) => s && s.socketIds instanceof Set && s.socketIds.size > 0
+        );
+
+        const hasAnyPlayers = Object.keys(game.players).length > 0;
+        const hasAnySpectators = game.spectators.length > 0;
+
+        if (!hasAnyPlayers && !hasAnySpectators) {
+          console.log(`🗑️ Sala ${internalRoomId} vacía. Eliminando.`);
+          game.clearTurnTimer();
+          delete games[internalRoomId];
+        } else {
+          emitUpdate(internalRoomId, game);
+        }
+
         emitLobbyState(io, games);
       }
-      socket.leave(roomId);
+
+      socket.leave(internalRoomId);
+      currentRoomId = null;
+
       console.log(`🚪 ${currentUserId} abandonó sala ${roomId}`);
     } catch (error) {
       console.error('❌ Error en leave_room:', error);
@@ -353,7 +400,10 @@ export function registerGameHandlers(io, socket, games) {
             (s) => s && s.socketIds instanceof Set && s.socketIds.size > 0
           );
 
-          if (activePlayers.length === 0 && activeSpectators.length === 0) {
+          const hasAnyPlayers = Object.keys(game.players).length > 0;
+          const hasAnySpectators = game.spectators.length > 0;
+
+          if (!hasAnyPlayers && !hasAnySpectators) {
             console.log(`🗑️ Sala ${currentRoomId} vacía. Eliminando.`);
             game.clearTurnTimer();
             delete games[currentRoomId];

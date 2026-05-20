@@ -264,7 +264,23 @@ function Game() {
 
     const onGameUpdate = (state) => {
       setGameState(state);
+
       const me = state?.players?.[authUser?.id];
+
+      if (me) {
+        setMyRole("player");
+        sessionStorage.setItem(roleStorageKey, "player");
+      } else {
+        const amSpectator = state?.spectators?.some(
+          (spec) => String(spec.id) === String(authUser?.id)
+        );
+
+        if (amSpectator) {
+          setMyRole("spectator");
+          sessionStorage.setItem(roleStorageKey, "spectator");
+        }
+      }
+
       if (me?.chips !== undefined) syncBalance(me.chips);
     };
 
@@ -300,7 +316,7 @@ function Game() {
 
   const safeState = gameState || fallbackState;
 
-  const rawPlayerOrder = safeState.playerOrder ?? [];
+  const serverPlayerOrder = safeState.playerOrder ?? [];
   const rawPlayers = safeState.players ?? {};
   const dealerHand = safeState.dealerHand ?? [];
   const dealerScore = safeState.dealerScore ?? 0;
@@ -310,31 +326,34 @@ function Game() {
   const maxPlayers = safeState.maxPlayers ?? 4;
   const canStart = safeState.canStart ?? false;
 
-  const normalizedState = useMemo(() => {
+  const playerOrder = useMemo(() => {
     if (isSoloTable) {
       if (myId && rawPlayers[myId]) {
-        return {
-          players: { [myId]: rawPlayers[myId] },
-          playerOrder: [myId],
-        };
+        return [myId];
       }
-
-      const firstPlayerId = rawPlayerOrder[0];
+      const firstPlayerId = serverPlayerOrder[0];
       if (firstPlayerId && rawPlayers[firstPlayerId]) {
-        return {
-          players: { [firstPlayerId]: rawPlayers[firstPlayerId] },
-          playerOrder: [firstPlayerId],
-        };
+        return [firstPlayerId];
       }
-
-      return { players: {}, playerOrder: [] };
+      return [];
     }
 
-    return {
-      players: rawPlayers,
-      playerOrder: rawPlayerOrder,
-    };
-  }, [isSoloTable, myId, rawPlayers, rawPlayerOrder]);
+    if (!myId || serverPlayerOrder.length <= 1) {
+      return serverPlayerOrder;
+    }
+
+    const myIndex = serverPlayerOrder.indexOf(myId);
+    if (myIndex <= 0) {
+      return serverPlayerOrder;
+    }
+
+    return [
+      ...serverPlayerOrder.slice(myIndex),
+      ...serverPlayerOrder.slice(0, myIndex),
+    ];
+  }, [isSoloTable, myId, rawPlayers, serverPlayerOrder]);
+
+  const players = rawPlayers;
 
   const getSeatCurveOffset = (index, total) => {
     if (total <= 1) return 0;
@@ -346,16 +365,14 @@ function Game() {
     return -Math.round(normalized * intensity);
   };
 
-  const players = normalizedState.players;
-  const playerOrder = normalizedState.playerOrder;
   const myPlayer = players?.[myId] ?? null;
   const myBet = myPlayer?.bet ?? 0;
 
   const isSpectator = myRole === "spectator";
-  const amIHost = playerOrder[0] === myId;
+  const hostId = serverPlayerOrder[0] || null;
+  const amIHost = hostId === myId;
   const isMyTurn = currentTurn === myId;
   const seatedCount = playerOrder.length;
-  const hostId = playerOrder[0] || null;
 
   const calculateHandValue = (hand = []) => {
     let total = 0;

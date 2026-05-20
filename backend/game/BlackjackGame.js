@@ -40,8 +40,10 @@ export default class BlackjackGame {
     this.gameState = "waiting";
     this.turn = null;
     this.turnTimer = null;
+    this.nextRoundTimer = null;
 
-    this.DISCONNECT_GRACE_MS = 20000;
+    this.NEXT_ROUND_GRACE_MS = 10000;
+    this.DISCONNECT_GRACE_MS = 15000;
   }
 
   notifyStateChange() {
@@ -91,6 +93,66 @@ export default class BlackjackGame {
     }
   }
 
+  getHumanPlayerIds() {
+  return this.playerOrder.filter((id) => {
+    const player = this.players[id];
+    return player && !player.isAI && !player.isDisconnected;
+  });
+}
+clearNextRoundTimer() {
+  if (this.nextRoundTimer) {
+    clearTimeout(this.nextRoundTimer);
+    this.nextRoundTimer = null;
+  }
+}
+
+startNextRoundTimer() {
+    this.clearNextRoundTimer();
+
+    if (this.gameState !== "finished") return;
+
+    const hostId = this.playerOrder[0];
+    const host = this.players[hostId];
+
+    if (!host || host.isAI) return;
+
+    this.nextRoundTimer = setTimeout(() => {
+      const latestHost = this.players[hostId];
+      if (!latestHost || latestHost.isAI || this.gameState !== "finished") return;
+
+      latestHost.isDisconnected = true;
+
+      this.clearDisconnectTimerForPlayer(hostId);
+      delete this.players[hostId];
+      this.playerOrder = this.playerOrder.filter((id) => id !== hostId);
+
+      this.clearNextRoundTimer();
+
+      this.resetRound();
+      this.promoteSpectatorsToPlayers();
+      this.ensureHumanHost();
+
+      this.notifyStateChange();
+    }, this.NEXT_ROUND_GRACE_MS);
+  }
+
+  ensureHumanHost() {
+    if (this.playerOrder.length === 0) return;
+
+    const currentHost = this.players[this.playerOrder[0]];
+
+    if (currentHost && !currentHost.isAI && !currentHost.isDisconnected) return;
+
+    const humanHostId = this.getHumanPlayerIds()[0];
+
+    if (!humanHostId) return;
+
+    this.playerOrder = [
+      humanHostId,
+      ...this.playerOrder.filter((id) => id !== humanHostId),
+    ];
+  }
+
   schedulePlayerCleanup(userId) {
     const player = this.players[userId];
     if (!player) return;
@@ -103,6 +165,15 @@ export default class BlackjackGame {
 
       latestPlayer.isDisconnected = true;
       latestPlayer.disconnectTimer = null;
+
+      this.pruneDisconnectedUser();
+
+      const onlyBotsReset = this.resetToWaitingIfOnlyBotsRemain();
+      //this.resetToWaitingIfOnlyBotsRemain();
+      
+      this.promoteSpectatorsToPlayers();
+      this.ensureHumanHost();
+
       this.notifyStateChange();
     }, this.DISCONNECT_GRACE_MS);
   }
@@ -122,8 +193,8 @@ export default class BlackjackGame {
     }, this.DISCONNECT_GRACE_MS);
   }
 
-  pruneDisconnectedWaitingUsers() {
-    if (this.gameState !== "waiting") return;
+  pruneDisconnectedUser() {
+    //if (this.gameState !== "waiting") return;
 
     this.playerOrder = this.playerOrder.filter((id) => {
       const player = this.players[id];
@@ -201,8 +272,13 @@ export default class BlackjackGame {
       return { role: "player", success: true, reconnected: true };
     }
 
-    const existingSpectator = this.spectators.find((s) => s.userId === userId);
-    if (existingSpectator) {
+   const existingSpectatorIndex = this.spectators.findIndex(
+      (s) => s.userId === userId
+    );
+
+    if (existingSpectatorIndex !== -1) {
+      const existingSpectator = this.spectators[existingSpectatorIndex];
+
       this.clearDisconnectTimerForSpectator(userId);
       this.addSocketToEntity(existingSpectator, socketId);
 
@@ -210,15 +286,47 @@ export default class BlackjackGame {
       existingSpectator.avatar = avatar;
       existingSpectator.isDisconnected = false;
 
+      const canJoinAsPlayer =
+        this.gameState === "waiting" &&
+        this.getSeatedPlayersCount() < this.maxPlayers;
+
+      if (canJoinAsPlayer) {
+        this.spectators.splice(existingSpectatorIndex, 1);
+
+        this.players[userId] = {
+          id: userId,
+          username,
+          avatar,
+          hand: [],
+          score: 0,
+          status: "waiting",
+          result: null,
+          bet: 0,
+          chips: Number.isFinite(existingSpectator.chips)
+            ? existingSpectator.chips
+            : safeChips,
+          isSpectator: false,
+          isDisconnected: false,
+          disconnectTimer: null,
+          socketIds: existingSpectator.socketIds || new Set(),
+        };
+
+        this.playerOrder.push(userId);
+
+        return { role: "player", success: true, promoted: true };
+      }
+
       return { role: "spectator", success: true, reconnected: true };
     }
 
-    if (preferredRole === "spectator") {
+    if (preferredRole === "spectator" &&
+      (this.gameState !== "waiting" || this.getSeatedPlayersCount() >= this.maxPlayers)) {
       const spectator = {
         userId,
         username,
         avatar,
         chips: safeChips,
+        preferredSpectator: true,
         isDisconnected: false,
         disconnectTimer: null,
         socketIds: new Set(),
@@ -241,6 +349,7 @@ export default class BlackjackGame {
         username,
         avatar,
         chips: safeChips,
+        preferredSpectator: false,
         isDisconnected: false,
         disconnectTimer: null,
         socketIds: new Set(),
@@ -277,6 +386,10 @@ export default class BlackjackGame {
   }
 
   addAIPlayer(botId, botName = "Dealer Bot") {
+    if (this.getHumanPlayerIds().length === 0) {
+      return { success: false, reason: "human_host_required" };
+    }
+
     if (this.getSeatedPlayersCount() >= this.maxPlayers) {
       return { success: false, reason: "table_full" };
     }
@@ -314,12 +427,18 @@ export default class BlackjackGame {
 
   removeAIPlayer(botId) {
     const player = this.players[botId];
+
     if (!player || !player.isAI) {
       return { success: false, reason: "not_found" };
     }
 
     delete this.players[botId];
     this.playerOrder = this.playerOrder.filter((id) => id !== botId);
+
+    if (this.gameState === "waiting") {
+      this.promoteSpectatorsToPlayers();
+      this.ensureHumanHost();
+    }
 
     return { success: true, reason: "ai_removed" };
   }
@@ -428,8 +547,12 @@ export default class BlackjackGame {
 
     if (player) {
       this.removeSocketFromEntity(player, socketId);
-      if (this.hasActiveConnection(player)) return;
-
+      if (this.hasActiveConnection(player)) 
+      {
+         this.clearDisconnectTimerForPlayer(userId);
+        this.clearNextRoundTimer();
+        return;
+      }
       player.isDisconnected = true;
       this.schedulePlayerCleanup(userId);
       return;
@@ -443,6 +566,81 @@ export default class BlackjackGame {
       console.log(`🔌 Jugador ${userId} desconectado. Esperando reconexión...`);
       spectator.isDisconnected = true;
       this.scheduleSpectatorCleanup(userId);
+    }
+  }
+
+  resetToWaitingIfOnlyBotsRemain() {
+    const humanPlayers = this.getHumanPlayerIds();
+
+    if (humanPlayers.length > 0) return false;
+
+    this.clearTurnTimer();
+    this.gameState = "waiting";
+    this.turn = null;
+    this.dealerHand = [];
+    this.deck.reset();
+
+    this.playerOrder.forEach((id) => {
+      const player = this.players[id];
+      if (!player) return;
+
+      player.hand = [];
+      player.score = 0;
+      player.status = "waiting";
+      player.result = null;
+      player.bet = 0;
+    });
+
+    return true;
+  }
+
+  leavePlayer(userId, socketId) {
+    const player = this.players[userId];
+
+    if (player) {
+      const wasCurrentTurn = this.turn === userId;
+
+      this.removeSocketFromEntity(player, socketId);
+
+      if (!this.hasActiveConnection(player)) {
+        this.clearNextRoundTimer();
+        this.clearDisconnectTimerForPlayer(userId);
+        delete this.players[userId];
+        this.playerOrder = this.playerOrder.filter((id) => id !== userId);
+        this.ensureHumanHost();
+      }
+
+      const onlyBotsReset = this.resetToWaitingIfOnlyBotsRemain();
+
+      this.promoteSpectatorsToPlayers();
+      this.ensureHumanHost();
+
+      if (!onlyBotsReset && wasCurrentTurn && this.gameState === "playing") {
+        if (this.playerOrder.length === 0) {
+          this.clearTurnTimer();
+          this.playDealerTurn();
+        } else {
+          const nextPlayerId = this.playerOrder[0];
+          this.turn = nextPlayerId;
+          this.startTurnTimer();
+        }
+      }
+
+      this.notifyStateChange();
+      return;
+    }
+
+    const spectator = this.spectators.find((s) => s.userId === userId);
+
+    if (spectator) {
+      this.removeSocketFromEntity(spectator, socketId);
+
+      if (!this.hasActiveConnection(spectator)) {
+        this.clearDisconnectTimerForSpectator(userId);
+        this.spectators = this.spectators.filter((s) => s.userId !== userId);
+      }
+
+      this.notifyStateChange();
     }
   }
 
@@ -495,9 +693,13 @@ export default class BlackjackGame {
   canStartRoundCheck() {
     if (this.gameState !== "waiting") return false;
 
+    const humanPlayers = this.getHumanPlayerIds();
+    if (humanPlayers.length === 0) return false;
+
     const activePlayers = this.getActivePlayerIds().map(
       (id) => this.players[id],
     );
+
     if (activePlayers.length === 0) return false;
 
     return activePlayers.every((player) => {
@@ -510,6 +712,9 @@ export default class BlackjackGame {
   canStartRound() {
     if (this.gameState !== "waiting") return false;
 
+    const humanPlayers = this.getHumanPlayerIds();
+    if (humanPlayers.length === 0) return false;
+
     this.playerOrder.forEach((id) => {
       const player = this.players[id];
       if (player?.isAI && player.bet === 0) {
@@ -521,15 +726,13 @@ export default class BlackjackGame {
     const activePlayers = this.getActivePlayerIds().map(
       (id) => this.players[id],
     );
+
     if (activePlayers.length === 0) return false;
 
-    const allBetsValid = activePlayers.every(
-      (player) =>
-        player && player.bet >= this.minBet && player.bet <= this.maxBet,
-    );
-
-    console.log(`🎯 canStartRound resultado: ${allBetsValid}`);
-    return allBetsValid;
+    return activePlayers.every((player) => {
+      if (player?.isAI) return true;
+      return player && player.bet >= this.minBet && player.bet <= this.maxBet;
+    });
   }
 
   promoteSpectatorsToPlayers() {
@@ -544,6 +747,11 @@ export default class BlackjackGame {
       if (!spec || spec.isDisconnected || !this.hasActiveConnection(spec)) {
         this.clearDisconnectTimerForSpectator(spec?.userId);
         this.spectators.shift();
+        continue;
+      }
+
+      if (spec.preferredSpectator) {
+        this.spectators.push(this.spectators.shift());
         continue;
       }
 
@@ -740,6 +948,7 @@ export default class BlackjackGame {
     this.gameState = "finished";
     this.resolveWinners();
     if (this.onRoundFinished) await this.onRoundFinished(this);
+      this.startNextRoundTimer();
   }
 
   resolveWinners() {
@@ -851,27 +1060,32 @@ export default class BlackjackGame {
     return numDecks > 0 ? runningCount / numDecks : 0;
   }
 
-  resetRound() {
-    this.clearTurnTimer();
-    this.gameState = "waiting";
-    this.dealerHand = [];
-    this.turn = null;
-    this.deck.reset();
+    resetRound() {
+      this.clearNextRoundTimer();
+      this.clearTurnTimer();
+      this.gameState = "waiting";
+      this.dealerHand = [];
+      this.turn = null;
+      this.deck.reset();
 
-    this.playerOrder.forEach((id) => {
-      const player = this.players[id];
-      if (!player) return;
+      this.playerOrder.forEach((id) => {
+        const player = this.players[id];
+        if (!player) return;
 
-      player.hand = [];
-      player.score = 0;
-      player.status = "waiting";
-      player.result = null;
-      player.bet = 0;
-    });
+        player.hand = [];
+        player.score = 0;
+        player.status = "waiting";
+        player.result = null;
+        player.bet = 0;
+      });
 
-    this.cleanupDisconnectedAfterRound();
-    this.promoteSpectatorsToPlayers();
-  }
+      this.cleanupDisconnectedAfterRound();
+
+      this.promoteSpectatorsToPlayers();
+      this.ensureHumanHost();
+
+      this.notifyStateChange();
+    }
 
   getPublicState() {
     const visibleHand =
