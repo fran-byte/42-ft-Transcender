@@ -1,8 +1,9 @@
-*This project has been created as part of the 42 curriculum by <frromero>, <allera-m>, <msoriano>, <manguita> and <login>*
+_This project has been created as part of the 42 curriculum by frromero, allera-m, msoriano, manguita and mamagalh_
 
-# ft_transcendence — Blackjack 
+# ft_transcendence — Blackjack
 
 ## Description
+
 ft_transcendence is a real-time multiplayer blackjack platform developed as part of the 42 curriculum.
 
 The goal of the project was to build a complete full-stack web application combining:
@@ -18,7 +19,9 @@ The goal of the project was to build a complete full-stack web application combi
 
 The application supports multiple simultaneous users playing blackjack together in real time through Socket.IO synchronization.
 
-### Key Features
+---
+
+## Key Features
 
 - Multiplayer blackjack tables
 - AI opponents
@@ -34,9 +37,9 @@ The application supports multiple simultaneous users playing blackjack together 
 
 ---
 
-## Instructions
+# Instructions
 
-### Prerequisites
+## Prerequisites
 
 Required software:
 
@@ -46,7 +49,7 @@ Required software:
 
 ---
 
-### Installation
+## Installation
 
 Clone repository:
 
@@ -57,7 +60,7 @@ cd ft_transcendence
 
 ---
 
-### Start Project
+## Start Project
 
 Run:
 
@@ -66,6 +69,7 @@ make
 ```
 
 This automatically:
+
 - Builds containers
 - Generates SSL certificates
 - Creates environment variables
@@ -73,16 +77,16 @@ This automatically:
 
 ---
 
-### Access
+## Access
 
-| Service | URL |
-|---|---|
+| Service     | URL                     |
+| ----------- | ----------------------- |
 | Application | https://blackjack.local |
-| Grafana | http://localhost:3001 |
-| Prometheus | http://localhost:9090 |
-| cAdvisor | http://localhost:8080 |
+| Grafana     | http://localhost:3001   |
+| Prometheus  | http://localhost:9090   |
+| cAdvisor    | http://localhost:8080   |
 
-⚠️ Self-signed SSL certificates are used for local development.
+> ⚠️ Self-signed SSL certificates are used for local development.
 
 ---
 
@@ -99,24 +103,43 @@ This automatically:
 - https://grafana.com/docs/
 - https://prometheus.io/docs/
 
-### Additional Documentation
+---
+
+## Additional Documentation
 
 Additional technical documentation:
+
 - `docs/docker.md`
 - `docs/gameplay.md`
 
 ---
 
+# AI Usage
+
+During development, AI tools (ChatGPT, GitHub Copilot) were used for:
+
+- Code documentation generation (JSDoc comments, function descriptions)
+- Debugging assistance for WebSocket synchronization and reconnection issues
+- Identifying and fixing recurring errors in React components
+- Reviewing and refactoring code for performance optimization (`useMemo`, `React.memo`)
+- Generating boilerplate code for repetitive tasks
+
+All AI-generated code was reviewed, tested, and fully understood by team members before integration. No code was blindly copied without comprehension.
+
+---
+
 # Team Information
 
-## <login1>
+## msoriano
 
 ### Roles
+
 - PM
 - Frontend Developer
 - Gameplay Developer
 
 ### Responsibilities
+
 - Frontend architecture
 - Game UI/UX
 - Spectator mode
@@ -126,13 +149,15 @@ Additional technical documentation:
 
 ---
 
-## <login2>
+## frromero
 
 ### Roles
+
 - Backend Developer
 - Infrastructure Developer
 
 ### Responsibilities
+
 - Backend API
 - Authentication system
 - Database integration
@@ -142,19 +167,50 @@ Additional technical documentation:
 
 ---
 
-## <login3>
+## manguita
 
 ### Roles
+
+- AI Developer
+
+### Responsibilities
+
+- AI integration within the backend
+- AI opponent logic and behavior
+- Testing
+- Initialization of the `docker-compose-dev.yml` development branch
+
+---
+
+## allera-m
+
+### Roles
+
 - Tech Lead
 - Full Stack Developer
 
 ### Responsibilities
+
 - System architecture
 - WebSocket synchronization
 - Multiplayer game management
-- AI system
 - Reconnection/disconnection handling
 - Code review and integration
+
+---
+
+## mamagalh
+
+### Roles
+
+- DevOps / Monitoring Developer
+
+### Responsibilities
+
+- Metrics integration using Prometheus, Grafana and cAdvisor
+- Docker orchestration of the three monitoring services
+- Custom Grafana dashboards
+- Container performance monitoring
 
 ---
 
@@ -165,6 +221,7 @@ Additional technical documentation:
 The project was developed iteratively using task distribution between frontend, backend, infrastructure, and gameplay systems.
 
 Development included:
+
 - Feature planning
 - Weekly synchronization meetings
 - Incremental integration
@@ -201,6 +258,7 @@ Development included:
 ### Why React?
 
 React was chosen because:
+
 - Component-based architecture
 - Fast UI rendering
 - Easy state management
@@ -230,6 +288,7 @@ React was chosen because:
 ### Why PostgreSQL?
 
 PostgreSQL was chosen because:
+
 - Strong reliability
 - ACID compliance
 - Relational structure suitable for users, matches and statistics
@@ -257,13 +316,13 @@ PostgreSQL was chosen because:
 
 Stores user accounts and authentication data.
 
-| Field | Type |
-|---|---|
-| id | INTEGER |
-| username | VARCHAR |
-| email | VARCHAR |
+| Field         | Type    |
+| ------------- | ------- |
+| id            | INTEGER |
+| username      | VARCHAR |
+| email         | VARCHAR |
 | password_hash | VARCHAR |
-| balance | INTEGER |
+| balance       | INTEGER |
 
 ---
 
@@ -271,11 +330,11 @@ Stores user accounts and authentication data.
 
 Stores player statistics.
 
-| Field | Type |
-|---|---|
-| user_id | INTEGER |
-| wins | INTEGER |
-| losses | INTEGER |
+| Field        | Type    |
+| ------------ | ------- |
+| user_id      | INTEGER |
+| wins         | INTEGER |
+| losses       | INTEGER |
 | games_played | INTEGER |
 
 ---
@@ -284,13 +343,13 @@ Stores player statistics.
 
 Stores match history.
 
-| Field | Type |
-|---|---|
-| id | INTEGER |
-| user_id | INTEGER |
-| result | VARCHAR |
-| chips_change | INTEGER |
-| created_at | TIMESTAMP |
+| Field        | Type      |
+| ------------ | --------- |
+| id           | INTEGER   |
+| user_id      | INTEGER   |
+| result       | VARCHAR   |
+| chips_change | INTEGER   |
+| created_at   | TIMESTAMP |
 
 ---
 
@@ -304,81 +363,126 @@ users
 
 ---
 
+## Database Schema Diagram
+
+```text
+┌─────────────────┐     ┌─────────────────┐
+│      users      │     │      stats      │
+├─────────────────┤     ├─────────────────┤
+│ id (PK)         │────<│ user_id (FK)    │
+│ username        │     │ wins            │
+│ email           │     │ losses          │
+│ password_hash   │     │ games_played    │
+│ balance         │     └─────────────────┘
+└─────────────────┘
+         │
+         │
+         ▼
+┌─────────────────┐
+│     history     │
+├─────────────────┤
+│ id (PK)         │
+│ user_id (FK)    │
+│ result          │
+│ chips_change    │
+│ created_at      │
+└─────────────────┘
+```
+
+---
+
 # Features List
 
-| Feature | Description | Team Member(s) |
-|---|---|---|
-| Multiplayer Blackjack | Real-time blackjack gameplay | <login1>, <login3> |
-| Authentication System | Register/login/logout system | <login2> |
-| AI Opponent | Automated blackjack bots | <login3> |
-| Spectator Mode | Watch ongoing matches live | <login1> |
-| Statistics & Leaderboard | Persistent stats system | <login2> |
-| Responsive Design | Mobile/tablet support | <login1> |
-| HTTPS Infrastructure | Secure HTTPS deployment | <login2> |
-| Monitoring Stack | Grafana/Prometheus integration | <login2> |
-| Reconnection System | Grace timers and reconnect recovery | <login3> |
+| Feature                  | Description                             | Team Member(s)     |
+| ------------------------ | --------------------------------------- | ------------------ |
+| Multiplayer Blackjack    | Real-time blackjack gameplay            | msoriano, allera-m |
+| Authentication System    | Register/login/logout system            | frromero           |
+| AI Opponent              | Automated blackjack bots                | manguita           |
+| Spectator Mode           | Watch ongoing matches live              | msoriano           |
+| Statistics & Leaderboard | Persistent stats system                 | frromero           |
+| Responsive Design        | Mobile/tablet support                   | msoriano           |
+| HTTPS Infrastructure     | Secure HTTPS deployment                 | frromero           |
+| Monitoring Stack         | Grafana/Prometheus/cAdvisor integration | mamagalh           |
+| Reconnection System      | Grace timers and reconnect recovery     | allera-m           |
 
 ---
 
 # Modules
 
-| Module | Points |
-|---|---|
-| Frontend + Backend Framework       | 2 |
-| Real-Time Features with WebSockets | 2 |
-| Standard User Management           | 2 |
-| Statistics / History               | 1 |
-| AI Opponent                        | 2 |
-| Web-Based Game                     | 2 |
-| Remote Players                     | 2 |
-| Multiplayer Game                   | 2 |
-| Spectator Mode                     | 1 |
-| Additional Browser Support         | 1 |
+| Module                             | Type  | Points |
+| ---------------------------------- | ----- | ------ |
+| Frontend + Backend Framework       | Major | 2      |
+| Real-Time Features with WebSockets | Major | 2      |
+| Standard User Management           | Major | 2      |
+| Statistics / History               | Minor | 1      |
+| AI Opponent                        | Major | 2      |
+| Web-Based Game                     | Major | 2      |
+| Remote Players                     | Major | 2      |
+| Multiplayer Game (3+ players)      | Major | 2      |
+| Spectator Mode                     | Minor | 1      |
+| Additional Browser Support         | Minor | 1      |
 
-## Estimated Total: 17 Points
+**Total: 17 points (14 required + 3 bonus)**
 
 ---
 
-## Module Justification
+# Module Justification
 
-### Frontend + Backend Framework
+## Frontend + Backend Framework
+
 Implemented using React and Express.js.
 
-### Real-Time Features with WebSockets
+## Real-Time Features with WebSockets
+
 Implemented using Socket.IO for multiplayer synchronization.
 
-### Standard User Management
+## Standard User Management
+
 JWT authentication, secure cookies, login/register/logout system.
 
-### Statistics / History
+## Statistics / History
+
 Persistent player statistics and match history stored in PostgreSQL.
 
-### AI Opponent
+## AI Opponent
+
 AI-controlled blackjack players capable of autonomous gameplay.
 
-### Web-Based Game
+## Web-Based Game
+
 Fully browser-playable blackjack game.
 
-### Remote Players
+## Remote Players
+
 Real-time multiplayer matches across different clients.
 
-### Multiplayer Game
+## Multiplayer Game
+
 Multiple simultaneous players interacting in the same room.
 
-### Spectator Mode
+## Spectator Mode
+
 Users can watch ongoing matches and join when seats become available.
 
-### Additional Browser Support
+## Additional Browser Support
+
 Tested compatibility with:
+
 - Chrome
 - Firefox
 - Edge
 
 ---
 
+# Legal
+
+The application includes accessible Privacy Policy and Terms of Service pages, reachable via footer links from any page of the application. These pages contain relevant content specific to this project and are not placeholders.
+
+---
+
 # Individual Contributions
 
-## <login1>
+## msoriano
 
 - Frontend architecture
 - Responsive design
@@ -387,11 +491,12 @@ Tested compatibility with:
 - Lobby system
 
 ### Challenges
+
 Managing responsive multiplayer layouts and synchronization issues.
 
 ---
 
-## <login2>
+## frromero
 
 - Backend API
 - PostgreSQL integration
@@ -400,19 +505,45 @@ Managing responsive multiplayer layouts and synchronization issues.
 - Monitoring tools
 
 ### Challenges
+
 Container networking and HTTPS reverse proxy configuration.
 
 ---
 
-## <login3>
+## manguita
 
-- Multiplayer synchronization
+- AI integration within the backend
+- Testing
+- Initialization of the `docker-compose-dev.yml` development branch
+
+### Challenges
+
+Integrating AI logic within the existing backend architecture and maintaining a stable development environment.
+
+---
+
+## allera-m
+
 - AI gameplay system
 - Reconnection/disconnection handling
 - Socket event management
 
 ### Challenges
+
 Handling race conditions, reconnect logic and multiplayer edge cases.
+
+---
+
+## mamagalh
+
+- Metrics integration with Prometheus, Grafana and cAdvisor
+- Monitoring stack orchestration
+- Custom Grafana dashboards
+- Container performance monitoring
+
+### Challenges
+
+Configuring three monitoring services to work together and display meaningful metrics.
 
 ---
 
@@ -421,6 +552,7 @@ Handling race conditions, reconnect logic and multiplayer edge cases.
 The application uses Socket.IO for real-time synchronization between all clients.
 
 Implemented features include:
+
 - Room-based synchronization
 - Turn synchronization
 - Spectator synchronization
