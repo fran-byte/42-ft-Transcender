@@ -90,7 +90,9 @@ export function registerGameHandlers(io, socket, games) {
               const result = await pool.query('SELECT balance FROM users WHERE id = $1', [userId]);
               if (result.rows.length > 0) return Number(result.rows[0].balance);
             } catch (error) {
-              console.error('Error syncBalance:', error);
+              if (import.meta.env.DEV) {
+                console.log('Error syncBalance:', error);
+              }
             }
             return null;
           },

@@ -83,7 +83,9 @@ function Register() {
 
       navigate("/profile");
     } catch (error) {
-      console.error("Register error:", error);
+      if (import.meta.env.DEV) {
+        console.log("Register error:", error);
+      }
       setErrorMsg("Unable to connect to the server");
     } finally {
       setLoading(false);

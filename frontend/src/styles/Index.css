@@ -63,11 +63,13 @@ input {
 }
 
 .shell {
+  min-height: 100dvh;
   min-height: 100vh;
   width: 100%;
 }
 
 .page {
+  min-height: 100dvh;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -84,6 +86,7 @@ main {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .btn {
@@ -176,6 +179,7 @@ main {
   width: 100%;
   background: rgba(6, 20, 14, 0.82);
   backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -242,6 +246,7 @@ main {
 
 /* HOME */
 .home-page {
+  min-height: 100dvh;
   min-height: 100vh;
   width: 100%;
 }
@@ -1287,6 +1292,7 @@ main {
   flex: 1;
   display: flex;
   align-items: center;
+  padding-bottom: 4dvh;
   padding-bottom: 4vh;
 }
 
@@ -1336,6 +1342,7 @@ main {
   display: grid;
   place-items: center;
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
   cursor: pointer;
   padding: 0;

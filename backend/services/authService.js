@@ -7,8 +7,11 @@ const SALT_ROUNDS = 10;
 
 const cookieOptions = {
   httpOnly: true,
-  secure: env.nodeEnv === 'production',
-  sameSite: 'strict',
+  /* BROWSER COMPATIBILITY SETTINGS */
+  //secure: env.nodeEnv === 'production',
+  secure: true,
+  sameSite: 'lax',
+  //sameSite: 'strict',
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 

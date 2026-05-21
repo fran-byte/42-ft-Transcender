@@ -14,7 +14,8 @@ function Navbar() {
         credentials: "include",
       });
     } catch (error) {
-      console.error("Error cerrando sesión:", error);
+      if (import.meta.env.DEV) {
+        console.log("Error cerrando sesión:", error);}
     }
 
     localStorage.removeItem("isLoggedIn");

@@ -30,6 +30,7 @@ export async function persistFinishedGame(game) {
       );
     }
   } catch (error) {
-    console.error('❌ Error guardando historial:', error);
+    if (import.meta.env.DEV) {
+  console.log('❌ Error guardando historial:', error);}
   }
 }

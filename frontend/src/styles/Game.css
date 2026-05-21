@@ -17,6 +17,7 @@ body,
 }
 
 #root {
+  min-height: 100dvh;
   min-height: 100vh;
   text-align: initial;
 }
@@ -38,11 +39,13 @@ textarea {
 }
 
 .app-container {
+  min-height: 100dvh;
   min-height: 100vh;
   width: 100%;
 }
 
 .game-page {
+  min-height: 100dvh;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -84,6 +87,7 @@ textarea {
   width: 100%;
   background: rgba(6, 20, 14, 0.82);
   backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -260,6 +264,7 @@ textarea {
     0 10px 28px rgba(0, 0, 0, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .spectator-panel__header {
@@ -526,6 +531,7 @@ textarea {
   background: rgba(7, 16, 10, 0.58);
   border: 1px solid rgba(245, 216, 124, 0.22);
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   min-width: 280px;
   max-width: min(92%, 560px);
 }
@@ -1128,6 +1134,7 @@ textarea {
   z-index: 1000;
   background: rgba(5, 10, 8, 0.74);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;

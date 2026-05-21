@@ -155,7 +155,9 @@ function Game() {
           navigate("/login");
         }
       } catch (error) {
-        console.error("Error verifying user:", error);
+        if (import.meta.env.DEV) {
+          console.log("Error verifying user:", error);
+        }
         navigate("/login");
       }
     };
@@ -186,7 +188,9 @@ function Game() {
           }
         }
       } catch (error) {
-        console.error("Error loading balance:", error);
+        if (import.meta.env.DEV) {
+          console.log("Error loading balance:", error);
+        }
       }
 
       try {
@@ -226,8 +230,9 @@ function Game() {
           }
         }
       } catch (error) {
-        console.error("Error loading stats:", error);
-
+        if (import.meta.env.DEV) {
+          console.log("Error loading stats:", error);
+        }
         const rawLocalStats = localStorage.getItem(localStatsKey);
         if (rawLocalStats) {
           setStats(JSON.parse(rawLocalStats));
@@ -479,7 +484,11 @@ function Game() {
           syncBalance(data.balance);
         }
       })
-      .catch((err) => console.error("Error refreshing balance:", err));
+      .catch((err) => {
+        if (import.meta.env.DEV) {
+          console.log("Error refreshing balance:", err);
+        }
+      });
 
     const localStatsKey = `stats_${authUser.id}`;
 
@@ -511,7 +520,9 @@ function Game() {
         const data = await res.json();
         console.log("stats saved:", data);
       } catch (error) {
-        console.error("Error saving stats:", error);
+        if (import.meta.env.DEV) {
+        console.log("Error saving stats:", error);
+        }
       }
     };
 

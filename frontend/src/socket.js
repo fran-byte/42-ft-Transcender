@@ -20,7 +20,8 @@ socket.on("disconnect", (reason) => {
 });
 
 socket.on("connect_error", (error) => {
-  console.error("⚠️ Connection error:", error.message);
+  if (import.meta.env.DEV) {
+  console.log("⚠️ Connection error:", error.message);}
 });
 
 export default socket;
