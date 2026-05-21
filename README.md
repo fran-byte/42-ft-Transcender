@@ -1,4 +1,4 @@
-_This project has been created as part of the 42 curriculum by frromero, allera-m, msoriano, manguita and mamagalh_
+_This project has been created as part of the 42 curriculum by frromero, allera-m, msoriano, maanguit and mamagalh_
 
 # ft_transcendence — Blackjack
 
@@ -166,7 +166,7 @@ All AI-generated code was reviewed, tested, and fully understood by team members
 
 ---
 
-## manguita
+## maanguit
 
 ### Roles
 
@@ -402,7 +402,7 @@ users
 | ------------------------ | --------------------------------------- | ----------------------------------- |
 | Multiplayer Blackjack    | Real-time blackjack gameplay            | msoriano, allera-m                  |
 | Authentication System    | Register/login/logout system            | allera-m (main), frromero (support) |
-| AI Opponent              | Automated blackjack bots                | manguita                            |
+| AI Opponent              | Automated blackjack bots                | maanguit                            |
 | Spectator Mode           | Watch ongoing matches live              | msoriano                            |
 | Statistics & Leaderboard | Persistent stats system                 | allera-m (main), frromero (support) |
 | Responsive Design        | Mobile/tablet support                   | msoriano                            |
@@ -453,6 +453,8 @@ Persistent player statistics and match history stored in PostgreSQL.
 
 ## AI Opponent
 
+Author: maanguit
+
 `ml_service/` is a dedicated Python microservice running a **Dueling Double DQN** (D3QN) with **Prioritized Experience Replay** (PER), trained with PyTorch and served at runtime as a Flask REST API (`POST /predict`) using pure NumPy inference. The AI receives the game state (player score, dealer card, usable ace, true count, can double) and returns the optimal action (hit / stand / double). Trained mean reward ~-0.0186 — competitive without being perfect. The backend falls back to a basic strategy if the ML service is unavailable.
 
 ## Web-Based Game
@@ -472,6 +474,8 @@ Multiple simultaneous players interacting in the same room.
 Users can watch ongoing matches and join when seats become available.
 
 ## Backend as Microservices
+
+Author: maanguit
 
 The `ml_service/` directory is the dedicated microservice that satisfies this module: a standalone Python/Flask container with a single responsibility (DQN inference for the AI opponent), fully decoupled from the Node.js backend. It exposes a clean REST API (`POST /predict`, `GET /health`) and is called by the backend over the internal Docker network. Each service in the stack (frontend, backend, database, ml_service, nginx, monitoring) runs in its own container with its own Dockerfile and configuration, orchestrated via docker-compose. Nginx acts as the external gateway — `ml_service` is never exposed directly.
 
@@ -521,7 +525,7 @@ Container networking and HTTPS reverse proxy configuration.
 
 ---
 
-## manguita
+## maanguit
 
 - AI integration within the backend (main owner)
 - Backend support (assisted allera-m)
