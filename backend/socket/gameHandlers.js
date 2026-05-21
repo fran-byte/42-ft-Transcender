@@ -348,9 +348,11 @@ export function registerGameHandlers(io, socket, games) {
         game.removePlayer(currentUserId, socket.id);
         game.ensureHumanHost();
 
+        /*
         if (game.gameState === "playing" && game.turn === currentUserId) {
           game.nextTurn();
         }
+        */
 
         const activePlayers = Object.values(game.players).filter(
           (p) => p && p.socketIds instanceof Set && p.socketIds.size > 0

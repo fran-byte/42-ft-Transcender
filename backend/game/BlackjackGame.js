@@ -42,8 +42,9 @@ export default class BlackjackGame {
     this.turnTimer = null;
     this.nextRoundTimer = null;
 
-    this.NEXT_ROUND_GRACE_MS = 10000;
-    this.DISCONNECT_GRACE_MS = 15000;
+    this.NEXT_ROUND_GRACE_MS = 10000;           // waits for host to press next round
+    this.DISCONNECT_GRACE_MS = 15000;           // waits for player to reconnect before marking as disconnected
+    this.DISCONNECTED_TURN_GRACE_MS = 15000;    // waits for disconnected player's turn to end before auto-playing for them or skipping their turn
   }
 
   notifyStateChange() {
@@ -94,19 +95,20 @@ export default class BlackjackGame {
   }
 
   getHumanPlayerIds() {
-  return this.playerOrder.filter((id) => {
-    const player = this.players[id];
-    return player && !player.isAI && !player.isDisconnected;
-  });
-}
-clearNextRoundTimer() {
-  if (this.nextRoundTimer) {
-    clearTimeout(this.nextRoundTimer);
-    this.nextRoundTimer = null;
+    return this.playerOrder.filter((id) => {
+      const player = this.players[id];
+      return player && !player.isAI && !player.isDisconnected;
+    });
   }
-}
 
-startNextRoundTimer() {
+  clearNextRoundTimer() {
+    if (this.nextRoundTimer) {
+      clearTimeout(this.nextRoundTimer);
+      this.nextRoundTimer = null;
+    }
+  }
+
+  startNextRoundTimer() {
     this.clearNextRoundTimer();
 
     if (this.gameState !== "finished") return;
@@ -121,19 +123,33 @@ startNextRoundTimer() {
       if (!latestHost || latestHost.isAI || this.gameState !== "finished") return;
 
       latestHost.isDisconnected = true;
-
-      this.clearDisconnectTimerForPlayer(hostId);
-      delete this.players[hostId];
-      this.playerOrder = this.playerOrder.filter((id) => id !== hostId);
+      latestHost.disconnectTimer = null;
 
       this.clearNextRoundTimer();
 
       this.resetRound();
-      this.promoteSpectatorsToPlayers();
-      this.ensureHumanHost();
 
       this.notifyStateChange();
     }, this.NEXT_ROUND_GRACE_MS);
+  }
+
+  startDisconnectedTurnGrace(userId) {
+    this.clearTurnTimer();
+
+    this.turnTimer = setTimeout(async () => {
+      const player = this.players[userId];
+
+      if (!player) return;
+      if (!player.isDisconnected) return;
+      if (this.gameState !== "playing") return;
+      if (this.turn !== userId) return;
+
+      player.status = "stood";
+
+      await this.nextTurn();
+
+      this.notifyStateChange();
+    }, this.DISCONNECTED_TURN_GRACE_MS);
   }
 
   ensureHumanHost() {
@@ -268,6 +284,11 @@ startNextRoundTimer() {
       player.username = username;
       player.avatar = avatar;
       player.isDisconnected = false;
+      
+      if (this.turn === userId && this.gameState === "playing") {
+        this.clearTurnTimer();
+        this.startTurnTimer();
+      }
 
       return { role: "player", success: true, reconnected: true };
     }
@@ -549,14 +570,20 @@ startNextRoundTimer() {
       this.removeSocketFromEntity(player, socketId);
       if (this.hasActiveConnection(player)) 
       {
-         this.clearDisconnectTimerForPlayer(userId);
-        this.clearNextRoundTimer();
+        //this.clearDisconnectTimerForPlayer(userId);
+        //this.clearNextRoundTimer();
         return;
       }
       player.isDisconnected = true;
       this.schedulePlayerCleanup(userId);
+
+      if (this.gameState === "playing" && this.turn === userId) {
+        this.startDisconnectedTurnGrace(userId);
+      }
+
+      this.notifyStateChange();
       return;
-    }
+      }
 
     const spectator = this.spectators.find((s) => s.userId === userId);
     if (spectator) {
@@ -1068,6 +1095,11 @@ startNextRoundTimer() {
       this.turn = null;
       this.deck.reset();
 
+      this.cleanupDisconnectedAfterRound();
+
+      this.promoteSpectatorsToPlayers();
+      this.ensureHumanHost();
+
       this.playerOrder.forEach((id) => {
         const player = this.players[id];
         if (!player) return;
@@ -1078,11 +1110,6 @@ startNextRoundTimer() {
         player.result = null;
         player.bet = 0;
       });
-
-      this.cleanupDisconnectedAfterRound();
-
-      this.promoteSpectatorsToPlayers();
-      this.ensureHumanHost();
 
       this.notifyStateChange();
     }
