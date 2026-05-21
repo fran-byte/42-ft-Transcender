@@ -427,8 +427,9 @@ users
 | Multiplayer Game (3+ players)      | Major | 2      |
 | Spectator Mode                     | Minor | 1      |
 | Additional Browser Support         | Minor | 1      |
+| Backend as Microservices           | Major | 2      |
 
-**Total: 17 points (14 required + 3 bonus)**
+**Total: 19 points (14 required + 5 bonus)**
 
 ---
 
@@ -452,7 +453,7 @@ Persistent player statistics and match history stored in PostgreSQL.
 
 ## AI Opponent
 
-AI-controlled blackjack players capable of autonomous gameplay.
+`ml_service/` is a dedicated Python microservice running a **Dueling Double DQN** (D3QN) with **Prioritized Experience Replay** (PER), trained with PyTorch and served at runtime as a Flask REST API (`POST /predict`) using pure NumPy inference. The AI receives the game state (player score, dealer card, usable ace, true count, can double) and returns the optimal action (hit / stand / double). Trained mean reward ~-0.0186 — competitive without being perfect. The backend falls back to a basic strategy if the ML service is unavailable.
 
 ## Web-Based Game
 
@@ -469,6 +470,10 @@ Multiple simultaneous players interacting in the same room.
 ## Spectator Mode
 
 Users can watch ongoing matches and join when seats become available.
+
+## Backend as Microservices
+
+The `ml_service/` directory is the dedicated microservice that satisfies this module: a standalone Python/Flask container with a single responsibility (DQN inference for the AI opponent), fully decoupled from the Node.js backend. It exposes a clean REST API (`POST /predict`, `GET /health`) and is called by the backend over the internal Docker network. Each service in the stack (frontend, backend, database, ml_service, nginx, monitoring) runs in its own container with its own Dockerfile and configuration, orchestrated via docker-compose. Nginx acts as the external gateway — `ml_service` is never exposed directly.
 
 ## Additional Browser Support
 

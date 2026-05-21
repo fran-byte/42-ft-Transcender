@@ -14,8 +14,9 @@
 | Multiplayer Game                   | 2 |
 | Spectator Mode                     | 1 |
 | Additional Browser Support         | 1 |
+| Backend as Microservices           | 2 |
 
-## Estimated Total: 16-17 Points
+## Estimated Total: 18-19 Points
 
 This satisfies the mandatory minimum requirement.
 
@@ -240,15 +241,53 @@ Possible points: 1
 ---
 
 ## AI Opponent ✅ (Major Module — 2pts)
+Requirement:
+- The AI must be challenging and able to win occasionally.         ✅
+- The AI should simulate human-like behavior (not perfect play).   ✅
+- Must be able to explain the AI implementation during evaluation. ✅
+
 How we satisfy it:
-- AI blackjack bots         ✅
-- Automated turns           ✅
-- AI decision system        ✅
+- `ml_service/` is a dedicated Python microservice running a **Dueling Double DQN** (D3QN) with **Prioritized Experience Replay** (PER), trained with PyTorch.
+- The trained model is exported to NumPy `.npz` format and served at runtime without PyTorch — pure NumPy inference via a Flask REST API (`POST /predict`).
+- The AI receives 5 game-state features (player score, dealer visible card, usable ace, true count, can double) and returns the optimal action (hit / stand / double) with confidence and Q-values.
+- The model is competitive but not perfect: trained mean reward ~-0.0186 (near the theoretical optimum for blackjack, which always has a slight house edge), making it challenging without being unbeatable.
+- The backend (`backend/services/mlService.js`) calls `http://ml-service:5000/predict` over the internal Docker network and falls back to a basic strategy if the service is unavailable.
 
 How to test:
-1. Add AI player
-2. Start game
-3. Verify AI takes autonomous actions
+1. Add AI player to a table.
+2. Start game and verify AI takes autonomous actions (hit/stand/double).
+3. Verify AI decisions vary and are non-trivial.
+4. Run `docker compose ps` and confirm `blackjack-ml-service` container is running.
+5. Call `GET http://localhost:5000/health` and verify `model_loaded: true`.
+
+Subject reference: IV.4 — Major: AI Opponent.
+
+Points: 2
+
+---
+
+## Backend as Microservices ✅ (Major Module — 2pts)
+Requirement:
+- Design loosely-coupled services with clear interfaces.   ✅
+- Use REST APIs or message queues for communication.       ✅
+- Each service should have a single responsibility.        ✅
+
+How we satisfy it:
+- The `ml_service/` is the key dedicated microservice that demonstrates this architecture: a standalone Python/Flask container with a single responsibility (DQN inference for the AI opponent), completely independent from the Node.js backend.
+- `ml_service` exposes a clear REST API: `POST /predict` (AI action) and `GET /health` (status).
+- The backend calls `ml_service` over the internal Docker network via `http://ml-service:5000`.
+- Each service (frontend, backend, database, ml_service, nginx, monitoring) runs in its own container, orchestrated via docker-compose.
+- Nginx acts as reverse proxy/gateway routing external requests to the correct service.
+- `ml_service` has its own `Dockerfile`, dependencies, and codebase — entirely decoupled from the rest.
+
+How to test:
+1. Run `docker compose ps` and verify `blackjack-ml-service` runs as a separate container.
+2. Stop `ml_service` (`docker compose stop ml-service`) and verify the rest of the app keeps running (AI falls back to basic strategy).
+3. Call `POST http://localhost:5000/predict` directly with a game state and verify it returns an action.
+4. Verify `ml_service` has its own `Dockerfile` and no shared code with the backend.
+5. Verify Nginx does not expose `ml_service` externally — only the backend calls it internally.
+
+Subject reference: IV.7 — Major: Backend as microservices.
 
 Points: 2
 
