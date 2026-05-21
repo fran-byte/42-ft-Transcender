@@ -140,7 +140,7 @@ All AI-generated code was reviewed, tested, and fully understood by team members
 
 ### Responsibilities
 
-- Frontend architecture
+- Frontend architecture (main owner)
 - Game UI/UX
 - Spectator mode
 - Responsive design
@@ -153,17 +153,16 @@ All AI-generated code was reviewed, tested, and fully understood by team members
 
 ### Roles
 
-- Backend Developer
 - Infrastructure Developer
+- Backend Support
 
 ### Responsibilities
 
-- Backend API
-- Authentication system
-- Database integration
-- Docker infrastructure
-- Nginx and HTTPS setup
-- Monitoring stack
+- Docker infrastructure (docker-compose.yml, multi-container orchestration)
+- Nginx configuration and HTTPS setup (self-signed certificates, reverse proxy)
+- Makefile automation for project setup
+- Backend API support (assisted allera-m with debugging and fixes)
+- PostgreSQL integration support
 
 ---
 
@@ -172,11 +171,14 @@ All AI-generated code was reviewed, tested, and fully understood by team members
 ### Roles
 
 - AI Developer
+- Backend Support
+- Frontend Support
 
 ### Responsibilities
 
-- AI integration within the backend
-- AI opponent logic and behavior
+- AI integration within the backend (AI opponent logic and behavior)
+- Backend support (assisted allera-m with backend tasks)
+- Frontend support (assisted msoriano with frontend tasks)
 - Testing
 - Initialization of the `docker-compose-dev.yml` development branch
 
@@ -187,13 +189,15 @@ All AI-generated code was reviewed, tested, and fully understood by team members
 ### Roles
 
 - Tech Lead
-- Full Stack Developer
+- Full Stack Developer (Backend Owner)
 
 ### Responsibilities
 
 - System architecture
 - WebSocket synchronization
 - Multiplayer game management
+- Backend API (main owner)
+- Authentication system logic
 - Reconnection/disconnection handling
 - Code review and integration
 
@@ -204,11 +208,12 @@ All AI-generated code was reviewed, tested, and fully understood by team members
 ### Roles
 
 - DevOps / Monitoring Developer
+- Docker Support
 
 ### Responsibilities
 
-- Metrics integration using Prometheus, Grafana and cAdvisor
-- Docker orchestration of the three monitoring services
+- Metrics integration using Prometheus, Grafana and cAdvisor (3 services)
+- Docker orchestration support (assisted frromero with container setup)
 - Custom Grafana dashboards
 - Container performance monitoring
 
@@ -393,17 +398,18 @@ users
 
 # Features List
 
-| Feature                  | Description                             | Team Member(s)     |
-| ------------------------ | --------------------------------------- | ------------------ |
-| Multiplayer Blackjack    | Real-time blackjack gameplay            | msoriano, allera-m |
-| Authentication System    | Register/login/logout system            | frromero           |
-| AI Opponent              | Automated blackjack bots                | manguita           |
-| Spectator Mode           | Watch ongoing matches live              | msoriano           |
-| Statistics & Leaderboard | Persistent stats system                 | frromero           |
-| Responsive Design        | Mobile/tablet support                   | msoriano           |
-| HTTPS Infrastructure     | Secure HTTPS deployment                 | frromero           |
-| Monitoring Stack         | Grafana/Prometheus/cAdvisor integration | mamagalh           |
-| Reconnection System      | Grace timers and reconnect recovery     | allera-m           |
+| Feature                  | Description                             | Team Member(s)                      |
+| ------------------------ | --------------------------------------- | ----------------------------------- |
+| Multiplayer Blackjack    | Real-time blackjack gameplay            | msoriano, allera-m                  |
+| Authentication System    | Register/login/logout system            | allera-m (main), frromero (support) |
+| AI Opponent              | Automated blackjack bots                | manguita                            |
+| Spectator Mode           | Watch ongoing matches live              | msoriano                            |
+| Statistics & Leaderboard | Persistent stats system                 | allera-m (main), frromero (support) |
+| Responsive Design        | Mobile/tablet support                   | msoriano                            |
+| HTTPS Infrastructure     | Secure HTTPS deployment                 | frromero                            |
+| Monitoring Stack         | Grafana/Prometheus/cAdvisor integration | mamagalh                            |
+| Reconnection System      | Grace timers and reconnect recovery     | allera-m                            |
+| Docker Orchestration     | Multi-container setup                   | frromero (main), mamagalh (support) |
 
 ---
 
@@ -484,7 +490,7 @@ The application includes accessible Privacy Policy and Terms of Service pages, r
 
 ## msoriano
 
-- Frontend architecture
+- Frontend architecture (main owner)
 - Responsive design
 - Spectator system
 - Game UI implementation
@@ -498,11 +504,11 @@ Managing responsive multiplayer layouts and synchronization issues.
 
 ## frromero
 
-- Backend API
-- PostgreSQL integration
-- Docker infrastructure
-- HTTPS setup
-- Monitoring tools
+- Docker infrastructure (main owner)
+- Nginx and HTTPS setup
+- Makefile automation
+- Backend API support (assisted allera-m)
+- PostgreSQL integration support
 
 ### Challenges
 
@@ -512,9 +518,11 @@ Container networking and HTTPS reverse proxy configuration.
 
 ## manguita
 
-- AI integration within the backend
+- AI integration within the backend (main owner)
+- Backend support (assisted allera-m)
+- Frontend support (assisted msoriano)
 - Testing
-- Initialization of the `docker-compose-dev.yml` development branch
+- Initialization of `docker-compose-dev.yml`
 
 ### Challenges
 
@@ -524,9 +532,12 @@ Integrating AI logic within the existing backend architecture and maintaining a 
 
 ## allera-m
 
-- AI gameplay system
+- Backend API (main owner)
+- Authentication system logic
+- WebSocket synchronization
+- Multiplayer game management
 - Reconnection/disconnection handling
-- Socket event management
+- Statistics and history system
 
 ### Challenges
 
@@ -536,10 +547,11 @@ Handling race conditions, reconnect logic and multiplayer edge cases.
 
 ## mamagalh
 
-- Metrics integration with Prometheus, Grafana and cAdvisor
+- Metrics integration with Prometheus, Grafana and cAdvisor (main owner - 3 services)
 - Monitoring stack orchestration
 - Custom Grafana dashboards
 - Container performance monitoring
+- Docker orchestration support (assisted frromero)
 
 ### Challenges
 
@@ -559,3 +571,10 @@ Implemented features include:
 - Disconnect grace timers
 - Reconnection recovery
 - Real-time state broadcasting
+
+```
+
+
+
+
+```
