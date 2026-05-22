@@ -1,13 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { getSocket, disconnectSocket } from "../socket";
+import { socket } from "../socket";
 import Card from "../components/Card";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import "../styles/Game.css";
 
 const API_URL = "";
-const socket = getSocket();
 
 function Game() {
   const storedRoomRaw = localStorage.getItem("selectedRoom");
@@ -51,8 +50,8 @@ function Game() {
       return null;
     }
   });
-  const [roomId] = useState(() => storedRoom.id || "solo-table");
-  const roleStorageKey = useMemo(() => {
+    const [roomId] = useState(() => storedRoom.id || "solo-table");
+    const roleStorageKey = useMemo(() => {
     const tempUser = JSON.parse(localStorage.getItem("user") || "{}");
     const userId = tempUser?.id || "guest";
     return `blackjack_role_${roomId}_${userId}`;
@@ -91,42 +90,20 @@ function Game() {
   const [sessionScore, setSessionScore] = useState(() => {
     return Number(localStorage.getItem(scoreKey) || 0);
   });
-  // ----- referencia estable al roomId actual -----
+    // ----- NUEVO: referencia estable al roomId actual -----
   const roomIdRef = useRef(roomId);
   useEffect(() => {
     roomIdRef.current = roomId;
   }, [roomId]);
 
-  // ----- cleanup al desmontar el componente -----
+  // ----- NUEVO: cleanup al desmontar el componente -----
   useEffect(() => {
     return () => {
       if (roomIdRef.current) {
         socket.emit("leave_room", roomIdRef.current);
       }
     };
-  }, []);
-
-  // ----- NUEVO: Verificar autenticación -----
-  useEffect(() => {
-    const checkAuth = () => {
-      const isLoggedIn = localStorage.getItem("isLoggedIn");
-      const user = localStorage.getItem("user");
-
-      if (!isLoggedIn || !user) {
-        console.log(
-          "🔍 No session detected, closing socket and redirecting...",
-        );
-        disconnectSocket();
-        navigate("/login");
-      }
-    };
-
-    window.addEventListener("storage", checkAuth);
-
-    return () => {
-      window.removeEventListener("storage", checkAuth);
-    };
-  }, [navigate]);
+  }, []); // solo se ejecuta al desmontar
 
   const isWalletAmountValid =
     Number.isFinite(walletAmount) &&
@@ -198,12 +175,6 @@ function Game() {
 
       setSessionScore(Number(localStorage.getItem(newScoreKey) || 0));
 
-      const isLoggedIn = localStorage.getItem("isLoggedIn");
-      if (!isLoggedIn) {
-        console.log("No logged in, skipping balance/stats fetch");
-        return;
-      }
-
       try {
         const balanceRes = await fetch("/api/users/balance", {
           method: "GET",
@@ -215,10 +186,6 @@ function Game() {
           if (balanceData.success) {
             syncBalance(balanceData.balance);
           }
-        } else if (balanceRes.status === 401) {
-          disconnectSocket();
-          navigate("/login");
-          return;
         }
       } catch (error) {
         if (import.meta.env.DEV) {
@@ -246,10 +213,6 @@ function Game() {
 
           setStats(normalizedStats);
           localStorage.setItem(localStatsKey, JSON.stringify(normalizedStats));
-        } else if (statsRes.status === 401) {
-          disconnectSocket();
-          navigate("/login");
-          return;
         } else {
           const rawLocalStats = localStorage.getItem(localStatsKey);
           if (rawLocalStats) {
@@ -280,13 +243,14 @@ function Game() {
     bootstrapUserData();
   }, [authReady]);
 
-  useEffect(() => {
+    useEffect(() => {
     if (!authUser?.id) return;
 
     const onConnect = () => {
       setMyId(authUser.id);
 
-      const persistedRole = sessionStorage.getItem(roleStorageKey) || "player";
+      const persistedRole =
+        sessionStorage.getItem(roleStorageKey) || "player";
 
       socket.emit("join_game", {
         roomId,
@@ -341,7 +305,6 @@ function Game() {
       socket.off("game_update", onGameUpdate);
     };
   }, [roomId, authUser?.id]);
-
   const fallbackState = {
     gameState: "waiting",
     dealerHand: [],
@@ -416,48 +379,20 @@ function Game() {
   const isMyTurn = currentTurn === myId;
   const seatedCount = playerOrder.length;
 
-  // ✅ OPTIMIZACIÓN: Memoizar valores de manos de jugadores (solo recalcula si cambian players o playerOrder)
-  const playerHandValues = useMemo(() => {
-    const values = {};
-    playerOrder.forEach((playerId) => {
-      const hand = players[playerId]?.hand ?? [];
-      let total = 0;
-      let aces = 0;
-
-      for (const card of hand) {
-        const value = String(card?.value ?? "").toUpperCase();
-        if (["K", "Q", "J"].includes(value)) total += 10;
-        else if (value === "A") {
-          total += 11;
-          aces += 1;
-        } else {
-          total += Number(value) || 0;
-        }
-      }
-
-      while (total > 21 && aces > 0) {
-        total -= 10;
-        aces -= 1;
-      }
-
-      values[playerId] = total;
-    });
-    return values;
-  }, [players, playerOrder]);
-
-  const myHandValue = (() => {
-    const hand = myPlayer?.hand ?? [];
+  const calculateHandValue = (hand = []) => {
     let total = 0;
     let aces = 0;
 
     for (const card of hand) {
       const value = String(card?.value ?? "").toUpperCase();
+
       if (["K", "Q", "J"].includes(value)) total += 10;
       else if (value === "A") {
         total += 11;
         aces += 1;
       } else {
-        total += Number(value) || 0;
+        const parsed = Number(value);
+        if (!Number.isNaN(parsed)) total += parsed;
       }
     }
 
@@ -467,7 +402,9 @@ function Game() {
     }
 
     return total;
-  })();
+  };
+
+  const myHandValue = calculateHandValue(myPlayer?.hand ?? []);
 
   const shouldAnimateDealerCard = (index) => {
     if (currentGameState !== "playing") return false;
@@ -624,8 +561,7 @@ function Game() {
     socket.emit("reset_round", roomId);
   };
 
-  const canAddAI =
-    amIHost && seatedCount < maxPlayers && currentGameState === "waiting";
+  const canAddAI = amIHost && seatedCount < maxPlayers && currentGameState === "waiting";
 
   const handleAddAI = () => {
     if (!canAddAI) return;
@@ -784,16 +720,16 @@ function Game() {
 
             {isSpectator && (
               <div className="multiplayer-banner">
-                You are spectating this table. You can watch live, but you
-                cannot play.
+                You are spectating this table. You can watch live, but you cannot
+                play.
               </div>
             )}
 
             <div className="table-felt-text">
               <p className="table-felt-text__title">Blackjack</p>
               <p>
-                {storedRoom.stakes} · {storedRoom.seats || maxPlayers} seat
-                table · {storedRoom.mode}
+                {storedRoom.stakes} · {storedRoom.seats || maxPlayers} seat table
+                · {storedRoom.mode}
               </p>
             </div>
 
@@ -896,14 +832,10 @@ function Game() {
                 const isMe = playerId === myId;
                 const isTurn = currentTurn === playerId;
                 const hand = player.hand ?? [];
-                // ✅ USAR VALOR MEMOIZADO (NO recalcular cada vez)
-                const handValue = playerHandValues[playerId];
+                const handValue = calculateHandValue(hand);
 
                 const shouldHideLastCard =
-                  !isMe &&
-                  !player.isAI &&
-                  currentGameState === "playing" &&
-                  hand.length > 0;
+                  !isMe && !player.isAI && currentGameState === "playing" && hand.length > 0;
 
                 const visibleCards = shouldHideLastCard
                   ? hand.slice(0, -1)
@@ -924,11 +856,7 @@ function Game() {
                     }}
                   >
                     <div className="player-seat__badge">
-                      {player.isAI
-                        ? "BOT"
-                        : isMe
-                          ? "YOU"
-                          : `PLAYER ${index + 1}`}
+                      {player.isAI ? "BOT" : isMe ? "YOU" : `PLAYER ${index + 1}`}
                     </div>
 
                     <div className="player-seat__meta">
@@ -962,15 +890,12 @@ function Game() {
                     </div>
 
                     <div className="player-seat__hand-stack">
-                      <div
-                        className="player-seat__cards"
-                        style={{ "--card-count": visibleCards.length }}
-                      >
+                      <div className="player-seat__cards" style={{ "--card-count": visibleCards.length }}>
                         {visibleCards.map((card, cardIndex) => {
                           const animate = shouldAnimatePlayerCard(
                             playerId,
                             cardIndex,
-                            hand.length,
+                            hand.length
                           );
 
                           return (
@@ -982,7 +907,7 @@ function Game() {
                                   ? {
                                       animationDelay: getPlayerAnimationDelay(
                                         playerId,
-                                        cardIndex,
+                                        cardIndex
                                       ),
                                     }
                                   : undefined
@@ -1013,13 +938,11 @@ function Game() {
                         <span className="thinking-text">Disconnected</span>
                       )}
 
-                      {!player.isDisconnected &&
-                        !player.result &&
-                        player.status && (
-                          <span className="thinking-text">
-                            {String(player.status).toUpperCase()}
-                          </span>
-                        )}
+                      {!player.isDisconnected && !player.result && player.status && (
+                        <span className="thinking-text">
+                          {String(player.status).toUpperCase()}
+                        </span>
+                      )}
 
                       {player.result && (
                         <span
@@ -1028,8 +951,8 @@ function Game() {
                             player.result === "win"
                               ? "result-pill--win"
                               : player.result === "push"
-                                ? "result-pill--push"
-                                : "result-pill--lose",
+                              ? "result-pill--push"
+                              : "result-pill--lose",
                           ].join(" ")}
                         >
                           {String(player.result).toUpperCase()}
@@ -1080,7 +1003,9 @@ function Game() {
                     title="Double your bet and receive one more card"
                   >
                     <span className="casino-action__title">Double</span>
-                    <span className="casino-action__sub">2x bet, one card</span>
+                    <span className="casino-action__sub">
+                      2x bet, one card
+                    </span>
                   </button>
 
                   <button
@@ -1115,9 +1040,7 @@ function Game() {
                 <div className="spectator-panel">
                   <div className="spectator-panel__header">
                     <div>
-                      <span className="spectator-panel__eyebrow">
-                        Live rail
-                      </span>
+                      <span className="spectator-panel__eyebrow">Live rail</span>
                       <h3>Spectators</h3>
                     </div>
                     <span className="spectator-panel__count">
@@ -1185,9 +1108,7 @@ function Game() {
                           selectedBet === chip ? "is-selected" : ""
                         }`}
                         onClick={() => handleChipSelect(chip)}
-                        onDragStart={(event) =>
-                          handleChipDragStart(event, chip)
-                        }
+                        onDragStart={(event) => handleChipDragStart(event, chip)}
                         disabled={currentGameState !== "waiting"}
                       >
                         {chip}
@@ -1286,7 +1207,7 @@ function Game() {
                 onClick={async () => {
                   if (!isWalletAmountValid) {
                     setWalletMsg(
-                      "Error: enter a valid amount between 10 and 10000",
+                      "Error: enter a valid amount between 10 and 10000"
                     );
                     return;
                   }
@@ -1307,15 +1228,16 @@ function Game() {
 
                   if (data.success) {
                     syncBalance(data.balance);
-
+                    
                     socket.emit("sync_wallet_balance", {
-                      roomId,
-                      userId: authUser.id,
-                      balance: Number(data.balance),
-                    });
+                    roomId,
+                    userId: authUser.id,
+                    balance: Number(data.balance),
+                  });
 
-                    setWalletMsg(`Deposited +$${walletAmount}`);
-                  } else {
+                  setWalletMsg(`Deposited +$${walletAmount}`);
+                }
+                else {
                     setWalletMsg("Error: " + data.message);
                   }
                 }}
@@ -1329,7 +1251,7 @@ function Game() {
                 onClick={async () => {
                   if (!isWalletAmountValid) {
                     setWalletMsg(
-                      "Error: enter a valid amount between 10 and 10000",
+                      "Error: enter a valid amount between 10 and 10000"
                     );
                     return;
                   }
@@ -1362,7 +1284,8 @@ function Game() {
                     });
 
                     setWalletMsg(`Withdrawn -$${walletAmount}`);
-                  } else {
+                  }
+                  else {
                     setWalletMsg("Error: " + data.message);
                   }
                 }}

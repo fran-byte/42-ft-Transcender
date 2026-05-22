@@ -47,10 +47,6 @@ function Login() {
         return;
       }
 
-      // Limpiar cualquier residuo de sesiones anteriores antes de guardar la nueva
-      localStorage.removeItem("selectedRoom");
-      sessionStorage.clear(); // Limpiar roles antiguos de espectador/jugador
-      
       localStorage.setItem("isLoggedIn", "true");
       localStorage.setItem("user", JSON.stringify(data.user));
       localStorage.setItem("username", data.user.username);
@@ -78,10 +74,8 @@ function Login() {
 
           <form onSubmit={handleLogin} className="auth-form">
             <div className="form-group">
-              <label htmlFor="username">Username</label>
+              <label>Username</label>
               <input
-                id="username"
-                name="username"
                 type="text"
                 placeholder="username"
                 autoComplete="username"
@@ -91,10 +85,8 @@ function Login() {
             </div>
 
             <div className="form-group">
-              <label htmlFor="password">Password</label>
+              <label>Password</label>
               <input
-                id="password"
-                name="password"
                 type="password"
                 placeholder="password"
                 autoComplete="current-password"
@@ -115,7 +107,7 @@ function Login() {
           </form>
 
           <p className="auth-helper">
-            Don't have an account? <Link to="/register">Sign up</Link>
+            Dont't have an account? <Link to="/register">Sign up</Link>
           </p>
         </section>
       </main>
