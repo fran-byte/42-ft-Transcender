@@ -1,6 +1,15 @@
-_This project has been created as part of the 42 curriculum by frromero, allera-m, msoriano, maanguit and mamagalh_
+![Version](https://img.shields.io/badge/version-1.0.0-purple)
+![Status](https://img.shields.io/badge/status-production-brightgreen)
+![Node.js](https://img.shields.io/badge/Node.js-22.x-green)
+![React](https://img.shields.io/badge/React-18.x-blue)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)
+![Docker](https://img.shields.io/badge/Docker-28.x-blue)
+![Nginx](https://img.shields.io/badge/Nginx-1.27-green)
+![Socket.io](https://img.shields.io/badge/Socket.io-4.x-black)
+![License](https://img.shields.io/badge/license-MIT-yellow)
+![42](https://img.shields.io/badge/42-Project-black)
 
-# ft_transcendence — Blackjack
+_This project has been created as part of the 42 curriculum by frromero, allera-m, msoriano, maanguit and mamagalh_
 
 ## Description
 
@@ -578,10 +587,3 @@ Implemented features include:
 - Disconnect grace timers
 - Reconnection recovery
 - Real-time state broadcasting
-
-```
-
-
-
-
-```
