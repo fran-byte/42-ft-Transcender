@@ -2,6 +2,8 @@ _This project has been created as part of the 42 curriculum by frromero, allera-
 
 # ft_transcendence — Blackjack
 
+[🇪🇸 Versión en Español](doc/spREADME.md)
+
 ## Description
 
 ft_transcendence is a real-time multiplayer blackjack platform developed as part of the 42 curriculum.

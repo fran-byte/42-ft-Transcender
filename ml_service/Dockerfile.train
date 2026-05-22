@@ -1,13 +1,21 @@
+# ml_service/train/Dockerfile
+
+# Official PyTorch image with CUDA 12.1 and cuDNN 8 — enables GPU-accelerated training
 FROM pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
 
+# PYTHONUNBUFFERED: ensures logs are printed immediately without buffering
+# PIP_NO_CACHE_DIR: reduces image size by not caching pip downloads
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
 WORKDIR /work
 
+# Install NumPy for data handling and PyTorch for model training
 RUN pip install --no-cache-dir "numpy==1.26.4" "torch==2.4.1"
 
+# Copy training scripts and dataset files
 COPY train/ ./train/
 
+# Switch to the training directory and run the training script
 WORKDIR /work/train
 CMD ["python", "train.py"]

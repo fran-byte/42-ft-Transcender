@@ -1,22 +1,23 @@
 # backend/Dockerfile
 FROM node:22-alpine
 
-# Instalar herramientas básicas (opcional, pero útil para debug)
+# Install basic tools for debugging and healthchecks
 RUN apk add --no-cache bash curl
 
 WORKDIR /app
 
-# Copiamos solo el package.json primero para aprovechar la caché de Docker
+# Copy package.json first to leverage Docker layer caching
+# Dependencies are only reinstalled when package.json changes
 COPY package*.json ./
 
-# Instalamos dependencias
+# Install production dependencies
 RUN npm install
 
-# Copiamos el resto del código
+# Copy the rest of the source code
 COPY . .
 
-# Exponemos el puerto
+# Expose the backend API port
 EXPOSE 3000
 
-# Comando por defecto (Dev mode)
-CMD ["npm", "run", "dev"]
+# Start the server in production mode
+CMD ["npm", "start"]
