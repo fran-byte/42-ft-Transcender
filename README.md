@@ -180,7 +180,6 @@ All AI-generated code was reviewed, tested, and fully understood by team members
 - Backend support (assisted allera-m with backend tasks)
 - Frontend support (assisted msoriano with frontend tasks)
 - Testing
-- Initialization of the `docker-compose-dev.yml` development branch
 
 ---
 
@@ -531,7 +530,6 @@ Container networking and HTTPS reverse proxy configuration.
 - Backend support (assisted allera-m)
 - Frontend support (assisted msoriano)
 - Testing
-- Initialization of `docker-compose-dev.yml`
 
 ### Challenges
 
