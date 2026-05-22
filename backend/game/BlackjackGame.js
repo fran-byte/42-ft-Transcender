@@ -333,6 +333,7 @@ export default class BlackjackGame {
         };
 
         this.playerOrder.push(userId);
+        this.ensureHumanHost();
 
         return { role: "player", success: true, promoted: true };
       }
@@ -402,6 +403,7 @@ export default class BlackjackGame {
     this.addSocketToEntity(player, socketId);
     this.players[userId] = player;
     this.playerOrder.push(userId);
+    this.ensureHumanHost();
 
     return { role: "player", success: true };
   }
