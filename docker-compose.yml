@@ -1,8 +1,14 @@
 services:
+  frontend-build:
+    container_name: blackjack-frontend-build
+    build: ./frontend
+    volumes:
+      - frontend-dist:/app/dist
+    restart: "no"
+
   backend:
     container_name: blackjack-backend
     build: ./backend
-    # Elimina la sección "volumes:" completa
     environment:
       - DB_HOST=${DB_HOST}
       - DB_USER=${POSTGRES_USER}
@@ -16,16 +22,6 @@ services:
       - ml-service
     command: npm start
 
-  frontend:
-    container_name: blackjack-frontend
-    build: ./frontend
-    # Elimina la sección "volumes:" completa
-    environment:
-      - NODE_ENV=production
-    depends_on:
-      - backend
-    command: sh -c "npm run build && npx serve -s dist -l 5173"
-
   nginx:
     container_name: blackjack-nginx
     image: nginx:alpine
@@ -36,10 +32,14 @@ services:
       - ./requirements/nginx/conf.d/blackjack.conf:/etc/nginx/conf.d/blackjack.conf
       - ./secrets/certs/blackjack.local.crt:/etc/ssl/certs/blackjack.local.crt
       - ./secrets/certs/blackjack.local.key:/etc/ssl/private/blackjack.local.key
+      - frontend-dist:/usr/share/nginx/html:ro
     depends_on:
-      - frontend
-      - backend
-      - ml-service
+      frontend-build:
+        condition: service_completed_successfully
+      backend:
+        condition: service_started
+      ml-service:
+        condition: service_started
 
   ml-service:
     container_name: blackjack-ml-service
@@ -62,7 +62,6 @@ services:
       - ${DATA_PATH}/postgres:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
 
-
   prometheus:
     image: prom/prometheus
     container_name: blackjack-prometheus
@@ -79,8 +78,8 @@ services:
     ports:
       - "127.0.0.1:3001:3000"
     environment:
-    - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
-    - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
@@ -102,3 +101,4 @@ services:
 
 volumes:
   grafana-data:
+  frontend-dist:

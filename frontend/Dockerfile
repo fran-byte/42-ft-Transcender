@@ -1,7 +1,8 @@
 # frontend/Dockerfile
-FROM node:22-alpine
 
-# Instalar bash por si quieres entrar al contenedor
+# --- Stage 1: Build ---
+FROM node:22-alpine AS builder
+
 RUN apk add --no-cache bash
 
 WORKDIR /app
@@ -12,7 +13,11 @@ RUN npm install
 
 COPY . .
 
-EXPOSE 5173
+RUN npm run build
 
-# Importante: --host para que se vea desde fuera del contenedor
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+# --- Stage 2: Export static files ---
+FROM alpine:latest
+
+WORKDIR /app/dist
+
+COPY --from=builder /app/dist .
