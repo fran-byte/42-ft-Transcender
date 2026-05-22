@@ -1,4 +1,6 @@
 services:
+  # Builds the React frontend and outputs static files to the shared volume.
+  # Runs once and exits — Nginx will serve the built files directly.
   frontend-build:
     container_name: blackjack-frontend-build
     build: ./frontend
@@ -6,6 +8,8 @@ services:
       - frontend-dist:/app/dist
     restart: "no"
 
+  # Node.js API server — handles authentication, game logic and WebSockets.
+  # Waits for the database and ML service to be ready before starting.
   backend:
     container_name: blackjack-backend
     build: ./backend
@@ -22,6 +26,9 @@ services:
       - ml-service
     command: npm start
 
+  # Reverse proxy — the only service exposed to the host.
+  # Serves static frontend files and forwards API/WebSocket traffic to the backend.
+  # Waits for frontend-build to complete successfully before starting.
   nginx:
     container_name: blackjack-nginx
     image: nginx:alpine
@@ -32,6 +39,7 @@ services:
       - ./requirements/nginx/conf.d/blackjack.conf:/etc/nginx/conf.d/blackjack.conf
       - ./secrets/certs/blackjack.local.crt:/etc/ssl/certs/blackjack.local.crt
       - ./secrets/certs/blackjack.local.key:/etc/ssl/private/blackjack.local.key
+      # Mount built frontend files as read-only
       - frontend-dist:/usr/share/nginx/html:ro
     depends_on:
       frontend-build:
@@ -41,6 +49,7 @@ services:
       ml-service:
         condition: service_started
 
+  # Python ML service — provides AI opponent logic for the blackjack game.
   ml-service:
     container_name: blackjack-ml-service
     build: ./ml_service
@@ -50,6 +59,8 @@ services:
     ports:
       - "5000:5000"
 
+  # PostgreSQL database — stores users, match history and statistics.
+  # Schema is initialized automatically from init.sql on first run.
   db:
     image: postgres:15-alpine
     container_name: blackjack-db
@@ -62,6 +73,7 @@ services:
       - ${DATA_PATH}/postgres:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
 
+  # Prometheus — scrapes and stores metrics from the backend and cAdvisor.
   prometheus:
     image: prom/prometheus
     container_name: blackjack-prometheus
@@ -72,6 +84,8 @@ services:
     depends_on:
       - backend
 
+  # Grafana — visualizes Prometheus metrics through custom dashboards.
+  # Accessible only from localhost for security.
   grafana:
     image: grafana/grafana
     container_name: blackjack-grafana
@@ -86,6 +100,8 @@ services:
     depends_on:
       - prometheus
 
+  # cAdvisor — collects container-level metrics (CPU, memory, network, disk)
+  # and exposes them to Prometheus.
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: blackjack-cadvisor
@@ -100,5 +116,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  # Persistent storage for Grafana dashboards and configuration
   grafana-data:
+  # Shared volume between frontend-build and Nginx for static files
   frontend-dist:
