@@ -1,3 +1,5 @@
+# ft_transcendence — Blackjack
+
 ![Version](https://img.shields.io/badge/version-1.0.0-purple)
 ![Status](https://img.shields.io/badge/status-production-brightgreen)
 ![Node.js](https://img.shields.io/badge/Node.js-22.x-green)
@@ -10,6 +12,8 @@
 ![42](https://img.shields.io/badge/42-Project-black)
 
 _This project has been created as part of the 42 curriculum by frromero, allera-m, msoriano, maanguit and mamagalh_
+
+![Description](https://img.shields.io/badge/-Description-blue)
 
 ## Description
 
@@ -30,6 +34,8 @@ The application supports multiple simultaneous users playing blackjack together 
 
 ---
 
+![Features](https://img.shields.io/badge/-Features-blue)
+
 ## Key Features
 
 - Multiplayer blackjack tables
@@ -46,7 +52,11 @@ The application supports multiple simultaneous users playing blackjack together 
 
 ---
 
+![Instructions](https://img.shields.io/badge/-Instructions-green)
+
 # Instructions
+
+![Prerequisites](https://img.shields.io/badge/-Prerequisites-lightgrey)
 
 ## Prerequisites
 
@@ -58,6 +68,8 @@ Required software:
 
 ---
 
+![Installation](https://img.shields.io/badge/-Installation-lightgrey)
+
 ## Installation
 
 Clone repository:
@@ -68,6 +80,8 @@ cd ft_transcendence
 ```
 
 ---
+
+![Start](https://img.shields.io/badge/-Start-green)
 
 ## Start Project
 
@@ -86,6 +100,8 @@ This automatically:
 
 ---
 
+![Access](https://img.shields.io/badge/-Access-blue)
+
 ## Access
 
 | Service     | URL                     |
@@ -99,7 +115,11 @@ This automatically:
 
 ---
 
+![Resources](https://img.shields.io/badge/-Resources-yellow)
+
 # Resources
+
+![Documentation](https://img.shields.io/badge/-Documentation-lightgrey)
 
 ## Documentation
 
@@ -114,6 +134,8 @@ This automatically:
 
 ---
 
+![Additional Docs](https://img.shields.io/badge/-Additional_Docs-lightgrey)
+
 ## Additional Documentation
 
 Additional technical documentation:
@@ -122,6 +144,8 @@ Additional technical documentation:
 - `docs/gameplay.md`
 
 ---
+
+![AI Usage](https://img.shields.io/badge/-AI_Usage-purple)
 
 # AI Usage
 
@@ -137,7 +161,11 @@ All AI-generated code was reviewed, tested, and fully understood by team members
 
 ---
 
+![Team](https://img.shields.io/badge/-Team_Information-orange)
+
 # Team Information
+
+![msoriano](https://img.shields.io/badge/-msoriano-blue)
 
 ## msoriano
 
@@ -158,6 +186,8 @@ All AI-generated code was reviewed, tested, and fully understood by team members
 
 ---
 
+![frromero](https://img.shields.io/badge/-frromero-blue)
+
 ## frromero
 
 ### Roles
@@ -175,6 +205,8 @@ All AI-generated code was reviewed, tested, and fully understood by team members
 
 ---
 
+![maanguit](https://img.shields.io/badge/-maanguit-blue)
+
 ## maanguit
 
 ### Roles
@@ -191,6 +223,8 @@ All AI-generated code was reviewed, tested, and fully understood by team members
 - Testing
 
 ---
+
+![allera-m](https://img.shields.io/badge/-allera--m-blue)
 
 ## allera-m
 
@@ -211,6 +245,8 @@ All AI-generated code was reviewed, tested, and fully understood by team members
 
 ---
 
+![mamagalh](https://img.shields.io/badge/-mamagalh-blue)
+
 ## mamagalh
 
 ### Roles
@@ -227,7 +263,11 @@ All AI-generated code was reviewed, tested, and fully understood by team members
 
 ---
 
+![Project Management](https://img.shields.io/badge/-Project_Management-green)
+
 # Project Management
+
+![Work Organization](https://img.shields.io/badge/-Work_Organization-lightgrey)
 
 ## Work Organization
 
@@ -242,6 +282,8 @@ Development included:
 
 ---
 
+![Tools](https://img.shields.io/badge/-Tools-lightgrey)
+
 ## Project Management Tools
 
 - GitHub
@@ -251,6 +293,8 @@ Development included:
 
 ---
 
+![Communication](https://img.shields.io/badge/-Communication-lightgrey)
+
 ## Communication
 
 - Discord
@@ -259,7 +303,11 @@ Development included:
 
 ---
 
+![Tech Stack](https://img.shields.io/badge/-Technical_Stack-red)
+
 # Technical Stack
+
+![Frontend](https://img.shields.io/badge/-Frontend-blue)
 
 ## Frontend
 
@@ -279,6 +327,8 @@ React was chosen because:
 
 ---
 
+![Backend](https://img.shields.io/badge/-Backend-blue)
+
 ## Backend
 
 - Node.js
@@ -293,6 +343,8 @@ React was chosen because:
 - Easy integration with REST APIs
 
 ---
+
+![Database](https://img.shields.io/badge/-Database-blue)
 
 ## Database
 
@@ -309,6 +361,8 @@ PostgreSQL was chosen because:
 
 ---
 
+![Infrastructure](https://img.shields.io/badge/-Infrastructure-blue)
+
 ## Infrastructure
 
 - Docker
@@ -320,6 +374,8 @@ PostgreSQL was chosen because:
 - cAdvisor
 
 ---
+
+![Database Schema](https://img.shields.io/badge/-Database_Schema-orange)
 
 # Database Schema
 
@@ -404,6 +460,8 @@ users
 
 ---
 
+![Features List](https://img.shields.io/badge/-Features_List-green)
+
 # Features List
 
 | Feature                  | Description                             | Team Member(s)                      |
@@ -420,6 +478,8 @@ users
 | Docker Orchestration     | Multi-container setup                   | frromero (main), mamagalh (support) |
 
 ---
+
+![Modules](https://img.shields.io/badge/-Modules-purple)
 
 # Modules
 
@@ -440,6 +500,8 @@ users
 **Total: 19 points (14 required + 5 bonus)**
 
 ---
+
+![Module Justification](https://img.shields.io/badge/-Module_Justification-blue)
 
 # Module Justification
 
@@ -497,11 +559,15 @@ Tested compatibility with:
 
 ---
 
+![Legal](https://img.shields.io/badge/-Legal-red)
+
 # Legal
 
 The application includes accessible Privacy Policy and Terms of Service pages, reachable via footer links from any page of the application. These pages contain relevant content specific to this project and are not placeholders.
 
 ---
+
+![Contributions](https://img.shields.io/badge/-Individual_Contributions-green)
 
 # Individual Contributions
 
@@ -574,6 +640,8 @@ Handling race conditions, reconnect logic and multiplayer edge cases.
 Configuring three monitoring services to work together and display meaningful metrics.
 
 ---
+
+![Real-Time System](https://img.shields.io/badge/-Real--Time_Multiplayer_System-blue)
 
 # Real-Time Multiplayer System
 
