@@ -8,7 +8,6 @@ RESET  := \033[0m
 
 # --- VARIABLES ---
 COMPOSE     := docker compose
-COMPOSE_DEV := docker compose -f docker-compose.dev.yml
 NAME    := transcendence
 CERT_DIR := ./secrets/certs
 CERT_KEY := $(CERT_DIR)/blackjack.local.key
@@ -22,53 +21,37 @@ NGINX_CONF := ./requirements/nginx/conf.d/blackjack.conf
 # 'make' or 'make all': full setup + start
 all: setup up
 
-# Start containers (assumes setup already done)
+# Start containers in production mode
 up:
-	@echo "$(GREEN)Building and starting containers...$(RESET)"
+	@echo "$(GREEN)Building and starting production containers...$(RESET)"
 	$(COMPOSE) down --remove-orphans
 	@docker rm -f blackjack-backend blackjack-frontend blackjack-nginx \
 		blackjack-db blackjack-prometheus blackjack-grafana \
 		blackjack-cadvisor 2>/dev/null || true
 	$(COMPOSE) up -d --build
-	@echo "$(GREEN)✓ Ready! Access at:$(RESET)"
+	@echo "$(GREEN)✓ Production ready!$(RESET)"
 	@echo "      https://blackjack.local"
 	@echo "$(YELLOW)If you haven't added the hosts entry, run: sudo make hosts$(RESET)"
-
-# --- DEV TARGETS (sin Nginx ni monitoring) ---
-
-dev: setup
-	@echo "$(GREEN)Starting dev environment (backend:3000 + frontend:5173)...$(RESET)"
-	$(COMPOSE_DEV) up -d --build
-	@echo "$(GREEN)✓ Dev ready!$(RESET)"
-	@echo "  Frontend: https://blackjack.local:5173  (o https://localhost:5173)"
-	@echo "  Backend:  http://localhost:3000"
-
-dev-logs:
-	$(COMPOSE_DEV) logs -f
-
-dev-down:
-	$(COMPOSE_DEV) down --remove-orphans
-
-dev-re:
-	$(COMPOSE_DEV) down --remove-orphans
-	$(COMPOSE_DEV) up -d --build
 
 # 'make logs': view logs
 logs:
 	@echo "$(GREEN)Showing logs (Ctrl+C to exit)...$(RESET)"
 	$(COMPOSE) logs -f
 
-# 'make stop': stop containers (preserve everything)
+# 'make stop': stop containers
 stop:
 	@echo "$(RED)Stopping containers...$(RESET)"
 	$(COMPOSE) stop
 
-# 'make down': remove containers and networks (keep volumes and data)
+# 'make down': remove containers and networks (keep volumes)
 down:
 	@echo "$(RED)Removing containers and networks...$(RESET)"
 	$(COMPOSE) down --remove-orphans
 
-# 'make fclean': full cleanup (containers, images, volumes, local DB)
+# 'make restart': restart all services
+restart: down up
+
+# 'make fclean': full cleanup (containers, images, volumes)
 fclean:
 	@echo "$(RED)NUKING EVERYTHING (Containers, Networks, Images, Volumes)...$(RESET)"
 	$(COMPOSE) down -v --rmi all --remove-orphans
@@ -78,22 +61,24 @@ fclean:
 	@sudo chown -R $$(id -u):$$(id -g) ./data
 	@echo "$(GREEN)✓ System completely reset.$(RESET)"
 
-# 'make re': fclean + up (recreate from scratch)
+# 'make re': fclean + up
 re: fclean up
 
 # 'make ps': show container status
 ps:
 	$(COMPOSE) ps
 
-# 'make prune': remove unused Docker objects
-prune:
-	@echo "$(RED)Pruning unused Docker objects...$(RESET)"
-	docker system prune -a -f
+# 'make health': check service health
+health:
+	@echo "$(CYAN)Checking service health...$(RESET)"
+	@curl -s -o /dev/null -w "Backend: %{http_code}\n" http://localhost:3000/health || echo "Backend: DOWN"
+	@curl -s -o /dev/null -w "Frontend: %{http_code}\n" https://localhost --insecure || echo "Frontend: DOWN"
+	@docker ps --filter "name=blackjack" --format "table {{.Names}}\t{{.Status}}"
 
 # --- SETUP TARGETS ---
 
-# 'make setup': prepare everything (certificates, .env, hosts hint, nginx config)
-setup: ensure-certs ensure-env ensure-hosts ensure-nginx
+# 'make setup': prepare everything
+setup: ensure-certs ensure-env ensure-hosts ensure-nginx ensure-data
 	@echo "$(GREEN)✓ Setup complete.$(RESET)"
 
 # Generate self-signed certificate if missing
@@ -104,7 +89,7 @@ ensure-certs:
 		openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
 			-keyout $(CERT_KEY) \
 			-out $(CERT_CRT) \
-			-subj "/C=ES/ST=Madrid/L=Madrid/O=Blackjack/OU=Dev/CN=blackjack.local" \
+			-subj "/C=ES/ST=Madrid/L=Madrid/O=Blackjack/OU=Prod/CN=blackjack.local" \
 			-addext "subjectAltName=DNS:blackjack.local,DNS:www.blackjack.local,DNS:localhost" \
 			2>/dev/null; \
 		chmod 600 $(CERT_KEY); \
@@ -114,10 +99,10 @@ ensure-certs:
 		echo "$(BLUE)SSL certificates already exist.$(RESET)"; \
 	fi
 
-# Create .env with random values (interactive for Grafana credentials - password visible)
+# Create .env for production
 ensure-env:
 	@if [ ! -f $(ENV_FILE) ]; then \
-		echo "$(YELLOW)Creating .env file with random credentials...$(RESET)"; \
+		echo "$(YELLOW)Creating .env file for PRODUCTION...$(RESET)"; \
 		DB_PASS=$$(openssl rand -hex 12); \
 		JWT_SECRET=$$(openssl rand -hex 32); \
 		echo ""; \
@@ -134,8 +119,8 @@ ensure-env:
 			GRAFANA_PASS="admin"; \
 			echo "$(YELLOW)No password entered, using default: admin$(RESET)"; \
 		fi; \
-		printf 'POSTGRES_USER=blackjack_user\nPOSTGRES_PASSWORD=%s\nPOSTGRES_DB=blackjack_db\nDB_HOST=db\nJWT_SECRET=%s\nDATA_PATH=./data\nNODE_ENV=development\nREACT_APP_API_URL=https://blackjack.local/api\nGRAFANA_USER=%s\nGRAFANA_PASSWORD=%s\n' "$$DB_PASS" "$$JWT_SECRET" "$$GRAFANA_USER" "$$GRAFANA_PASS" > $(ENV_FILE); \
-		echo "$(GREEN)✓ .env file created.$(RESET)"; \
+		printf 'POSTGRES_USER=blackjack_user\nPOSTGRES_PASSWORD=%s\nPOSTGRES_DB=blackjack_db\nDB_HOST=db\nJWT_SECRET=%s\nDATA_PATH=./data\nNODE_ENV=production\nREACT_APP_API_URL=https://blackjack.local/api\nGRAFANA_USER=%s\nGRAFANA_PASSWORD=%s\n' "$$DB_PASS" "$$JWT_SECRET" "$$GRAFANA_USER" "$$GRAFANA_PASS" > $(ENV_FILE); \
+		echo "$(GREEN)✓ .env file created for PRODUCTION.$(RESET)"; \
 		echo "$(YELLOW)=== GRAFANA CREDENTIALS ===$(RESET)"; \
 		echo "  Usuario: $$GRAFANA_USER"; \
 		echo "  Password: $$GRAFANA_PASS"; \
@@ -145,16 +130,7 @@ ensure-env:
 		echo "$(BLUE).env file already exists.$(RESET)"; \
 	fi
 
-# Warn if /etc/hosts is missing the required entry
-ensure-hosts:
-	@if ! grep -q "blackjack.local" /etc/hosts 2>/dev/null; then \
-		echo "$(YELLOW)Missing /etc/hosts entry.$(RESET)"; \
-		echo "   Run manually: $(BLUE)sudo make hosts$(RESET)"; \
-	else \
-		echo "$(BLUE)/etc/hosts entry already present.$(RESET)"; \
-	fi
-
-# Add blackjack.local to /etc/hosts (requires sudo)
+# Add blackjack.local to /etc/hosts
 hosts:
 	@if ! grep -q "blackjack.local" /etc/hosts 2>/dev/null; then \
 		echo "127.0.0.1 blackjack.local www.blackjack.local" | sudo tee -a /etc/hosts > /dev/null; \
@@ -163,18 +139,9 @@ hosts:
 		echo "$(BLUE)Entry already exists.$(RESET)"; \
 	fi
 
-# Ensure nginx configuration is correctly placed
+# Ensure nginx configuration exists
 ensure-nginx:
-	@if [ -d "./requirements/ngnix" ]; then \
-		echo "$(YELLOW)Fixing typo: ngnix -> nginx$(RESET)"; \
-		mv ./requirements/ngnix ./requirements/nginx; \
-	fi
 	@mkdir -p ./requirements/nginx/conf.d
-	@if [ -f "./requirements/nginx/conf/blackjack.conf" ]; then \
-		echo "$(YELLOW)Moving nginx config to conf.d...$(RESET)"; \
-		mv ./requirements/nginx/conf/blackjack.conf ./requirements/nginx/conf.d/; \
-		rmdir ./requirements/nginx/conf 2>/dev/null || true; \
-	fi
 	@if [ ! -f $(NGINX_CONF) ]; then \
 		echo "$(RED)❌ Configuration file not found: $(NGINX_CONF)$(RESET)"; \
 		exit 1; \
@@ -182,61 +149,37 @@ ensure-nginx:
 		echo "$(BLUE)Nginx configuration OK.$(RESET)"; \
 	fi
 
-# Create data directory with proper permissions (does not remove existing data)
+# Create data directory
 ensure-data:
 	@sudo mkdir -p $(DATA_DIR)
 	@sudo chown -R $$(id -u):$$(id -g) ./data
 
-# --- ADDITIONAL TARGETS ---
+# --- UTILITY TARGETS ---
 
-# Remove generated certificates and .env
-clean-config:
-	@echo "$(RED)Removing certificates and .env...$(RESET)"
-	@rm -f $(CERT_CRT) $(CERT_KEY)
-	@rm -f $(ENV_FILE)
-	@echo "$(GREEN)✓ Configuration cleaned.$(RESET)"
-
-# Absolute cleanup: fclean + clean-config
-distclean: fclean clean-config
-
-# --- HELP / INFO ---
-
+# Show service info
 info:
 	@echo "$(CYAN)============================================================$(RESET)"
-	@echo "$(CYAN)                BLACKJACK - Makefile Help                  $(RESET)"
+	@echo "$(CYAN)           BLACKJACK - Production Environment              $(RESET)"
 	@echo "$(CYAN)============================================================$(RESET)"
 	@echo ""
-	@echo "$(GREEN)Primary Commands:$(RESET)"
-	@echo "  make / make all      Full setup + start all services"
-	@echo "  make up              Start containers (setup must be done)"
-	@echo "  make stop            Stop all containers (preserves data)"
-	@echo "  make down            Remove containers and networks (preserves volumes)"
-	@echo "  make re              Full reset: fclean + up"
-	@echo "  make fclean          Remove EVERYTHING (containers, images, volumes, local DB)"
-	@echo "  make logs            View live logs (Ctrl+C to stop)"
-	@echo "  make ps              Show container status"
-	@echo "  make prune           Remove unused Docker objects (free disk space)"
+	@echo "$(GREEN)Main Commands:$(RESET)"
+	@echo "  make              Full setup + start"
+	@echo "  make up           Start all services"
+	@echo "  make down         Stop and remove containers"
+	@echo "  make restart      Restart all services"
+	@echo "  make logs         View live logs"
+	@echo "  make ps           Show container status"
+	@echo "  make health       Check service health"
+	@echo "  make re           Full reset and rebuild"
+	@echo "  make fclean       Complete cleanup"
 	@echo ""
-	@echo "$(GREEN)Setup & Configuration:$(RESET)"
-	@echo "  make setup           Run the configuration phase only (no containers)"
-	@echo "  make hosts           Add blackjack.local to /etc/hosts (needs sudo)"
-	@echo "  make ensure-certs    Generate self-signed SSL certificate if missing"
-	@echo "  make ensure-env      Create .env file with random passwords (interactive for Grafana)"
-	@echo "  make ensure-nginx    Fix nginx typo and verify configuration"
-	@echo "  make ensure-data     Create local database directory with correct permissions"
-	@echo ""
-	@echo "$(GREEN)Cleanup:$(RESET)"
-	@echo "  make clean-config    Delete only certificates and .env"
-	@echo "  make distclean       fclean + clean-config (absolute zero)"
-	@echo ""
-	@echo "$(CYAN)After first run:$(RESET)"
-	@echo "  1. Run $(BLUE)sudo make hosts$(RESET) once to add the local domain."
-	@echo "  2. Open $(BLUE)https://blackjack.local$(RESET) (accept self-signed certificate)."
-	@echo "  3. Use $(BLUE)make logs$(RESET) to troubleshoot any issues."
-	@echo "  4. Grafana: $(BLUE)http://localhost:3001$(RESET) (the credentials you entered)"
+	@echo "$(GREEN)Access Points:$(RESET)"
+	@echo "  Main App:    https://blackjack.local"
+	@echo "  Grafana:     http://localhost:3001"
+	@echo "  Prometheus:  http://localhost:9090"
+	@echo "  cAdvisor:    http://localhost:8080"
 	@echo ""
 
-.PHONY: all up logs stop down fclean re ps prune setup \
+.PHONY: all up logs stop down restart fclean re ps health setup \
         ensure-certs ensure-env ensure-hosts ensure-nginx ensure-data \
-        hosts clean-config distclean info \
-        dev dev-logs dev-down dev-re
+        hosts info
