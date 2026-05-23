@@ -74,7 +74,7 @@ This automatically:
 
 - Builds containers
 - Generates SSL certificates
-- Creates environment variables
+- Creates environment variables [.env_example](doc/env_example/)
 - Starts all services
 
 ---
