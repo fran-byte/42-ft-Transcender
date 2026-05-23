@@ -42,7 +42,7 @@ export default class BlackjackGame {
     this.turnTimer = null;
     this.nextRoundTimer = null;
 
-    this.NEXT_ROUND_GRACE_MS = 10000;           // waits for host to press next round
+    //this.NEXT_ROUND_GRACE_MS = 10000;           // waits for host to press next round
     this.DISCONNECT_GRACE_MS = 15000;           // waits for player to reconnect before marking as disconnected
     this.DISCONNECTED_TURN_GRACE_MS = 15000;    // waits for disconnected player's turn to end before auto-playing for them or skipping their turn
   }
@@ -101,13 +101,15 @@ export default class BlackjackGame {
     });
   }
 
+  /*
   clearNextRoundTimer() {
     if (this.nextRoundTimer) {
       clearTimeout(this.nextRoundTimer);
       this.nextRoundTimer = null;
     }
   }
-
+  
+  
   startNextRoundTimer() {
     this.clearNextRoundTimer();
 
@@ -132,7 +134,7 @@ export default class BlackjackGame {
       this.notifyStateChange();
     }, this.NEXT_ROUND_GRACE_MS);
   }
-
+*/
   startDisconnectedTurnGrace(userId) {
     this.clearTurnTimer();
 
@@ -632,7 +634,7 @@ export default class BlackjackGame {
       this.removeSocketFromEntity(player, socketId);
 
       if (!this.hasActiveConnection(player)) {
-        this.clearNextRoundTimer();
+        //this.clearNextRoundTimer();
         this.clearDisconnectTimerForPlayer(userId);
         delete this.players[userId];
         this.playerOrder = this.playerOrder.filter((id) => id !== userId);
@@ -976,8 +978,8 @@ export default class BlackjackGame {
 
     this.gameState = "finished";
     this.resolveWinners();
-    if (this.onRoundFinished) await this.onRoundFinished(this);
-      this.startNextRoundTimer();
+    //if (this.onRoundFinished) await this.onRoundFinished(this);
+      //this.startNextRoundTimer();
   }
 
   resolveWinners() {
@@ -1090,7 +1092,7 @@ export default class BlackjackGame {
   }
 
     resetRound() {
-      this.clearNextRoundTimer();
+      //this.clearNextRoundTimer();
       this.clearTurnTimer();
       this.gameState = "waiting";
       this.dealerHand = [];
