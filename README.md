@@ -320,42 +320,40 @@ PostgreSQL was chosen because:
 
 ### users
 
-Stores user accounts and authentication data.
+Stores user accounts, authentication data, and aggregated statistics.
 
-| Field         | Type    |
-| ------------- | ------- |
-| id            | INTEGER |
-| username      | VARCHAR |
-| email         | VARCHAR |
-| password_hash | VARCHAR |
-| balance       | INTEGER |
-
----
-
-### stats
-
-Stores player statistics.
-
-| Field        | Type    |
-| ------------ | ------- |
-| user_id      | INTEGER |
-| wins         | INTEGER |
-| losses       | INTEGER |
-| games_played | INTEGER |
+| Field         | Type           | Notes                    |
+| ------------- | -------------- | ------------------------ |
+| id            | SERIAL         | Primary key              |
+| username      | VARCHAR(50)    | Unique, not null         |
+| email         | VARCHAR(100)   | Unique, not null         |
+| password_hash | VARCHAR(255)   | Not null                 |
+| balance       | DECIMAL(10, 2) | Default 1000.00          |
+| games_played  | INTEGER        | Default 0                |
+| games_won     | INTEGER        | Default 0                |
+| games_lost    | INTEGER        | Default 0                |
+| games_pushed  | INTEGER        | Default 0                |
+| blackjacks    | INTEGER        | Default 0                |
+| created_at    | TIMESTAMP      | Default CURRENT_TIMESTAMP |
 
 ---
 
-### history
+### game_history
 
-Stores match history.
+Stores individual match history per user.
 
-| Field        | Type      |
-| ------------ | --------- |
-| id           | INTEGER   |
-| user_id      | INTEGER   |
-| result       | VARCHAR   |
-| chips_change | INTEGER   |
-| created_at   | TIMESTAMP |
+| Field        | Type      | Notes                         |
+| ------------ | --------- | ----------------------------- |
+| id           | SERIAL    | Primary key                   |
+| user_id      | INTEGER   | Foreign key → users(id)       |
+| room_id      | TEXT      | Not null                      |
+| room_name    | TEXT      | Not null                      |
+| result       | TEXT      | Not null (win/lose/push/blackjack) |
+| bet          | NUMERIC   | Default 0                     |
+| player_score | INTEGER   | Default 0                     |
+| dealer_score | INTEGER   | Default 0                     |
+| chips_after  | NUMERIC   | Balance after the hand        |
+| played_at    | TIMESTAMP | Default CURRENT_TIMESTAMP     |
 
 ---
 
@@ -363,8 +361,7 @@ Stores match history.
 
 ```txt
 users
- ├── stats
- └── history
+ └── game_history
 ```
 
 ---
@@ -372,27 +369,38 @@ users
 ## Database Schema Diagram
 
 ```text
-┌─────────────────┐     ┌─────────────────┐
-│      users      │     │      stats      │
-├─────────────────┤     ├─────────────────┤
-│ id (PK)         │────<│ user_id (FK)    │
-│ username        │     │ wins            │
-│ email           │     │ losses          │
-│ password_hash   │     │ games_played    │
-│ balance         │     └─────────────────┘
-└─────────────────┘
-         │
-         │
-         ▼
-┌─────────────────┐
-│     history     │
-├─────────────────┤
-│ id (PK)         │
-│ user_id (FK)    │
-│ result          │
-│ chips_change    │
-│ created_at      │
-└─────────────────┘
+┌──────────────────────┐
+│        users         │
+├──────────────────────┤
+│ id (PK)              │
+│ username             │
+│ email                │
+│ password_hash        │
+│ balance              │
+│ games_played         │
+│ games_won            │
+│ games_lost           │
+│ games_pushed         │
+│ blackjacks           │
+│ created_at           │
+└──────────────────────┘
+           │
+           │ ON DELETE CASCADE
+           ▼
+┌──────────────────────┐
+│     game_history     │
+├──────────────────────┤
+│ id (PK)              │
+│ user_id (FK)         │
+│ room_id              │
+│ room_name            │
+│ result               │
+│ bet                  │
+│ player_score         │
+│ dealer_score         │
+│ chips_after          │
+│ played_at            │
+└──────────────────────┘
 ```
 
 ---
@@ -474,6 +482,14 @@ Users can watch ongoing matches and join when seats become available.
 **Module of Choice — Major (2 pts) — Subject reference: IV.10**
 
 The AI Opponent module (IV.4) only requires that the AI play Blackjack competently — a goal that could be achieved with a static **basic strategy lookup table** (~200 lines, no learning). Instead, we built a complete **Reinforcement Learning training pipeline from scratch**. This pipeline is an independent engineering artifact, evaluated by its methodology and infrastructure rather than by runtime gameplay, and therefore does not overlap with AI Opponent.
+
+### Why we chose this module
+
+Blackjack has a well-known optimal solution: basic strategy — a deterministic lookup table that minimizes the house edge. It requires no learning, no training, and roughly 200 lines of code. An AI built on it always makes the mathematically correct decision, but it does so by looking up a pre-computed answer, not by reasoning.
+
+A basic strategy table tells the agent *what to do*. The RL pipeline teaches the agent *why*. Through 2 million hands of self-play, the model discovers the same decisions from scratch — without ever being told the rules of optimal play — by learning which actions maximize long-term reward in a stochastic, partially observable environment. That distinction matters: the trained agent generalizes to variations in deck state (via true count as a state feature) that a static table handles only approximately.
+
+Beyond gameplay quality, the engineering artifact itself has value a lookup table cannot offer: a reproducible training pipeline, measurable convergence, baseline comparisons against both random play and basic strategy, and a clear separation between a heavy training container (PyTorch + CUDA) and a lean production runtime (pure NumPy). A table has none of that — it cannot be retrained, cannot improve, and cannot be evaluated against itself.
 
 ### Why this deserves Major status
 

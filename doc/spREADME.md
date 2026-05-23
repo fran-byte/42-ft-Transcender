@@ -320,42 +320,40 @@ PostgreSQL fue elegido porque:
 
 ### users
 
-Almacena cuentas de usuario y datos de autenticación.
+Almacena cuentas de usuario, datos de autenticación y estadísticas agregadas.
 
-| Campo         | Tipo    |
-| ------------- | ------- |
-| id            | INTEGER |
-| username      | VARCHAR |
-| email         | VARCHAR |
-| password_hash | VARCHAR |
-| balance       | INTEGER |
-
----
-
-### stats
-
-Almacena estadísticas de los jugadores.
-
-| Campo        | Tipo    |
-| ------------ | ------- |
-| user_id      | INTEGER |
-| wins         | INTEGER |
-| losses       | INTEGER |
-| games_played | INTEGER |
+| Campo         | Tipo           | Notas                     |
+| ------------- | -------------- | ------------------------- |
+| id            | SERIAL         | Clave primaria            |
+| username      | VARCHAR(50)    | Único, no nulo            |
+| email         | VARCHAR(100)   | Único, no nulo            |
+| password_hash | VARCHAR(255)   | No nulo                   |
+| balance       | DECIMAL(10, 2) | Por defecto 1000.00       |
+| games_played  | INTEGER        | Por defecto 0             |
+| games_won     | INTEGER        | Por defecto 0             |
+| games_lost    | INTEGER        | Por defecto 0             |
+| games_pushed  | INTEGER        | Por defecto 0             |
+| blackjacks    | INTEGER        | Por defecto 0             |
+| created_at    | TIMESTAMP      | Por defecto CURRENT_TIMESTAMP |
 
 ---
 
-### history
+### game_history
 
-Almacena el historial de partidas.
+Almacena el historial individual de partidas por usuario.
 
-| Campo        | Tipo      |
-| ------------ | --------- |
-| id           | INTEGER   |
-| user_id      | INTEGER   |
-| result       | VARCHAR   |
-| chips_change | INTEGER   |
-| created_at   | TIMESTAMP |
+| Campo        | Tipo      | Notas                              |
+| ------------ | --------- | ---------------------------------- |
+| id           | SERIAL    | Clave primaria                     |
+| user_id      | INTEGER   | Clave foránea → users(id)          |
+| room_id      | TEXT      | No nulo                            |
+| room_name    | TEXT      | No nulo                            |
+| result       | TEXT      | No nulo (win/lose/push/blackjack)  |
+| bet          | NUMERIC   | Por defecto 0                      |
+| player_score | INTEGER   | Por defecto 0                      |
+| dealer_score | INTEGER   | Por defecto 0                      |
+| chips_after  | NUMERIC   | Balance tras la mano               |
+| played_at    | TIMESTAMP | Por defecto CURRENT_TIMESTAMP      |
 
 ---
 
@@ -363,8 +361,7 @@ Almacena el historial de partidas.
 
 ```txt
 users
- ├── stats
- └── history
+ └── game_history
 ```
 
 ---
@@ -372,27 +369,38 @@ users
 ## Diagrama del Esquema
 
 ```text
-┌─────────────────┐     ┌─────────────────┐
-│      users      │     │      stats      │
-├─────────────────┤     ├─────────────────┤
-│ id (PK)         │────<│ user_id (FK)    │
-│ username        │     │ wins            │
-│ email           │     │ losses          │
-│ password_hash   │     │ games_played    │
-│ balance         │     └─────────────────┘
-└─────────────────┘
-         │
-         │
-         ▼
-┌─────────────────┐
-│     history     │
-├─────────────────┤
-│ id (PK)         │
-│ user_id (FK)    │
-│ result          │
-│ chips_change    │
-│ created_at      │
-└─────────────────┘
+┌──────────────────────┐
+│        users         │
+├──────────────────────┤
+│ id (PK)              │
+│ username             │
+│ email                │
+│ password_hash        │
+│ balance              │
+│ games_played         │
+│ games_won            │
+│ games_lost           │
+│ games_pushed         │
+│ blackjacks           │
+│ created_at           │
+└──────────────────────┘
+           │
+           │ ON DELETE CASCADE
+           ▼
+┌──────────────────────┐
+│     game_history     │
+├──────────────────────┤
+│ id (PK)              │
+│ user_id (FK)         │
+│ room_id              │
+│ room_name            │
+│ result               │
+│ bet                  │
+│ player_score         │
+│ dealer_score         │
+│ chips_after          │
+│ played_at            │
+└──────────────────────┘
 ```
 
 ---
@@ -456,6 +464,16 @@ Estadísticas de jugadores e historial de partidas almacenados de forma persiste
 Autor: maanguit
 
 `ml_service/` es un microservicio Python dedicado que ejecuta un **Dueling Double DQN** (D3QN) con **Prioritized Experience Replay** (PER), entrenado con PyTorch y servido en tiempo de ejecución como una API REST Flask (`POST /predict`) usando inferencia pura con NumPy. La IA recibe el estado del juego (puntuación del jugador, carta del crupier, as utilizable, conteo verdadero, posibilidad de doblar) y devuelve la acción óptima (pedir / plantarse / doblar). Recompensa media entrenada ~-0.0186 — competitivo sin ser perfecto. El backend recurre a una estrategia básica si el servicio ML no está disponible.
+
+## Pipeline de Entrenamiento RL Personalizado (D3QN + PER)
+
+**Módulo de Elección — Mayor (2 pts)**
+
+El blackjack tiene una solución óptima conocida: la estrategia básica — una tabla de decisiones determinista que minimiza la ventaja de la banca. No requiere aprendizaje, ni entrenamiento, y ocupa unas 200 líneas de código. Una IA construida sobre ella toma siempre la decisión matemáticamente correcta, pero lo hace consultando una respuesta precalculada, no razonando.
+
+Una tabla de estrategia básica le dice al agente *qué hacer*. El pipeline de RL le enseña *por qué*. A lo largo de 2 millones de manos de auto-juego, el modelo descubre las mismas decisiones desde cero — sin que nadie le indique las reglas del juego óptimo — aprendiendo qué acciones maximizan la recompensa a largo plazo en un entorno estocástico y parcialmente observable. Esa diferencia es relevante: el agente entrenado generaliza a variaciones del estado del mazo (mediante el conteo verdadero como variable de estado) que una tabla estática maneja solo de forma aproximada.
+
+Más allá de la calidad de juego, el artefacto de ingeniería en sí tiene un valor que una tabla nunca puede ofrecer: un pipeline de entrenamiento reproducible, convergencia medible, comparativas contra juego aleatorio y estrategia básica, y una separación clara entre un contenedor de entrenamiento pesado (PyTorch + CUDA) y un runtime de producción ligero (NumPy puro). Una tabla no tiene nada de eso — no puede reentrenarse, no puede mejorar y no puede evaluarse contra sí misma.
 
 ## Juego Web
 
