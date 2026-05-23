@@ -416,19 +416,20 @@ users
 
 # Modules
 
-| Module                             | Type  | Points |
-| ---------------------------------- | ----- | ------ |
-| Frontend + Backend Framework       | Major | 2      |
-| Real-Time Features with WebSockets | Major | 2      |
-| Statistics / History               | Minor | 1      |
-| AI Opponent                        | Major | 2      |
-| Web-Based Game                     | Major | 2      |
-| Remote Players                     | Major | 2      |
-| Multiplayer Game (3+ players)      | Major | 2      |
-| Spectator Mode                     | Minor | 1      |
-| Additional Browser Support         | Minor | 1      |
-| Custom RL Training Pipeline        | Major | 2      |
-| Backend as Microservices           | Major | 2      |
+| Module                                                 | Type  | Points |
+| ------------------------------------------------------ | ----- | ------ |
+| Frontend + Backend Framework                           | Major | 2      |
+| Real-Time Features with WebSockets                     | Major | 2      |
+| Statistics / History                                   | Minor | 1      |
+| AI Opponent                                            | Major | 2      |
+| Web-Based Game                                         | Major | 2      |
+| Remote Players                                         | Major | 2      |
+| Multiplayer Game (3+ players)                          | Major | 2      |
+| Spectator Mode                                         | Minor | 1      |
+| Additional Browser Support                             | Minor | 1      |
+| Custom RL Training Pipeline                            | Major | 2      |
+| Backend as Microservices                               | Major | 2      |
+| Monitoring system with Prometheus and Grafana          | Major | 2      |
 
 **Total: 21 points (14 required + 7 bonus)**
 
@@ -518,6 +519,11 @@ Tested compatibility with:
 - Firefox
 - Edge
 
+## Monitoring system with Prometheus and Grafana
+
+The use of Prometheus and Grafana in the project provides a complete and efficient monitoring system capable of supervising the application's status and performance in real time. 
+- Prometheus is responsible for collecting metrics related to the server, active games, response times, and resource consumption through exporters and integrations specifically configured for the project.
+- Grafana, on the other hand, allows all this information to be displayed through custom dashboards, making it easier to analyze the application's behavior and quickly detect possible errors or system failures.
 ---
 
 # Legal
