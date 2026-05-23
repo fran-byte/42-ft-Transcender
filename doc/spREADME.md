@@ -74,7 +74,7 @@ Esto automáticamente:
 
 - Construye los contenedores
 - Genera los certificados SSL
-- Crea las variables de entorno
+- Crea las variables de entorno [.env_example](../doc/env_example/)
 - Inicia todos los servicios
 
 ---
