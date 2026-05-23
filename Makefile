@@ -154,6 +154,47 @@ ensure-data:
 	@sudo mkdir -p $(DATA_DIR)
 	@sudo chown -R $$(id -u):$$(id -g) ./data
 
+# --- ML TRAINING ---
+
+# Image and paths for the DQN training pipeline
+ML_TRAIN_IMAGE := blackjack-ml-train
+ML_TRAIN_DIR   := $(PWD)/ml_service/train
+
+# 'make train': rebuild the training container and train the DQN from scratch.
+# The trained model lands at ml_service/train/blackjack_dqn.npz on the host
+# (volume-mounted), which the inference service picks up automatically.
+# Uses GPU (CUDA) if available, falls back to CPU otherwise.
+train:
+	@echo "$(GREEN)Building ML training image ($(ML_TRAIN_IMAGE))...$(RESET)"
+	@docker build -f ./ml_service/Dockerfile.train -t $(ML_TRAIN_IMAGE) ./ml_service
+	@echo "$(GREEN)Starting training run...$(RESET)"
+	@if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then \
+		echo "$(CYAN)GPU detected — training with --gpus all$(RESET)"; \
+		docker run --rm --gpus all \
+			-v $(ML_TRAIN_DIR):/work/train \
+			$(ML_TRAIN_IMAGE); \
+	else \
+		echo "$(YELLOW)No GPU detected — falling back to CPU (much slower)$(RESET)"; \
+		docker run --rm \
+			-v $(ML_TRAIN_DIR):/work/train \
+			$(ML_TRAIN_IMAGE); \
+	fi
+	@echo "$(GREEN)✓ Training finished. Model exported to $(ML_TRAIN_DIR)/blackjack_dqn.npz$(RESET)"
+
+# 'make evaluate': run the offline evaluation harness inside the training image.
+# Compares the trained DQN against basic strategy and random over N hands.
+evaluate:
+	@if [ ! -f $(ML_TRAIN_DIR)/blackjack_dqn.npz ]; then \
+		echo "$(RED)❌ No trained model found at $(ML_TRAIN_DIR)/blackjack_dqn.npz$(RESET)"; \
+		echo "$(YELLOW)Run 'make train' first.$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)Evaluating model against basic strategy and random...$(RESET)"
+	@docker run --rm \
+		-v $(ML_TRAIN_DIR):/work/train \
+		--entrypoint python \
+		$(ML_TRAIN_IMAGE) evaluate.py --hands 50000
+
 # --- UTILITY TARGETS ---
 
 # Show service info
@@ -173,6 +214,10 @@ info:
 	@echo "  make re           Full reset and rebuild"
 	@echo "  make fclean       Complete cleanup"
 	@echo ""
+	@echo "$(GREEN)ML Training:$(RESET)"
+	@echo "  make train        Train the DQN model (GPU if available)"
+	@echo "  make evaluate     Compare DQN vs basic strategy vs random"
+	@echo ""
 	@echo "$(GREEN)Access Points:$(RESET)"
 	@echo "  Main App:    https://blackjack.local"
 	@echo "  Grafana:     http://localhost:3001"
@@ -182,4 +227,4 @@ info:
 
 .PHONY: all up logs stop down restart fclean re ps health setup \
         ensure-certs ensure-env ensure-hosts ensure-nginx ensure-data \
-        hosts info
+        hosts info train train-run evaluate
