@@ -39,7 +39,7 @@ groups:
               conditions:
                 - evaluator:
                     type: gt
-                    params: [80]
+                    params: [1]
                   operator:
                     type: and
                   reducer:
