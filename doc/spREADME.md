@@ -420,7 +420,6 @@ users
 | --------------------------------------------- | ----- | ------ |
 | Framework Frontend + Backend                  | Mayor | 2      |
 | Funcionalidades en Tiempo Real con WebSockets | Mayor | 2      |
-| Gestión Estándar de Usuarios                  | Mayor | 2      |
 | Estadísticas / Historial                      | Menor | 1      |
 | Oponente IA                                   | Mayor | 2      |
 | Juego Web                                     | Mayor | 2      |

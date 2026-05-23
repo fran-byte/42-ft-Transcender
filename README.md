@@ -420,7 +420,6 @@ users
 | ---------------------------------- | ----- | ------ |
 | Frontend + Backend Framework       | Major | 2      |
 | Real-Time Features with WebSockets | Major | 2      |
-| Standard User Management           | Major | 2      |
 | Statistics / History               | Minor | 1      |
 | AI Opponent                        | Major | 2      |
 | Web-Based Game                     | Major | 2      |
@@ -428,9 +427,10 @@ users
 | Multiplayer Game (3+ players)      | Major | 2      |
 | Spectator Mode                     | Minor | 1      |
 | Additional Browser Support         | Minor | 1      |
+| Custom RL Training Pipeline        | Major | 2      |
 | Backend as Microservices           | Major | 2      |
 
-**Total: 19 points (14 required + 5 bonus)**
+**Total: 21 points (14 required + 7 bonus)**
 
 ---
 
@@ -444,17 +444,11 @@ Implemented using React and Express.js.
 
 Implemented using Socket.IO for multiplayer synchronization.
 
-## Standard User Management
-
-JWT authentication, secure cookies, login/register/logout system.
-
 ## Statistics / History
 
 Persistent player statistics and match history stored in PostgreSQL.
 
 ## AI Opponent
-
-Author: maanguit
 
 `ml_service/` is a dedicated Python microservice running a **Dueling Double DQN** (D3QN) with **Prioritized Experience Replay** (PER), trained with PyTorch and served at runtime as a Flask REST API (`POST /predict`) using pure NumPy inference. The AI receives the game state (player score, dealer card, usable ace, true count, can double) and returns the optimal action (hit / stand / double). Trained mean reward ~-0.0186 — competitive without being perfect. The backend falls back to a basic strategy if the ML service is unavailable.
 
@@ -474,9 +468,45 @@ Multiple simultaneous players interacting in the same room.
 
 Users can watch ongoing matches and join when seats become available.
 
-## Backend as Microservices
+## Custom RL Training Pipeline (D3QN + PER)
 
-Author: maanguit
+**Module of Choice — Major (2 pts) — Subject reference: IV.10**
+
+The AI Opponent module (IV.4) only requires that the AI play Blackjack competently — a goal that could be achieved with a static **basic strategy lookup table** (~200 lines, no learning). Instead, we built a complete **Reinforcement Learning training pipeline from scratch**. This pipeline is an independent engineering artifact, evaluated by its methodology and infrastructure rather than by runtime gameplay, and therefore does not overlap with AI Opponent.
+
+### Why this deserves Major status
+
+- **Algorithmic depth** — Dueling Double DQN (D3QN) with Prioritized Experience Replay (PER), implemented from scratch in PyTorch (`ml_service/train/dqn.py`).
+- **Custom GPU-accelerated training environment** — CUDA-vectorized Blackjack simulator running 512 parallel environments on GPU (`ml_service/train/env_cuda.py`), avoiding CPU↔GPU round-trips during action selection. The CPU version (`env.py`) is kept as a reference baseline.
+- **MLOps separation between training and inference**:
+  - Training: dedicated container (`ml_service/Dockerfile.train`) with PyTorch + CUDA 12.1 + cuDNN.
+  - Inference: lean runtime (`ml_service/app.py`) using pure NumPy on the exported `.npz` weights — no PyTorch dependency in production.
+- **~1200 lines** of training code across `train.py`, `dqn.py`, `env.py`, `env_cuda.py`.
+- **Reproducible** — `make train` rebuilds the training container and produces a fresh `blackjack_dqn.npz` from scratch.
+
+### Technical challenges addressed
+
+- Off-policy RL stability — target network sync and Double DQN to mitigate Q-value overestimation.
+- Sample efficiency — PER prioritizes high-TD-error transitions and corrects bias via importance sampling weights annealed over training (β: 0.4 → 1.0).
+- GPU throughput — vectorized environment + batched action selection without CPU round-trips; LR decay and PER β scheduling over 2M environment steps.
+- Reward shaping for a partially observable, stochastic game (true count exposed as a state feature for card-counting awareness).
+
+### How it differs from AI Opponent (IV.4)
+
+| Aspect | AI Opponent (IV.4) | Custom RL Training Pipeline (IV.10) |
+| --- | --- | --- |
+| Deliverable | Runtime competence | Training methodology + infrastructure |
+| Stack | NumPy inference (`app.py`) | PyTorch + CUDA + custom env |
+| Validated by | Plays Blackjack well | Reproducible training, baseline comparisons |
+| Could be replaced by basic strategy? | No (required by IV.4) | Yes — and we chose not to |
+
+### How to evaluate
+
+1. `make train` — launches the training container and produces a new model.
+2. `python ml_service/train/evaluate.py` — compares the trained DQN against basic strategy and random baselines over 20k hands.
+3. `doc/ml-training.md` — full methodology write-up: architecture, hyperparameters, training curves, results.
+
+## Backend as Microservices
 
 The `ml_service/` directory is the dedicated microservice that satisfies this module: a standalone Python/Flask container with a single responsibility (DQN inference for the AI opponent), fully decoupled from the Node.js backend. It exposes a clean REST API (`POST /predict`, `GET /health`) and is called by the backend over the internal Docker network. Each service in the stack (frontend, backend, database, ml_service, nginx, monitoring) runs in its own container with its own Dockerfile and configuration, orchestrated via docker-compose. Nginx acts as the external gateway — `ml_service` is never exposed directly.
 

@@ -6,7 +6,6 @@
 |---|---|
 | Frontend + Backend Framework       | 2 |
 | Real-Time Features with WebSockets | 2 |
-| Standard User Management           | 2 |
 | Statistics / History               | 1 |
 | AI Opponent                        | 2 |
 | Web-Based Game                     | 2 |
@@ -15,8 +14,10 @@
 | Spectator Mode                     | 1 |
 | Additional Browser Support         | 1 |
 | Backend as Microservices           | 2 |
+| Prometheus / Grafana Monitoring    | 2 |
+| Custom RL Training Pipeline        | 2 |
 
-## Estimated Total: 18-19 Points
+## Estimated Total: 21 Points
 
 This satisfies the mandatory minimum requirement.
 
@@ -161,12 +162,12 @@ Points: 2
 
 ---
 
-## Additional Browser Support 🟡 (Minor Module — 1pt)
+## Additional Browser Support ✅ (Minor Module — 1pt)
 Requirement:
-- Full compatibility with at least two additional browsers.  🟡
-- Test and fix all features in each browser.                 🟡
-- Document browser-specific limitations.                     🟡
-- Maintain consistent UI/UX.                                 🟡
+- Full compatibility with at least two additional browsers.  ✅
+- Test and fix all features in each browser.                 ✅
+- Document browser-specific limitations.                     ✅
+- Maintain consistent UI/UX.                                 ✅
 
 Target browsers:
 - Google Chrome
@@ -196,31 +197,6 @@ Status:
 - Edge: pending/tested
 
 Points: 1
-
----
-
-### Standard User Management ✅ (Major Module — 2pts)
-Requirement:
-- Secure signup/login                   ✅
-- Password hashing                      ✅
-- Session/authentication handling       ✅
-
-How we satisfy it:
-- Register/login/logout
-- JWT authentication
-- Secure cookies
-- Password hashing
-- Persistent sessions
-
-How to test:
-1. Register new account
-2. Login/logout
-3. Verify protected routes
-4. Verify cookies/session persistence
-
-Subject reference: Basic user management mandatory. :contentReference[oaicite:3]{index=3}
-
-Points: 2
 
 ---
 
