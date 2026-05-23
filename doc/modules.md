@@ -2,20 +2,22 @@
 
 # Estimated Total
 
-| Module | Points |
-|---|---|
-| Frontend + Backend Framework       | 2 |
-| Real-Time Features with WebSockets | 2 |
-| Statistics / History               | 1 |
-| AI Opponent                        | 2 |
-| Web-Based Game                     | 2 |
-| Remote Players                     | 2 |
-| Multiplayer Game                   | 2 |
-| Spectator Mode                     | 1 |
-| Additional Browser Support         | 1 |
-| Backend as Microservices           | 2 |
-| Prometheus / Grafana Monitoring    | 2 |
-| Custom RL Training Pipeline        | 2 |
+| Module                                                 | Type  | Points |
+| ------------------------------------------------------ | ----- | ------ |
+| Frontend + Backend Framework                           | Major | 2      |
+| Real-Time Features with WebSockets                     | Major | 2      |
+| Statistics / History                                   | Minor | 1      |
+| AI Opponent                                            | Major | 2      |
+| Web-Based Game                                         | Major | 2      |
+| Remote Players                                         | Major | 2      |
+| Multiplayer Game (3+ players)                          | Major | 2      |
+| Spectator Mode                                         | Minor | 1      |
+| Additional Browser Support                             | Minor | 1      |
+| Custom RL Training Pipeline                            | Major | 2      |
+| Backend as Microservices                               | Major | 2      |
+| Monitoring system with Prometheus and Grafana          | Major | 2      |
+
+**Total: 21 points (14 required + 7 bonus)**
 
 ## Estimated Total: 21 Points
 
@@ -330,7 +332,31 @@ How to test:
 3. Leave player seat
 4. Verify spectator promotion
 
-Possible points: 1
+## Monitoring System with Prometheus and Grafana ✅ (Major Module — 2pts)
+
+Requirement:
+- Set up Prometheus to collect metrics.                   ✅
+- Configure exporters and integrations.                  ✅
+- Create custom Grafana dashboards.                      ✅
+- Set up alerting rules.                                 ✅
+- Secure access to Grafana.                              ✅
+
+How we satisfy it:
+- The project includes a complete monitoring stack using Prometheus and Grafana, fully integrated through Docker Compose.
+- Prometheus is configured as the main metrics collector, scraping data from the backend services, containers, and system exporters at regular intervals.
+- Exporters and integrations such as Node Exporter and container metrics are configured to provide detailed information about CPU usage, memory consumption, request latency, and application health.
+- Grafana is connected to Prometheus as a data source and includes custom dashboards specifically designed for the Blackjack project, allowing real-time visualization of server performance, active games, API response times, and container status.
+- Alerting rules are configured in Prometheus/Grafana to automatically detect critical situations such as service downtime, high resource consumption, or unavailable endpoints.
+- Access to Grafana is secured through authentication credentials and internal Docker networking, preventing unauthorized external access to the monitoring services.
+- The monitoring system runs independently from the main application services, following a modular and maintainable architecture.
+
+How to test:
+1. Run `docker compose ps` and verify that both `prometheus` and `grafana` containers are running.
+2. Access Grafana from the browser and verify the custom dashboards display live metrics.
+3. Verify Prometheus successfully scrapes metrics by visiting the Prometheus targets page.
+4. Stop one service temporarily and confirm alerting rules detect the failure.
+5. Verify Grafana requires authentication before allowing access.
+6. Confirm monitoring services communicate internally through Docker networking without exposing unnecessary ports publicly.
 
 ---
 
